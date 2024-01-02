@@ -130,7 +130,6 @@ RDEPENDS_packagegroup-unisoc-console ??= "\
     ${@bb.utils.contains('MACHINE_FEATURES', 'strongswan', 'packagegroup-unisoc-base-strongswan', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'unisoc-reboot', 'packagegroup-unisoc-base-unisoc-reboot', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'ota', 'packagegroup-unisoc-base-ota', '',d)} \
-	${@bb.utils.contains('MACHINE_FEATURES', 'qtdemo', 'packagegroup-unisoc-base-qtdemo', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'tracetool', 'packagegroup-unisoc-base-tracetool', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'st-module', 'packagegroup-unisoc-base-st-module', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'qfactorytest', 'packagegroup-unisoc-base-qfactorytest', '',d)} \

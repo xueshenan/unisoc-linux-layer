@@ -128,7 +128,6 @@ PACKAGES = ' \
     ${@bb.utils.contains('MACHINE_FEATURES', 'aiactiver', 'packagegroup-unisoc-base-aiactiver-lib', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'aiactiver', 'packagegroup-unisoc-base-aiactiver-testbench', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'vdsp', 'packagegroup-unisoc-base-vdsp', '',d)} \
-    ${@bb.utils.contains('MACHINE_FEATURES', 'qtdemo', 'packagegroup-unisoc-base-qtdemo', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'tracetool', 'packagegroup-unisoc-base-tracetool', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'st-module', 'packagegroup-unisoc-base-st-module', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'qfactorytest', 'packagegroup-unisoc-base-qfactorytest', '',d)} \
@@ -223,7 +222,6 @@ RDEPENDS_packagegroup-unisoc-base = "\
     ${@bb.utils.contains('MACHINE_FEATURES', 'rsyslogsetup', 'packagegroup-unisoc-base-rsyslogsetup', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'unirlog', 'packagegroup-unisoc-base-unirlog', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'engmodeapp', 'packagegroup-unisoc-base-engmodeapp', '',d)} \
-	${@bb.utils.contains('MACHINE_FEATURES', 'qtdemo', 'packagegroup-unisoc-base-qtdemo', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'tracetool', 'packagegroup-unisoc-base-tracetool', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'st-module', 'packagegroup-unisoc-base-st-module', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'qfactorytest', 'packagegroup-unisoc-base-qfactorytest', '',d)} \
@@ -257,12 +255,6 @@ RDEPENDS_packagegroup-unisoc-base-connman= "\
     connmantest \
     smartlink-client \
     smartlink-client-test \
-"
-
-SUMMARY_packagegroup-unisoc-base-qtdemo = "qtdemo"
-RDEPENDS_packagegroup-unisoc-base-qtdemo= "\
-    qtdemo \
-    qtdialor \
 "
 
 SUMMARY_packagegroup-unisoc-base-qfactorytest = "qfactorytest"
