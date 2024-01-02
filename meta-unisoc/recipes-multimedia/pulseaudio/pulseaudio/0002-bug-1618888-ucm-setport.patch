@@ -1,0 +1,106 @@
+diff --git a/src/daemon/system.pa.in b/src/daemon/system.pa.in
+index 327f49e..edeac7f 100755
+--- a/src/daemon/system.pa.in
++++ b/src/daemon/system.pa.in
+@@ -40,7 +40,8 @@ load-module module-udev-detect
+ #load-module module-detect
+ .endif
+ 
+-load-module module-unisoc-card device_id=0 profile_set=sprd_default.conf
++##load-module module-alsa-card device_id=0 profile_set=sprd_default.conf fragments=4 fragment_size=960 tsched_buffer_size=3840
++load-module module-unisoc-card device_id=0 profile_set=sprd_default.conf use_ucm=false
+ 
+ ### Load several protocols
+ .ifexists module-esound-protocol-unix@PA_SOEXT@
+diff --git a/src/modules/alsa/alsa-sink.c b/src/modules/alsa/alsa-sink.c
+index 4b46708..5a84c84 100755
+--- a/src/modules/alsa/alsa-sink.c
++++ b/src/modules/alsa/alsa-sink.c
+@@ -2195,7 +2195,8 @@ pa_sink *pa_alsa_sink_new(pa_module *m, pa_modargs *ma, const char*driver, pa_ca
+     uint32_t nfrags, frag_size, buffer_size, tsched_size, tsched_watermark, rewind_safeguard;
+     snd_pcm_uframes_t period_frames, buffer_frames, tsched_frames;
+     size_t frame_size;
+-    bool use_mmap = true;
++    //bool use_mmap = true;
++    bool use_mmap = false;
+     bool use_tsched = true;
+     bool ignore_dB = false;
+     bool namereg_fail = false;
+diff --git a/src/modules/alsa/alsa-source.c b/src/modules/alsa/alsa-source.c
+index c8bf649..28b7d5a 100755
+--- a/src/modules/alsa/alsa-source.c
++++ b/src/modules/alsa/alsa-source.c
+@@ -1900,7 +1900,8 @@ pa_source *pa_alsa_source_new(pa_module *m, pa_modargs *ma, const char*driver, p
+     uint32_t nfrags, frag_size, buffer_size, tsched_size, tsched_watermark;
+     snd_pcm_uframes_t period_frames, buffer_frames, tsched_frames;
+     size_t frame_size;
+-    bool use_mmap = true;
++    bool use_mmap = false;
++    //bool use_mmap = true;
+     bool use_tsched = true;
+     bool ignore_dB = false;
+     bool namereg_fail = false;
+diff --git a/src/modules/module-device-manager.c b/src/modules/module-device-manager.c
+index 759ea67..d48ae10 100755
+--- a/src/modules/module-device-manager.c
++++ b/src/modules/module-device-manager.c
+@@ -875,9 +875,10 @@ static pa_hook_result_t route_sink_headphone_port(struct userdata *u,bool is_hea
+     uint32_t idx;
+ 
+     pa_assert(u);
+-    pa_log_debug("route_sink_input u->do_routing:%d", u->do_routing);
++    pa_log_debug("route_sink_headphone_port u->do_routing:%d", u->do_routing);
+ 
+     PA_IDXSET_FOREACH(s, u->core->sinks, idx) {
++        pa_log_debug("route_sink_headphone_port s->name:%s,s->driver:%s", s->name,s->driver);
+         if(s && s->name && mystrstr(s->name, "music-playback-output") &&
+                 s->driver && mystrstr(s->driver, "module-unisoc-card")) {
+ 
+@@ -893,6 +894,17 @@ static pa_hook_result_t route_sink_headphone_port(struct userdata *u,bool is_hea
+             } else {
+                 pa_sink_set_port(s, "speaker_output", true);
+             }
++        }else if(s && s->name && mystrstr(s->name, "HiFi") &&
++                s->driver && mystrstr(s->driver, "module-alsa-card")){
++                
++                pa_log_debug("route_sink_headphone_port alsa card is_headphone:%d", is_headphone);
++                s->save_volume = false;
++
++                if (is_headphone) {
++                    pa_sink_set_port(s, "[Out] HeadPhone", true);
++                } else {
++                    pa_sink_set_port(s, "[Out] Speaker", true);
++                }
+         }
+     }
+     return PA_HOOK_OK;
+@@ -903,9 +915,10 @@ static pa_hook_result_t route_source_headphone_port(struct userdata *u,bool is_h
+     uint32_t idx;
+     
+     pa_assert(u);
+-    pa_log_debug("route_sink_input u->do_routing:%d", u->do_routing);
++    pa_log_debug("pa_source_set_port u->do_routing:%d", u->do_routing);
+ 
+     PA_IDXSET_FOREACH(s, u->core->sources, idx) {
++        pa_log_debug("route_source_headphone_port s->name:%s,s->driver:%s", s->name,s->driver);
+         if (s && s->name && mystrstr(s->name, "record-stereo-input") &&
+             s->driver && mystrstr(s->driver, "module-unisoc-card"))  {
+ 
+@@ -916,6 +929,17 @@ static pa_hook_result_t route_source_headphone_port(struct userdata *u,bool is_h
+             } else {
+                 pa_source_set_port(s, "sprd-input-internal-mic", true);
+             }
++        }else if(s && s->name && mystrstr(s->name, "HiFi") &&
++                s->driver && mystrstr(s->driver, "module-alsa-card")){
++                
++                pa_log_debug("route_source_headphone_port alsa card is_headphone:%d", is_headphone);
++                s->save_volume = false;
++
++                if (is_headphone) {
++                    pa_source_set_port(s, "[In] Headset-mic", true);
++                } else {
++                    pa_source_set_port(s, "[In] Mainmic", true);
++                }
+         }
+     }
+     return PA_HOOK_OK;

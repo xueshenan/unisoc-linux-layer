@@ -1,0 +1,46 @@
+From edc9a7a3097046a18d832946f053e0318e48afd5 Mon Sep 17 00:00:00 2001
+From: "etham.li" <etham.li@unisoc.com>
+Date: Sun, 26 Jun 2022 11:29:19 +0800
+Subject: [PATCH] Bug #1920033 [rsyslog8.2202] Add S_ISBLK && S_ISFIFO supprot
+
+[root cause  ]: Add S_ISBLK && S_ISFIFO supprot
+[changes     ]: Add S_ISBLK && S_ISFIFO supprot
+[side effects]: no
+[self test   ]: build pass
+[download normally]:yes
+[power on/off normally]:yes
+[do common repository/branch inspection]:no
+[is there dependence]:no
+[confirm dependent commit]:no
+[board]:trunk
+[test case]:build pass
+[reviewers]:etham.li
+
+commit_template_version:v1
+---
+ plugins/imfile/imfile.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+ mode change 100644 => 100755 plugins/imfile/imfile.c
+
+diff --git a/plugins/imfile/imfile.c b/plugins/imfile/imfile.c
+old mode 100644
+new mode 100755
+index f79c10f..1540a3f
+--- a/plugins/imfile/imfile.c
++++ b/plugins/imfile/imfile.c
+@@ -948,10 +948,10 @@ poll_tree(fs_edge_t *const chld)
+ 			} else {
+ 				issymlink = 0;
+ 			}
+-			const int is_file = (S_ISREG(fileInfo.st_mode) || issymlink);
++			const int is_file = (S_ISREG(fileInfo.st_mode) || issymlink || S_ISBLK(fileInfo.st_mode) || S_ISFIFO(fileInfo.st_mode));
+ 			DBGPRINTF("poll_tree:  found '%s', File: %d (config file: %d), symlink: %d\n",
+ 				file, is_file, chld->is_file, issymlink);
+-			if(!is_file && S_ISREG(fileInfo.st_mode)) {
++			if(!is_file && S_ISREG(fileInfo.st_mode) && S_ISBLK(fileInfo.st_mode) && S_ISFIFO(fileInfo.st_mode)) {
+ 				LogMsg(0, RS_RET_ERR, LOG_WARNING,
+ 					"imfile: '%s' is neither a regular file, symlink, nor a "
+ 					"directory - ignored", file);
+-- 
+2.17.1
+

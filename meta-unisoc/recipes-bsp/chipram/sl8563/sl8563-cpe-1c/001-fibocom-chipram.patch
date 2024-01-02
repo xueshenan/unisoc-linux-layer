@@ -1,0 +1,16 @@
+diff --git a/arch/arm/cpu/armv7/sc9630/mcu.c b/arch/arm/cpu/armv7/sc9630/mcu.c
+index b1dd8da..002a3b8 100644
+--- a/arch/arm/cpu/armv7/sc9630/mcu.c
++++ b/arch/arm/cpu/armv7/sc9630/mcu.c
+@@ -682,6 +682,11 @@ void Chip_Init (void) /*lint !e765 "Chip_Init" is used by init.s entry.s*/
+ 	}
+ #endif
+ 
++#if defined(CONFIG_SL8563_CPE_1C)
++    /* Add by sean for disable CLK_AUX2 2020.04.17 */
++    REG32(REG_AON_APB_APB_EB1 + 0x2000) = BIT_AON_APB_AUX2_EB;
++#endif
++
+     MCU_Init();
+ #ifndef CONFIG_SPX35L64_FPGA
+     sdram_init();

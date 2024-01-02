@@ -1,0 +1,19 @@
+
+require conf/machine/include/arm/arch-arm64.inc
+
+UNISOC_SOC = "ums9620"
+KERNEL_BOARD_BASE = "ums9620"
+
+UNISOC_KERNEL_VERSION = "linux-unisoc-5.4"
+PREFERRED_PROVIDER_virtual/kernel = "${UNISOC_KERNEL_VERSION}"
+
+KERNEL_IMAGETYPE = "Image"
+UNISOC_BOOTIMG_PAGE_SIZE = "2048"
+UNISOC_BOOTIMG_KERNEL_BASE = "0x00000000"
+BOARD_MKBOOTIMG_ARGS = "--kernel_offset 0x00008000 --ramdisk_offset 0x012e9800"
+
+SENSOR_PROJECT="QogirN6Pro_CH"
+EXTRA_IMAGEDEPENDS += "u-boot15"
+EXTRA_IMAGEDEPENDS += "chipram"
+
+N6P_5G_SET = "-DN6P_5G_SUPPORT"

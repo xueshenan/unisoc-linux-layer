@@ -1,0 +1,7 @@
+DISTRO_FEATURES_append = " systemd"
+VIRTUAL-RUNTIME_dev_manager = "udev"
+VIRTUAL-RUNTIME_login_manager = "busybox"
+VIRTUAL-RUNTIME_init_manager = "systemd"
+VIRTUAL-RUNTIME_keymaps = "keymaps"
+VIRTUAL-RUNTIME_initscripts = "systemd-compat-units"
+VIRTUAL-RUNTIME_syslog = "busybox-syslog"

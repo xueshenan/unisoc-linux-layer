@@ -1,0 +1,26 @@
+diff --git a/ddr/ddr_init/init/ddrc/r1p1_orca/bist.c b/ddr/ddr_init/init/ddrc/r1p1_orca/bist.c
+index c217700..d0b8f81 100644
+--- a/ddr/ddr_init/init/ddrc/r1p1_orca/bist.c
++++ b/ddr/ddr_init/init/ddrc/r1p1_orca/bist.c
+@@ -528,7 +528,7 @@ uint32 dmc_ddr_test(u32 bist_num)
+ }
+ 
+ BIST_INFO bist_info;
+-uint32 dmc_ddr_test_ch(u32 bist_num, u32 all)
++uint32 __attribute__((optimize("-O0"))) dmc_ddr_test_ch(u32 bist_num, u32 all)
+ {
+ 	volatile uint32 i=0;
+ 	uint32 test_num=0;
+diff --git a/nand_spl/sprd_nand_r6p0.c b/nand_spl/sprd_nand_r6p0.c
+index ae117e8..723879b 100644
+--- a/nand_spl/sprd_nand_r6p0.c
++++ b/nand_spl/sprd_nand_r6p0.c
+@@ -322,7 +322,7 @@ struct sprd_dolphin_boot_header_info {
+ 	uint32_t magic_num; //0xaa55a5a5
+ 	uint32_t ecc_value[27];
+ };
+-void boad_nand_param_init(struct sprd_dolphin_nand_info *dolphin, struct nand_chip *chip, uint8 *id)
++void __attribute__((optimize("-O0"))) boad_nand_param_init(struct sprd_dolphin_nand_info *dolphin, struct nand_chip *chip, uint8 *id)
+ {
+ 	int extid;
+ 	uint32_t writesize;

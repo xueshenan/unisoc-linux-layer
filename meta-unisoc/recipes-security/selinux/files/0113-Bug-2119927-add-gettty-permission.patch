@@ -1,0 +1,65 @@
+From 4e976ea1fa0e988580502c587c811e27bf56a181 Mon Sep 17 00:00:00 2001
+From: "sheng.shen" <sheng.shen@unisoc.com>
+Date: Thu, 5 Jan 2023 17:49:30 +0800
+Subject: [PATCH] 0112
+
+---
+ policy/modules/system/getty.if | 25 ++++++++++++++++++++++++-
+ policy/modules/system/getty.te |  4 +++-
+ 2 files changed, 27 insertions(+), 2 deletions(-)
+
+diff --git a/policy/modules/system/getty.if b/policy/modules/system/getty.if
+index b614fc256..0790903be 100644
+--- a/policy/modules/system/getty.if
++++ b/policy/modules/system/getty.if
+@@ -103,7 +103,7 @@ interface(`getty_unlabeled_t_dir',`
+ 	  type unlabeled_t;
+ 	  ')
+ 
+-	  allow $1 unlabeled_t:dir {search};
++	  allow $1 unlabeled_t:dir {search write add_name};
+ ')
+ 
+ interface(`getty_unlabeled_t_lnk_file',`
+@@ -162,3 +162,26 @@ interface(`getty_tmpfs_t_dir',`
+     allow $1 tmpfs_t:dir {rw_dir_perms create};
+ ')
+ 
++interface(`getty_initrc_devpts_t_chr_file',`
++    gen_require(`
++        type initrc_devpts_t;
++    ')
++
++    allow $1 initrc_devpts_t:chr_file {ioctl read write getattr};
++')
++
++interface(`getty_mnt_t_dir',`
++    gen_require(`
++        type mnt_t;
++    ')
++
++    allow $1 mnt_t:dir {search};
++')
++
++interface(`getty_unlabeled_t_file',`
++    gen_require(`
++          type unlabeled_t;
++          ')
++
++          allow $1 unlabeled_t:file {create write open getattr};
++')
+diff --git a/policy/modules/system/getty.te b/policy/modules/system/getty.te
+index c6eb54979..9133fb018 100644
+--- a/policy/modules/system/getty.te
++++ b/policy/modules/system/getty.te
+@@ -139,4 +139,6 @@ getty_default_t_file(getty_t)
+ getty_getty_exec_t_file(getty_t)
+ getty_etc_t_file(getty_t)
+ getty_tmpfs_t_dir(getty_t)
+-
++getty_initrc_devpts_t_chr_file(getty_t)
++getty_mnt_t_dir(getty_t)
++getty_unlabeled_t_file(getty_t)
+-- 
+2.17.1
+

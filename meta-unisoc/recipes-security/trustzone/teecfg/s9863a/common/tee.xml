@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Notes:
+You can read the user guide for more information, the path is bsp/tools/teecfg/user_guide.
+-->
+<tee_config>
+	<property ID="sml">
+		<addr type="ATTR_TYPE_UINT64" tag="ATTR_TAG_RESERVED">0xb0000000</addr>
+		<size type="ATTR_TYPE_UINT32" tag="ATTR_TAG_RESERVED">0x40000</size>
+	</property>
+	<property ID="tos">
+		<addr type="ATTR_TYPE_UINT64" tag="ATTR_TAG_RESERVED">0xb0060000</addr>
+		<size type="ATTR_TYPE_UINT32" tag="ATTR_TAG_RESERVED">0x1fa0000</size>
+	</property>
+	<property ID="ta_anti_rollback">
+		<anti_rollback_enable type="ATTR_TYPE_BOOL">false</anti_rollback_enable>
+	</property>
+	<property ID="debug.platform_debug">
+		<override type="ATTR_TYPE_BOOL" tag="ATTR_TAG_RESERVED">true</override>
+	</property>
+	<property ID="debug.trusty_console">
+		<enable type="ATTR_TYPE_BOOL" tag="ATTR_TAG_RESERVED">false</enable>
+	</property>
+	<!-- Notes:
+		The configurations for trusty log level are described as follows:
+		log level      LOG_CRITICAL      0x00
+			       LOG_INFO          0x01
+			       LOG_SPEW          0x02 (default)
+	-->
+	<property ID="debug.trusty_log_level">
+		<config type="ATTR_TYPE_UINT8" tag="ATTR_TAG_RESERVED">0x02</config>
+	</property>
+</tee_config>

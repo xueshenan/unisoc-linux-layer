@@ -1,0 +1,39 @@
+diff --git a/tools/gst-play.c b/tools/gst-play.c
+index 9cbc617..b9c58cb 100755
+--- a/tools/gst-play.c
++++ b/tools/gst-play.c
+@@ -48,6 +48,9 @@ static gboolean wait_on_eos = FALSE;
+ GST_DEBUG_CATEGORY (play_debug);
+ #define GST_CAT_DEFAULT play_debug
+ 
++#define GST_STATE_BLUETOOTH_NEXT_SONG 5
++#define GST_STATE_BLUETOOTH_PREVIOUS_SONG 6
++
+ typedef enum
+ {
+   GST_PLAY_TRICK_MODE_NONE = 0,
+@@ -384,10 +387,21 @@ play_bus_msg (GstBus * bus, GstMessage * msg, gpointer user_data)
+ 
+       gst_message_parse_request_state (msg, &state);
+ 
+-      gst_print ("Setting state to %s as requested by %s...\n",
+-          gst_element_state_get_name (state), name);
++      if (state == GST_STATE_BLUETOOTH_NEXT_SONG) {
++        gst_print ("Bluetooth requests to play next song requested by %s...\n", name);
++        if (!play_next (play)) {
++          gst_print ("\n%s\n", _("Reached end of play list."));
++          g_main_loop_quit (play->loop);
++        }
++      } else if (state == GST_STATE_BLUETOOTH_PREVIOUS_SONG) {
++        gst_print ("Bluetooth requests to play previous song requested by %s...\n", name);
++        play_prev (play);
++      } else {
++        gst_print ("Setting state to %s as requested by %s...\n",
++            gst_element_state_get_name (state), name);
+ 
+-      gst_element_set_state (play->playbin, state);
++        gst_element_set_state (play->playbin, state);
++      }
+       g_free (name);
+       break;
+     }

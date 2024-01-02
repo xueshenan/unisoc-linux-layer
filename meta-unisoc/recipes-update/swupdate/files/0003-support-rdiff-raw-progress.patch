@@ -1,0 +1,164 @@
+diff --git a/core/swupdate.c b/core/swupdate.c
+index 7066aab..ed14e1a 100644
+--- a/core/swupdate.c
++++ b/core/swupdate.c
+@@ -622,6 +622,65 @@ static int install_from_file(char *fname, int check)
+ 		save_state_string((char*)BOOTVAR_TRANSACTION, STATE_IN_PROGRESS);
+ 	}
+ 
++	//add for progress begin
++	s_diffproperty_t *s_diffpro = malloc(sizeof(s_diffproperty_t));
++	if (s_diffpro == NULL) {
++		ERROR("add progress: can't malloc for diffpro list.");
++		free(s_diffpro);
++		return -1;
++	}
++	memset(s_diffpro, 0, sizeof(s_diffproperty_t));
++
++	LIST_FOREACH(img, &(swcfg.images), next) {
++		INFO("add progress: image->fname = %s, img->type = %s",img->fname,img->type);
++		if(strcmp(img->fname, "nvmerge.cfg") == 0)
++			continue;
++		if (strcmp(img->type, "rdiff_image") == 0) {
++			ret = get_diffproperty(img, s_diffpro);
++			if (ret != 0) {
++				ERROR("add progress: get property error.");
++				free(s_diffpro);
++				return -1;
++			}
++			INFO("add progress: s_diffpro->targsize:%ld, s_diffpro->basesize:%ld, image->size = %lld", s_diffpro->targsize, s_diffpro->basesize, img->size);
++
++			total_size += s_diffpro->targsize;
++			//total_size += s_diffpro->dectargsize;
++		} else if (strcmp(img->type, "raw") == 0) {
++			total_size += img->size;
++		}
++		INFO("add progress: total_size = %lld, current_size = %.f%%",total_size,current_size);
++	}
++	if(s_diffpro != NULL) {
++		free(s_diffpro);
++	}
++	INFO("add progress in final :total_size = %lld, current_size = %lld",total_size,current_size);
++        if(total_size == 0) {
++                INFO("add progress: total_size = 0");
++        } else {
++		//write to file
++		char progress_file[30]={"\0"};
++		sprintf(progress_file,"/mnt/data/recovery/progress.txt");
++		FILE *pFile =  fopen(progress_file,"w+");
++		if(NULL == pFile) {
++			INFO("add progress: pFile progress is NULL");
++		} else {
++
++			float current_progress = (float)current_size/total_size*100;
++			INFO("add progress: current_progress = %d", current_progress);
++			char file_current_progress[30]={"\0"};
++			sprintf(file_current_progress,"%.2f%%",current_progress);
++			INFO("after sprintf: current_progress = %.2f%% file_current_progress =%s", current_progress,file_current_progress);
++			fseek(pFile, 0, SEEK_END);
++			INFO("after fseek: current_progress = %.2f%% file_current_progress =%s", current_progress,file_current_progress);
++			fprintf(pFile,file_current_progress);
++			INFO("after fprintf: current_progress =  %.2f%% file_current_progress =%s", current_progress,file_current_progress);
++			fflush(pFile);
++			fclose(pFile);
++		}
++	}
++	//add for progress end
++
+ 	ret = install_images(&swcfg, fdsw, 1);
+ 
+ 	swupdate_progress_end(ret == 0 ? SUCCESS : FAILURE);
+diff --git a/handlers/raw_handler.c b/handlers/raw_handler.c
+index 069504c..dc053c4 100644
+--- a/handlers/raw_handler.c
++++ b/handlers/raw_handler.c
+@@ -42,6 +42,29 @@ static int install_raw_image(struct img_type *img,
+ #endif
+ 
+ 	close(fdout);
++
++	//add for progress begin
++	//update the current size to file
++	if(total_size > 0) {
++		current_size += img->size;
++		char progress_file[30]={"\0"};
++		sprintf(progress_file,"/mnt/data/recovery/progress.txt");
++		FILE *pFile =  fopen(progress_file,"w+");
++		if(NULL == pFile) {
++			INFO("add progress in raw: pFile progress is NULL");
++			return ret;
++		}
++		float current_progress = (float)current_size/total_size*100;
++		INFO("add progress in raw: current_size=%lld  total_size = %lld current_progress =  %.2f%%", current_size,total_size,current_progress);
++		char file_current_progress[30]={"\0"};
++		sprintf(file_current_progress,"%.2f%%",current_progress);
++		fseek(pFile, 0, SEEK_END);
++		fprintf(pFile,file_current_progress);
++		fflush(pFile);
++		fclose(pFile);
++	}
++	//add for progress end
++
+ 	return ret;
+ }
+ 
+diff --git a/handlers/rdiff_handler.c b/handlers/rdiff_handler.c
+index 68a90b6..5f3490a 100644
+--- a/handlers/rdiff_handler.c
++++ b/handlers/rdiff_handler.c
+@@ -1469,6 +1469,7 @@ updatebybackup:
+ 		free(s_diffpro);
+ 		return -1;
+ 	}
++
+ 	s_diffrec->flag = DIFF_UPDATE;
+ 	rdiff_finishlist_recfileupdate(s_diffrec);
+ 	ret1 = remove(tmp);
+@@ -3128,6 +3129,31 @@ updatebybackup:
+ 		free(s_diffpro);
+ 		return -1;
+ 	}
++
++        //add for progress begin
++        //update the current size to file
++        current_size += s_diffpro->targsize;
++        //current_size += s_diffpro->dectargsize;
++        INFO("add progress in rdiff: s_diffpro->targsize:%ld, s_diffpro->basesize:%ld, s_diffpro->dectargsize:%ld, current_size=%lld  total_size = %lld", s_diffpro->targsize, s_diffpro->basesize, s_diffpro->dectargsize, current_size,total_size);
++        if(total_size > 0) {
++                char progress_file[30]={"\0"};
++                sprintf(progress_file,"/mnt/data/recovery/progress.txt");
++                FILE *pFile =  fopen(progress_file,"w+");
++                if(NULL == pFile) {
++                        INFO("add progress in rdiff: pFile progress is NULL");
++                        return ret;
++                }
++                float current_progress = (float)current_size/total_size*100;
++                INFO("add progress in rdiff: current_size=%lld  total_size = %lld current_progress =  %.2f%%", current_size,total_size,current_progress);
++                char file_current_progress[30]={"\0"};
++                sprintf(file_current_progress,"%.2f%%",current_progress);
++                fseek(pFile, 0, SEEK_END);
++                fprintf(pFile,file_current_progress);
++                fflush(pFile);
++                fclose(pFile);
++        }
++        //add for progress end
++
+ 	s_diffrec->flag = DIFF_UPDATE;
+ 	rdiff_finishlist_recfileupdate(s_diffrec);
+ 	ret1 = remove(tmp);
+diff --git a/include/swupdate.h b/include/swupdate.h
+index dfceb89..b487b92 100644
+--- a/include/swupdate.h
++++ b/include/swupdate.h
+@@ -179,6 +179,11 @@ typedef struct rdiff_hash_cfg {
+ 	} \
+ } while(0)
+ 
++//add for progress begin
++long long total_size;
++long long current_size;
++//add for progress end
++
+ /* add for diff update */
+ #define DIFF_BASE       "diffbase"
+ #define DIFF_BASE_SHA   "diffbasesha"

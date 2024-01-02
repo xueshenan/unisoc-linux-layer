@@ -1,0 +1,14 @@
+diff --git a/Makefile b/Makefile
+index 57d297c93..3f53c4601 100644
+--- a/Makefile
++++ b/Makefile
+@@ -447,9 +447,6 @@ $(polxml): $(layerxml) $(tunxml) $(boolxml)
+ 	$(verbose) for i in $(basename $(notdir $(layerxml))); do echo "<layer name=\"$$i\">" >> $@; cat $(tmpdir)/$$i.xml >> $@; echo "</layer>" >> $@; done
+ 	$(verbose) cat $(tunxml) $(boolxml) >> $@
+ 	$(verbose) echo '</policy>' >> $@
+-	$(verbose) if test -x $(XMLLINT) && test -f $(xmldtd); then \
+-		$(XMLLINT) --noout --path $(dir $(xmldtd)) --dtdvalid $(xmldtd) $@ ;\
+-	fi
+ 
+ xml: $(polxml)
+ 

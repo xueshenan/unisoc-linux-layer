@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2021 Unisoc (Shanghai) Technologies Co., Ltd.
+#
+# SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
+
+#!/bin/bash
+
+if mountpoint -q /mnt/media
+then
+       sed -i "s/\/mnt\/data\/log/\/mnt\/media\/log/g" /mnt/data/rsyslog.d/*.conf
+else
+       sed -i "s/\/mnt\/media\/log/\/mnt\/data\/log/g" /mnt/data/rsyslog.d/*.conf
+fi
+

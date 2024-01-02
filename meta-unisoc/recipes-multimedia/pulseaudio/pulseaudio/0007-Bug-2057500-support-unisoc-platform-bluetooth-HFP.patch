@@ -1,0 +1,64 @@
+diff --git a/src/modules/bluetooth/module-bluetooth-policy.c b/src/modules/bluetooth/module-bluetooth-policy.c
+index 40a241b..6576a1c 100755
+--- a/src/modules/bluetooth/module-bluetooth-policy.c
++++ b/src/modules/bluetooth/module-bluetooth-policy.c
+@@ -96,7 +96,8 @@ static pa_hook_result_t source_put_hook_callback(pa_core *c, pa_source *source,
+     /* Load module-loopback */
+     args = pa_sprintf_malloc("source=\"%s\" source_dont_move=\"true\" sink_input_properties=\"media.role=%s\"", source->name,
+                              role);
+-    (void) pa_module_load(&m, c, "module-loopback", args);
++    if (!pa_streq(s, "handsfree_audio_gateway"))
++        (void) pa_module_load(&m, c, "module-loopback", args);
+     pa_xfree(args);
+ 
+     return PA_HOOK_OK;
+@@ -135,7 +136,8 @@ static pa_hook_result_t sink_put_hook_callback(pa_core *c, pa_sink *sink, void *
+     /* Load module-loopback */
+     args = pa_sprintf_malloc("sink=\"%s\" sink_dont_move=\"true\" source_output_properties=\"media.role=%s\"", sink->name,
+                              role);
+-    (void) pa_module_load(&m, c, "module-loopback", args);
++    if (!pa_streq(s, "handsfree_audio_gateway"))
++        (void) pa_module_load(&m, c, "module-loopback", args);
+     pa_xfree(args);
+ 
+     return PA_HOOK_OK;
+diff --git a/src/modules/bluetooth/module-bluez5-device.c b/src/modules/bluetooth/module-bluez5-device.c
+index 698049f..b795f19 100755
+--- a/src/modules/bluetooth/module-bluez5-device.c
++++ b/src/modules/bluetooth/module-bluez5-device.c
+@@ -881,12 +881,12 @@ static int source_set_state_in_io_thread_cb(pa_source *s, pa_source_state_t new_
+     pa_assert(s);
+     pa_assert_se(u = s->userdata);
+ 
+-    switch (new_state) {
++    /* Unlike A2DP, A2DP can be awakened by such as gstreamer.
++     * No program will wake up HFP after sink/source suspend. */
++    if ((u->profile == PA_BLUETOOTH_PROFILE_HFP_HF) || (u->profile == PA_BLUETOOTH_PROFILE_HFP_AG))
++        return 0;
+ 
+-        /* Unlike A2DP, A2DP can be awakened by such as gstreamer.
+-         * No program will wake up HFP after sink/source suspend. */
+-        if (u->profile == PA_BLUETOOTH_PROFILE_HFP_HF)
+-            break;
++    switch (new_state) {
+ 
+         case PA_SOURCE_SUSPENDED:
+             /* Ignore if transition is PA_SOURCE_INIT->PA_SOURCE_SUSPENDED */
+@@ -1126,12 +1126,12 @@ static int sink_set_state_in_io_thread_cb(pa_sink *s, pa_sink_state_t new_state,
+     pa_assert(s);
+     pa_assert_se(u = s->userdata);
+ 
+-    switch (new_state) {
++    /* Unlike A2DP, A2DP can be awakened by such as gstreamer.
++     * No program will wake up HFP after sink/source suspend. */
++    if ((u->profile == PA_BLUETOOTH_PROFILE_HFP_HF) || (u->profile == PA_BLUETOOTH_PROFILE_HFP_AG))
++        return 0;
+ 
+-        /* Unlike A2DP, A2DP can be awakened by such as gstreamer.
+-         * No program will wake up HFP after sink/source suspend. */
+-        if (u->profile == PA_BLUETOOTH_PROFILE_HFP_HF)
+-            break;
++    switch (new_state) {
+ 
+         case PA_SINK_SUSPENDED:
+             /* Ignore if transition is PA_SINK_INIT->PA_SINK_SUSPENDED */

@@ -1,0 +1,4 @@
+ACTION=="add",GOTO="sdcard_add", KERNEL=="mmcblk[0-9]", RUN+="/bin/bash /etc/init.d/mount_sd.sh %k", LABEL="sdcard_add"
+ACTION=="add",GOTO="mtpsd_add", KERNEL=="mmcblk[0-9]", RUN+="/bin/bash /etc/hotplug-sd-mtp.sh", LABEL="mtpsd_add"
+ACTION=="remove",GOTO="sdcard_remove", KERNEL=="mmcblk[0-9]", RUN+="/bin/bash /etc/hotplug-sd.sh", LABEL="sdcard_remove"
+ACTION=="remove",GOTO="mtpsd_remove", KERNEL=="mmcblk[0-9]", RUN+="/bin/bash /etc/hotplug-rmsd-mtp.sh", LABEL="mtpsd_remove"

@@ -1,0 +1,145 @@
+#!/bin/sh
+
+# SPDX-FileCopyrightText: 2019-2021 Unisoc (Shanghai) Technologies Co., Ltd.
+#
+# SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
+
+# Start all init scripts in /etc/rcS.d and /etc/rc5.d
+# executing them in numerical order.
+#
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+runlevel=S
+prevlevel=N
+umask 022
+export PATH runlevel prevlevel
+
+dev=`ls /sbin | grep mdev`
+
+#       Make sure proc is mounted
+#
+[ -d "/proc/1" ] || mount /proc
+
+cat /proc/cmdline | grep "sprdboot.mode=cali"
+
+if [ $? -eq 0 ];then
+
+    ##engpc, modem_control,cp_disk
+    if [ "$dev" == "mdev" ];then
+        /bin/sh /etc/init.d/mdev
+        /bin/sh /etc/init.d/mount_emmc.sh
+        /bin/sh /etc/init.d/mountall.sh
+        /bin/sh /etc/init.d/mount_sd.sh
+    else
+        /bin/sh /etc/init.d/sysfs.sh
+        /bin/sh /etc/init.d/mount_emmc.sh
+        /bin/sh /etc/init.d/mountall.sh
+        /bin/sh /etc/init.d/mount_sd.sh
+        /bin/sh /etc/init.d/udev start
+    fi
+    /bin/sh /etc/init.d/syslog start
+    /bin/sh /etc/init.d/engpc-init start
+    #/bin/sh /etc/init.d/cp_diskserver-init
+    #/bin/sh /etc/init.d/modem_control-init start
+    exit 0
+
+fi
+
+cat /proc/cmdline | grep "sprdboot.mode=autotest"
+
+if [ $? -eq 0 ];then
+
+    ##engpc, modem_control,cp_disk
+    if [ "$dev" == "mdev" ];then
+        /bin/sh /etc/init.d/mdev
+        /bin/sh /etc/init.d/mount_emmc.sh
+        /bin/sh /etc/init.d/mountall.sh
+        /bin/sh /etc/init.d/mount_sd.sh
+    else
+        /bin/sh /etc/init.d/sysfs.sh
+        /bin/sh /etc/init.d/mount_emmc.sh
+        /bin/sh /etc/init.d/mountall.sh
+        /bin/sh /etc/init.d/mount_sd.sh
+        /bin/sh /etc/init.d/udev start
+    fi
+    /bin/sh /etc/init.d/syslog start
+    /bin/sh /etc/init.d/engpc-init start
+    #/bin/sh /etc/init.d/cp_diskserver-init
+    #/bin/sh /etc/init.d/modem_control-init start    
+    exit 0
+fi
+
+cat /proc/cmdline | grep "sprdboot.mode=factorytest"
+
+if [ $? -eq 0 ];then
+
+    ##factorytest
+    if [ "$dev" == "mdev" ];then
+        /bin/sh /etc/init.d/mdev
+        /bin/sh /etc/init.d/mount_emmc.sh
+        /bin/sh /etc/init.d/mountall.sh
+        /bin/sh /etc/init.d/mount_sd.sh
+    else
+        /bin/sh /etc/init.d/sysfs.sh
+        /bin/sh /etc/init.d/mount_emmc.sh
+        /bin/sh /etc/init.d/mountall.sh
+        /bin/sh /etc/init.d/mount_sd.sh
+        /bin/sh /etc/init.d/udev start
+    fi
+    /bin/sh /etc/init.d/syslog start
+    /bin/sh /etc/init.d/camera.sh
+    ./usr/bin/audiohaltest &
+   # /bin/sh /etc/init.d/cp_diskserver-init start
+    /bin/sh /etc/init.d/adbd-init start
+   # /bin/sh /etc/init.d/modem_control-init start
+    /bin/sh /etc/init.d/nativemmi-init start
+    exit 0
+
+fi
+
+cat /proc/cmdline | grep "update_recovery=1"
+
+if [ $? -eq 0 ];then
+    echo "Enter update recovery!!!"
+    if [ "$dev" == "mdev" ];then
+        /bin/sh /etc/init.d/mdev
+        /bin/sh /etc/init.d/mount_emmc.sh
+        /bin/sh /etc/init.d/mountall.sh
+        /bin/sh /etc/init.d/mount_sd.sh
+    else
+        /bin/sh /etc/init.d/sysfs.sh
+        /bin/sh /etc/init.d/mount_emmc.sh
+        /bin/sh /etc/init.d/mountall.sh
+        /bin/sh /etc/init.d/mount_sd.sh
+        /bin/sh /etc/init.d/udev start
+    fi
+    /bin/sh /etc/init.d/hostname.sh
+    /bin/sh /etc/init.d/populate-volatile.sh
+    /bin/sh /etc/init.d/udc.sh
+#    /bin/sh /etc/init.d/networking start
+#    /bin/sh /etc/init.d/ofono start
+    /bin/sh /etc/init.d/adbd-init start
+    exit 0
+fi
+
+for i in /etc/rcS.d/S??* /etc/rc5.d/S??* ;do
+
+     # Ignore dangling symlinks (if any).
+     [ ! -f "$i" ] && continue
+
+     case "$i" in
+	*.sh)
+	    # Source shell script for speed.
+	    (
+		trap - INT QUIT TSTP
+		set start
+		. $i
+	    )
+	    ;;
+	*)
+	    # No sh extension, so fork subprocess.
+	    $i start
+	    ;;
+    esac
+done
+

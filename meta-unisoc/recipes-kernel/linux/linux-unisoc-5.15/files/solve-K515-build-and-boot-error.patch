@@ -1,0 +1,61 @@
+diff --git a/block/blk-mq.c b/block/blk-mq.c
+index dc9653fac0cd..5c1e6a827674 100644
+--- a/block/blk-mq.c
++++ b/block/blk-mq.c
+@@ -914,7 +914,7 @@ static bool blk_mq_req_expired(struct request *rq, unsigned long *next)
+ 	if (unlikely(deadline == 0))
+ 		return false;
+ 	if (time_after_eq(jiffies, deadline)) {
+-		pr_err("%s: jiffies: %lu, ns: %lu, deadline: %lu, rq: %0x", __func__,
++		pr_err("%s: jiffies: %lu, ns: %llu, deadline: %lu, rq: %0lx", __func__,
+ 			jiffies, ktime_get_ns(), deadline, (unsigned long)rq);
+ 		return true;
+ 	}
+diff --git a/drivers/mfd/sprd-pmic-spi.c b/drivers/mfd/sprd-pmic-spi.c
+index d49ed32ced7b..a9103adb13c9 100644
+--- a/drivers/mfd/sprd-pmic-spi.c
++++ b/drivers/mfd/sprd-pmic-spi.c
+@@ -62,7 +62,7 @@
+ #define PMICINT_printf(m, x...)			\
+ 	do {                                              \
+ 		if (!m)                                   \
+-			pr_debug(x);                      \
++			pr_debug("%s", x);                      \
+ 		else if (seq_buf_printf(m, x)) {         \
+ 			seq_buf_clear(m);                 \
+ 			seq_buf_printf(m, x);             \
+diff --git a/drivers/mmc/host/sdhci-sprd-debug.c b/drivers/mmc/host/sdhci-sprd-debug.c
+index 83d5f5cd6af9..3038d6edb632 100644
+--- a/drivers/mmc/host/sdhci-sprd-debug.c
++++ b/drivers/mmc/host/sdhci-sprd-debug.c
+@@ -104,7 +104,7 @@ void mmc_debug_print(struct mmc_debug_info *info, struct sdhci_host *host)
+ 		wspeed_temp = write_speed;
+ 		rspeed_mod = do_div(rspeed_temp, 100);
+ 		wspeed_mod = do_div(wspeed_temp, 100);
+-		pr_info("|__speed%7s: r= %lld.%lld M/s, w= %lld.%lld M/s, r_blk= %d, w_blk= %d\n",
++		pr_info("|__speed%7s: r= %lld.%lld M/s, w= %lld.%lld M/s, r_blk= %lld, w_blk= %lld\n",
+ 			info->name, rspeed_temp, rspeed_mod, wspeed_temp, wspeed_mod,
+ 			info->read_total_blocks, info->write_total_blocks);
+ #if IS_ENABLED(CONFIG_MMC_SWCQ)
+diff --git a/drivers/unisoc_platform/sysdump/unisoc_sysdump.c b/drivers/unisoc_platform/sysdump/unisoc_sysdump.c
+index 2026a94249fe..ceb01c5e2c56 100644
+--- a/drivers/unisoc_platform/sysdump/unisoc_sysdump.c
++++ b/drivers/unisoc_platform/sysdump/unisoc_sysdump.c
+@@ -1616,7 +1616,7 @@ void get_exception_stack_info(struct pt_regs *regs)
+ 	int off, plen;
+ 	int i;
+ 	unsigned int entries = 0;
+-#if IS_BUILTIN(CONFIG_SPRD_SYSDUMP)
++#if IS_BUILTIN(CONFIG_SPRD_SYSDUMP) && IS_ENABLED(CONFIG_STACKTRACE) && !IS_ENABLED(CONFIG_ARCH_STACKWALK)
+ 	struct stack_trace trace;
+ #elif (IS_ENABLED(CONFIG_STACKTRACE) && IS_ENABLED(CONFIG_ARCH_STACKWALK))
+ 	unsigned int nr_entries;
+@@ -1639,7 +1639,7 @@ void get_exception_stack_info(struct pt_regs *regs)
+ 			"[%s, %d]", tsk->comm, tsk->pid);
+ 		tsk = tsk->real_parent;
+ 	} while (tsk && (tsk->pid != 0) && (tsk->pid != 1));
+-#if IS_BUILTIN(CONFIG_SPRD_SYSDUMP)
++#if IS_BUILTIN(CONFIG_SPRD_SYSDUMP) && IS_ENABLED(CONFIG_STACKTRACE) && !IS_ENABLED(CONFIG_ARCH_STACKWALK)
+ 	/* Grab kernel task stack trace */
+ 	trace.nr_entries = 0;
+ 	trace.max_entries = MAX_STACK_TRACE_DEPTH;

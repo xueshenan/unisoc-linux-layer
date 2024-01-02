@@ -1,0 +1,16 @@
+diff --git a/include/configs/udx710_3h10_nse.h b/include/configs/udx710_3h10_nse.h
+index 2515358..fc36679 100755
+--- a/include/configs/udx710_3h10_nse.h
++++ b/include/configs/udx710_3h10_nse.h
+@@ -233,4 +233,11 @@
+ #ifdef CONFIG_ADIE_SC2730
+ #define ADI_15BIT_MODE
+ #endif
++#define CONFIG_OF_LIBFDT
++#define CONFIG_DEBUG
++#define CONFIG_LOAD_ATF 1
++#define CONFIG_SML_LDADDR_START 0x85300000
++#define CONFIG_SML_TOS_RUNNING_SIZE 0x20000
++#define CONFIG_SEC_MEM_SIZE 0x20000
++
+ #endif /* __CONFIG_H */

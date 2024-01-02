@@ -1,0 +1,41 @@
+diff --git a/src/modules/module-device-manager.c b/src/modules/module-device-manager.c
+index 65a8c17..f30a619 100755
+--- a/src/modules/module-device-manager.c
++++ b/src/modules/module-device-manager.c
+@@ -987,10 +987,10 @@ static pa_hook_result_t route_source_headphone_port(struct userdata *u,bool is_h
+             s->save_volume = false;
+ 
+             if (is_headphone) {
+-                //pa_subscription_post(s->core, PA_SUBSCRIPTION_EVENT_SOURCE | PA_SUBSCRIPTION_EVENT_NEW, s->index);
++                pa_subscription_post(s->core, PA_SUBSCRIPTION_EVENT_SOURCE | PA_SUBSCRIPTION_EVENT_NEW, s->index);
+                 pa_source_set_port(s, "sprd-input-headphone-mic", true);
+             } else {
+-                //pa_subscription_post(s->core, PA_SUBSCRIPTION_EVENT_SOURCE | PA_SUBSCRIPTION_EVENT_REMOVE, s->index);
++                pa_subscription_post(s->core, PA_SUBSCRIPTION_EVENT_SOURCE | PA_SUBSCRIPTION_EVENT_REMOVE, s->index);
+                 pa_source_set_port(s, "sprd-input-internal-mic", true);
+             }
+         }else if(s && s->name && mystrstr(s->name, "HiFi") &&
+@@ -2180,9 +2180,11 @@ static void file_info_filter_and_set_callback(struct listnode *head) {
+     if (!list_empty(head)) {
+         list_for_each_safe(item, item2, head) {
+             info_item = node_to_item(item, struct file_info_item, item);
+-            if (!strcmp(info_item->file_info->dev_name, "sprdphone Headset Jack")) {
++            if (!strcmp(info_item->file_info->dev_name, "sprdphone Headset Jack")
++                    || !strcmp(info_item->file_info->dev_name, "sprdphone-sc2730 Headset Jack")) {
+                 info_item->event_process = sprd_headset_jk_process;
+-            } else if (!strcmp(info_item->file_info->dev_name, "sprdphone Headset Keyboard")) {
++            } else if (!strcmp(info_item->file_info->dev_name, "sprdphone Headset Keyboard")
++                    || !strcmp(info_item->file_info->dev_name, "sprdphone-sc2730 Headset Keyboard")) {
+                 info_item->event_process = sprd_headset_kb_process;
+             } else {
+                 file_info_remove(info_item);
+@@ -2271,7 +2273,8 @@ static int  input_initial_state_check(struct userdata *u, struct listnode *head)
+         list_for_each_safe(item, item2, head) {
+             info_item = node_to_item(item, struct file_info_item, item);
+             if(info_item->file_info->fd >=0 ) {
+-                if (mystrstr(info_item->file_info->dev_name, "sprdphone Headset Jack")) {
++                if (mystrstr(info_item->file_info->dev_name, "sprdphone Headset Jack") ||
++                        mystrstr(info_item->file_info->dev_name, "sprdphone-sc2730 Headset Jack")) {
+                     uint16_t switch_state;
+                     ret = ioctl(info_item->file_info->fd, EVIOCGSW(1), &switch_state);
+                     if (ret < 0) {

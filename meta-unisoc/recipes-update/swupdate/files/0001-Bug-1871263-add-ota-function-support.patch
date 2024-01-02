@@ -1,0 +1,1165 @@
+From c034121f3eebac3aec194de73a84acfc3bbde5a8 Mon Sep 17 00:00:00 2001
+From: "steven.lin" <steven.lin@unisoc.com>
+Date: Tue, 26 Apr 2022 19:39:15 +0800
+Subject: [PATCH] Bug #1871263 - add ota function support
+
+[root cause  ] add ota function support
+[changes     ]
+[side effects]no
+[self test   ]:yes
+[download normally]:yes
+[power on/off normally]:yes
+[do common repository/branch inspection]:yes
+[is there dependence]:yes
+[confirm dependent commit]:yes
+[board]:sl8561e
+[test case]: compile swupdate
+[reviewers   ] jing.deng junli.han
+---
+ Makefile.flags            |   8 +
+ core/cpio_utils.c         |  12 +-
+ core/installer.c          |   9 +-
+ core/notifier.c           |   1 +
+ core/stream_interface.c   |  31 ++-
+ core/swupdate.c           |  19 +-
+ handlers/Config.in        |   6 +
+ handlers/Makefile         |   1 +
+ handlers/bsdiff_handler.c |  12 +
+ handlers/raw_handler.c    |  24 +-
+ handlers/rdiff_handler.c  | 465 +++++++++++++++++++++++++++++++++++++-
+ include/swupdate.h        |   1 +
+ parser/parser.c           |   2 +-
+ 13 files changed, 580 insertions(+), 11 deletions(-)
+ create mode 100644 handlers/bsdiff_handler.c
+
+Index: git/Makefile.flags
+===================================================================
+--- git.orig/Makefile.flags
++++ git/Makefile.flags
+@@ -199,6 +199,14 @@ endif
+ 
+ ifeq ($(CONFIG_RDIFFHANDLER),y)
+ LDLIBS += rsync
++LDLIBS += bz2
++LDLIBS += otaarith swupdate-support
++endif
++
++ifeq ($(CONFIG_BSDIFFHANDLER),y)
++LDLIBS += rsync
++LDLIBS += bz2
++LDLIBS += otaarith swupdate-support
+ endif
+ 
+ ifeq ($(CONFIG_REMOTE_HANDLER),y)
+Index: git/core/cpio_utils.c
+===================================================================
+--- git.orig/core/cpio_utils.c
++++ git/core/cpio_utils.c
+@@ -129,12 +129,13 @@ int copy_write(void *out, const void *bu
+ 		ERROR("Output file descriptor invalid !");
+ 		return -1;
+ 	}
+-
++	
+ 	fd = *(int *)out;
+ 
+ 	while (len) {
+ 		errno = 0;
+ 		ret = write(fd, buf, len);
++
+ 		if (ret < 0) {
+ 			if (errno == EINTR)
+ 				continue;
+@@ -472,7 +473,7 @@ static int __swupdate_copy(int fdin, uns
+ 
+ 	PipelineStep step = NULL;
+ 	void *state = NULL;
+-	uint8_t buffer[BUFF_SIZE];
++	uint8_t *buffer = NULL;
+ 
+ 	if (!callback) {
+ 		callback = copy_write;
+@@ -583,9 +584,15 @@ static int __swupdate_copy(int fdin, uns
+ #if defined(CONFIG_GUNZIP) || defined(CONFIG_ZSTD)
+ 	}
+ #endif
++	buffer = malloc(BUFF_SIZE);
++	if(buffer == NULL) {
++		ERROR("malloc error");
++		ret = -EFAULT;
++		goto copyfile_exit;
++	}
+ 
+ 	for (;;) {
+-		ret = step(state, buffer, sizeof buffer);
++		ret = step(state, buffer, BUFF_SIZE);
+ 		if (ret < 0) {
+ 			goto copyfile_exit;
+ 		}
+@@ -652,6 +659,8 @@ static int __swupdate_copy(int fdin, uns
+ 	ret = 0;
+ 
+ copyfile_exit:
++	if (buffer != NULL)
++		free(buffer);
+ 	if (decrypt_state.dcrypt) {
+ 		swupdate_DECRYPT_cleanup(decrypt_state.dcrypt);
+ 	}
+@@ -830,6 +839,8 @@ int cpio_scan(int fd, struct swupdate_cf
+ 	while (1) {
+ 		file_listed = 0;
+ 		start = offset;
++
++		INFO("start and offset: %llu  %llu", start, offset);
+ 		if (extract_cpio_header(fd, &fdh, &offset)) {
+ 			return -1;
+ 		}
+@@ -842,7 +853,7 @@ int cpio_scan(int fd, struct swupdate_cf
+ 		SEARCH_FILE(img, cfg->scripts, file_listed, start);
+ 		SEARCH_FILE(img, cfg->bootscripts, file_listed, start);
+ 
+-		TRACE("Found file:\n\tfilename %s\n\tsize %lu\n\t%s",
++		INFO("Found file:\n\tfilename %s\n\tsize %lu\n\t%s",
+ 			fdh.filename,
+ 			fdh.size,
+ 			file_listed ? "REQUIRED" : "not required");
+Index: git/core/installer.c
+===================================================================
+--- git.orig/core/installer.c
++++ git/core/installer.c
+@@ -34,6 +34,9 @@
+ #include "progress.h"
+ #include "pctl.h"
+ 
++#include "diff_utils.h"
++#include "install_local_file.h"
++#include "ab_support.h"
+ /*
+  * function returns:
+  * 0 = do not skip the file, it must be installed
+@@ -83,7 +86,7 @@ swupdate_file_t check_if_required(struct
+ 			*pimg = img;
+ 		}
+ 	}
+-
++	
+ 	return skip;
+ }
+ 
+@@ -171,8 +174,16 @@ static int update_bootloader_env(struct
+ 		char *key = dict_entry_get_key(bootvar);
+ 		char *value = dict_entry_get_value(bootvar);
+ 
++		INFO("%s %d key = %s value = %s",__func__,__LINE__,key,value);
+ 		if (!key || !value)
+ 			continue;
++		
++		if(strcmp(key,AB_SUPPORT) == 0){
++			continue;
++		}
++
++		
++
+ 		snprintf(buf, sizeof(buf), "%s=%s\n", key, value);
+ 		if (write(fd, buf, strlen(buf)) != (ssize_t)strlen(buf)) {
+ 			  TRACE("Error saving temporary bootloader environment file");
+@@ -226,6 +237,7 @@ int install_single_image(struct img_type
+ 		TRACE("Image Type %s not supported", img->type);
+ 		return -1;
+ 	}
++
+ 	TRACE("Found installer for stream %s %s", img->fname, hnd->desc);
+ 
+ 	swupdate_progress_inc_step(img->fname, hnd->desc);
+@@ -253,11 +265,19 @@ int install_images(struct swupdate_cfg *
+ 	int ret;
+ 	struct img_type *img, *tmp;
+ 	char *filename;
++	struct filehdr fdh;
+ 	struct stat buf;
+ 	const char* TMPDIR = get_tmpdir();
+ 	bool dry_run = sw->parms.dry_run;
+ 	bool dropimg;
+ 
++	int install_from_file_flag = 0;
++	int fdsw_ota = 0;
++
++	install_from_file_flag = get_local_file_flag();
++	fdsw_ota = get_local_file_fd();
++
++	
+ 	/* Extract all scripts, preinstall scripts must be run now */
+ 	const char* tmpdir_scripts = get_tmpdirscripts();
+ 	ret = extract_scripts(&sw->scripts);
+@@ -290,27 +310,42 @@ int install_images(struct swupdate_cfg *
+ 		if (img->install_directly)
+ 			continue;
+ 
+-		if (asprintf(&filename, "%s%s", TMPDIR, img->fname) ==
+-				ENOMEM_ASPRINTF) {
+-				ERROR("Path too long: %s%s", TMPDIR, img->fname);
+-				return -1;
+-		}
++		
++		/* skip when diff file is installed */
++		if (DIFF_INSTALLED == img->diffinstallflag)
++			continue;
++		if(!install_from_file_flag){
++			if (asprintf(&filename, "%s%s", TMPDIR, img->fname) ==
++					ENOMEM_ASPRINTF) {
++					ERROR("Path too long: %s%s", TMPDIR, img->fname);
++					return -1;
++			}
+ 
+-		ret = stat(filename, &buf);
+-		if (ret) {
+-			TRACE("%s not found or wrong", filename);
++			ret = stat(filename, &buf);
++			if (ret) {
++				TRACE("%s not found or wrong", filename);
++				free(filename);
++				return -1;
++			}
++			img->size = buf.st_size;
++			INFO("rdiff debug: image fdin open filename :%s",filename);
++			img->fdin = open(filename, O_RDONLY);
+ 			free(filename);
+-			return -1;
+-		}
+-		img->size = buf.st_size;
+-		img->fdin = open(filename, O_RDONLY);
+-		free(filename);
+-		if (img->fdin < 0) {
+-			ERROR("Image %s cannot be opened",
+-			img->fname);
+-			return -1;
++			if (img->fdin < 0) {
++				ERROR("Image %s cannot be opened",
++				img->fname);
++				return -1;
++			}
++		}else {
++			INFO("fdsw_ota:%d img->fname:%s,img->offset :%llu",fdsw_ota,img->fname,img->offset);
++			if (extract_img_from_cpio(fdsw_ota, img->offset, &fdh) < 0)
++				return -1;
++			img->size = fdh.size;
++			img->checksum = fdh.chksum;
++			img->fdin = fdsw_ota;
+ 		}
+ 
++
+ 		if ((strlen(img->path) > 0) &&
+ 			(strlen(img->extract_file) > 0) &&
+ 			(strncmp(img->path, img->extract_file, sizeof(img->path)) == 0)){
+@@ -331,7 +366,8 @@ int install_images(struct swupdate_cfg *
+ 			ret = install_single_image(img, dry_run);
+ 		}
+ 
+-		close(img->fdin);
++		if(!install_from_file_flag)
++			close(img->fdin);
+ 
+ 		if (dropimg)
+ 			free_image(img);
+@@ -356,6 +392,7 @@ int install_images(struct swupdate_cfg *
+ 	if (!LIST_EMPTY(&sw->bootloader)) {
+ 		char* bootscript = alloca(strlen(TMPDIR)+strlen(BOOT_SCRIPT_SUFFIX)+1);
+ 		sprintf(bootscript, "%s%s", TMPDIR, BOOT_SCRIPT_SUFFIX);
++		INFO("%s:%d: update bootloader_env bootscript=%s",__func__,__LINE__,bootscript);
+ 		ret = update_bootloader_env(sw, bootscript);
+ 		if (ret) {
+ 			return ret;
+Index: git/core/notifier.c
+===================================================================
+--- git.orig/core/notifier.c
++++ git/core/notifier.c
+@@ -243,6 +243,7 @@ void notify(RECOVERY_STATUS status, int
+ 			(elem->client)(status, error, level, msg);
+ 		pthread_mutex_unlock(&clients_mutex);
+ 	}
++	logfile_rec(msg);
+ }
+ 
+ /*
+Index: git/core/stream_interface.c
+===================================================================
+--- git.orig/core/stream_interface.c
++++ git/core/stream_interface.c
+@@ -46,6 +46,10 @@
+ #include "state.h"
+ #include "bootloader.h"
+ 
++#include "rdiff_patch.h"
++#include "bsdiff_patch.h"
++#include "diff_utils.h"
++
+ #define BUFF_SIZE	 4096
+ #define PERCENT_LB_INDEX	4
+ 
+@@ -210,6 +214,7 @@ static int extract_files(int fd, struct
+ 			TRACE("\tsize %u %s", (unsigned int)fdh.size,
+ 				(skip == SKIP_FILE ? "Not required: skipping" : "required"));
+ 
++			TRACE("222222 skip = %d",skip);
+ 			fdout = -1;
+ 			offset = 0;
+ 
+@@ -585,7 +590,11 @@ void *network_initializer(void *data)
+ 		if (!ret) {
+ #ifdef CONFIG_MTD
+ 			mtd_cleanup();
+-			scan_mtd_devices();
++			int type_flash = scan_mtd_devices();
++			if(type_flash == -1)
++				set_flash_type(IS_EMMC);
++			else
++				set_flash_type(IS_NAND);
+ #endif
+ 			/*
+ 		 	 * extract the meta data and relevant parts
+@@ -600,6 +609,27 @@ void *network_initializer(void *data)
+ 		if (ret == 0) {
+ 			TRACE("Valid image found: copying to FLASH");
+ 
++			int diff_type = BSDIFF;
++			//get diff type from images
++			diff_type = get_ota_diff_type(software);
++			INFO("rdiff debug: diff_type = %d",diff_type);
++			
++			if(diff_type == RDIFF){
++				INFO("rdiff debug: enter SPLITDIFF_FEATURE");
++			
++				int ret = check_rdiff_image_hash(software);
++				if(ret < 0){
++					ERROR("check_rdiff_image_hash error!");
++					exit(EXIT_FAILURE);
++				}
++			}else{
++				int ret = check_bsdiff_image_hash(software);
++				if(ret < 0){
++					ERROR("check_bsdiff_image_hash error!");
++					exit(EXIT_FAILURE);
++				}
++			}
++
+ 			/*
+ 			 * If an image is loaded, the install
+ 			 * must be successful. Set we have
+@@ -610,6 +640,7 @@ void *network_initializer(void *data)
+ 			}
+ 
+ 			notify(RUN, RECOVERY_NO_ERROR, INFOLEVEL, "Installation in progress");
++			
+ 			ret = install_images(software);
+ 			if (ret != 0) {
+ 				if (!software->parms.dry_run && software->bootloader_transaction_marker) {
+Index: git/core/swupdate.c
+===================================================================
+--- git.orig/core/swupdate.c
++++ git/core/swupdate.c
+@@ -23,6 +23,7 @@
+ #include <pthread.h>
+ #include <signal.h>
+ #include <sys/wait.h>
++#include <time.h>
+ 
+ #include "bsdqueue.h"
+ #include "cpiohdr.h"
+@@ -53,6 +54,11 @@
+ #include <systemd/sd-daemon.h>
+ #endif
+ 
++#include "otaarith.h"
++#include "file_verify.h"
++#include "diff_utils.h"
++#include "install_local_file.h"
++
+ #define MODULE_NAME	"swupdate"
+ 
+ static pthread_t network_daemon;
+@@ -165,6 +171,7 @@ static void usage(char *programname)
+ 		" -H, --hwrevision <board>:<rev> : Set hardware revision\n"
+ #endif
+ 		" -c, --check                    : check image and exit, use with -i <filename>\n"
++		" -s, --savepath <save path>	 : set path on saving bin for power down protect  \n"
+ 		" -h, --help                     : print this help and exit\n"
+ 		);
+ #ifdef CONFIG_DOWNLOAD
+@@ -401,6 +408,7 @@ int main(int argc, char **argv)
+ {
+ 	int c;
+ 	char fname[MAX_IMAGE_FNAME];
++	char svfile_path[SVFILEPATHSIZE];
+ 	char *cfgfname = NULL;
+ 	const char *software_select = NULL;
+ 	int opt_i = 0;
+@@ -460,6 +468,7 @@ int main(int argc, char **argv)
+ #endif
+ 
+ 	memset(fname, 0, sizeof(fname));
++	memset(svfile_path, '\0', sizeof(svfile_path));
+ 
+ 	/* Initialize internal database */
+ 	swupdate_init(&swcfg);
+@@ -576,7 +585,12 @@ int main(int argc, char **argv)
+ #endif
+ 		case 'i':
+ 			strlcpy(fname, optarg, sizeof(fname));
+-			opt_i = 1;
++			init_swufilepath(fname);
++ 			opt_i = 1;
++ 			break;
++		case 's':
++			strncpy(svfile_path, optarg, sizeof(svfile_path));
++			init_svfilepath(svfile_path);
+ 			break;
+ 		case 'o':
+ 			strlcpy(swcfg.output, optarg, sizeof(swcfg.output));
+@@ -703,6 +717,10 @@ int main(int argc, char **argv)
+ 			break;
+ 		}
+ 	}
++	INFO("swupdate update para: %s", software_select);
++
++	/* init arith interface */
++	init_ota_arith(notify, diff_recpath(), loglevel);
+ 
+ 	if (optind < argc) {
+ 		/* SWUpdate has no non-option arguments, fail on them */
+@@ -810,13 +828,14 @@ int main(int argc, char **argv)
+ 	 *  Start daemon if just a check is required
+ 	 *  SWUpdate will exit after the check
+ 	 */
+-	network_daemon = start_thread(network_initializer, &swcfg);
+-
+-	start_thread(progress_bar_thread, NULL);
++	if(opt_c){
++		network_daemon = start_thread(network_initializer, &swcfg);
+ 
+-	/* wait for threads to be done before starting children */
+-	wait_threads_ready();
++		start_thread(progress_bar_thread, NULL);
+ 
++		/* wait for threads to be done before starting children */
++		wait_threads_ready();
++	}
+ 	/* Start embedded web server */
+ #if defined(CONFIG_MONGOOSE)
+ 	if (opt_w) {
+@@ -887,7 +906,26 @@ int main(int argc, char **argv)
+ 	}
+ 
+ 	if (opt_i) {
+-		result = install_from_file(fname, opt_c);
++		//result = install_from_file(fname, opt_c);
++		INFO("swu file path %s", swufilepath);
++		INFO("save file path %s",	svfilepath);
++		
++		result = install_from_local_file(&swcfg,fname,opt_c);
++		
++		switch (result) {
++		case EXIT_FAILURE:
++			if (swcfg.bootloader_transaction_marker) {
++				save_state(STATE_FAILED);
++			}
++			break;
++		case EXIT_SUCCESS:
++			notify(SUCCESS, 0, INFOLEVEL, NULL);
++			if (postupdate(&swcfg, NULL) != 0) {
++				ERROR("Post-update command execution failed.");
++			}
++			break;
++		}
++		cleanup_files(&swcfg);
+ 		cleanup_files(&swcfg);
+ 	}
+ 
+Index: git/handlers/Config.in
+===================================================================
+--- git.orig/handlers/Config.in
++++ git/handlers/Config.in
+@@ -288,6 +288,12 @@ config UBIVIDOFFSET
+ 	  if your NAND driver incorrectly reports that it can handle
+ 	  sub-page accesses when it should not.
+ 
++config BSDIFFHANDLER
++	bool "bsdiff"
++	default n
++	help
++	  Add support for applying bsdiff patches,
++
+ config UCFWHANDLER
+ 	bool "microcontroller firmware update"
+ 	depends on HAVE_LIBGPIOD
+Index: git/handlers/Makefile
+===================================================================
+--- git.orig/handlers/Makefile
++++ git/handlers/Makefile
+@@ -26,3 +26,4 @@ obj-$(CONFIG_SSBLSWITCH) += ssbl_handler
+ obj-$(CONFIG_SWUFORWARDER_HANDLER) += swuforward_handler.o swuforward-ws.o
+ obj-$(CONFIG_UBIVOL)	+= ubivol_handler.o
+ obj-$(CONFIG_UCFWHANDLER)	+= ucfw_handler.o
++obj-$(CONFIG_BSDIFFHANDLER) += bsdiff_handler.o
+Index: git/handlers/bsdiff_handler.c
+===================================================================
+--- /dev/null
++++ git/handlers/bsdiff_handler.c
+@@ -0,0 +1,12 @@
++#include <stdio.h>
++#include <unistd.h>
++#include <stdlib.h>
++#include "swupdate.h"
++#include "handler.h"
++#include "bsdiff_patch.h"
++
++__attribute__((constructor))
++void bsddiff_file_handler(void)
++{
++	register_handler("bsdiff_image", apply_bsdiff_patch, IMAGE_HANDLER, NULL);
++}
+Index: git/handlers/raw_handler.c
+===================================================================
+--- git.orig/handlers/raw_handler.c
++++ git/handlers/raw_handler.c
+@@ -29,6 +29,8 @@
+ #include "handler.h"
+ #include "util.h"
+ 
++#include "diff_utils.h"
++
+ void raw_image_handler(void);
+ void raw_file_handler(void);
+ void raw_copyimage_handler(void);
+@@ -123,6 +125,8 @@ static int install_raw_image(struct img_
+ {
+ 	int ret;
+ 	int fdout;
++	TRACE("copy_raw_image Installing file %s to device :%s",
++		img->fname,img->device);
+ 
+ 	int prot_stat = blkprotect(img, false);
+ 	if (prot_stat < 0)
+@@ -160,12 +164,26 @@ static int copy_raw_image(struct img_typ
+ 	unsigned long offset = 0;
+ 	size_t size;
+ 
++	
+ 	proplist = dict_get_list(&img->properties, "copyfrom");
+ 
+ 	if (!proplist || !(entry = LIST_FIRST(proplist))) {
+ 		ERROR("Missing source device, no copyfrom property");
+ 		return -EINVAL;
+ 	}
++
++#ifdef AB_PARTITION	
++	char *base_file_filename = (char *)malloc(MAX_PARTITION_NAME);
++	char *dest_file_filename = (char *)malloc(MAX_PARTITION_NAME);
++	int ret = get_base_dest_partition(img->fname,dest_file_filename, base_file_filename);
++	if(ret<0){
++		ERROR("get_base_dest_partition error");
++		return -1;
++	}
++	strcpy(entry->value,base_file_filename);
++	INFO("entry->value:%s dest_file_filename:%s base_file_filename:%s ",entry->value,dest_file_filename, base_file_filename);
++#endif
++
+ 	fdin = open(entry->value, O_RDONLY);
+ 	if (fdin < 0) {
+ 		TRACE("Device %s cannot be opened: %s",
+@@ -205,13 +223,16 @@ static int copy_raw_image(struct img_typ
+ static int install_raw_file(struct img_type *img,
+ 	void __attribute__ ((__unused__)) *data)
+ {
+-	char path[255];
++	char path[255] = {'\0'};
+ 	int fdout;
+ 	int ret = 0;
+ 	int use_mount = (strlen(img->device) && strlen(img->filesystem)) ? 1 : 0;
+ 	char* DATADST_DIR = alloca(strlen(get_tmpdir())+strlen(DATADST_DIR_SUFFIX)+1);
+ 	sprintf(DATADST_DIR, "%s%s", get_tmpdir(), DATADST_DIR_SUFFIX);
++	char* make_path;
++	char setpathcmd[280] = {'\0'};
+ 
++	
+ 	if (strlen(img->path) == 0) {
+ 		ERROR("Missing path attribute");
+ 		return -1;
+@@ -240,6 +261,9 @@ static int install_raw_file(struct img_t
+ 	TRACE("Installing file %s on %s",
+ 		img->fname, path);
+ 
++	sprintf(setpathcmd, "fw_setenv extractpath %s", path);
++	system(setpathcmd);
++
+ 	if (strtobool(dict_get_value(&img->properties, "create-destination"))) {
+ 		TRACE("Creating path %s", path);
+ 		fdout = mkpath(dirname(strdupa(path)), 0755);
+@@ -287,5 +311,5 @@ __attribute__((constructor))
+ void raw_copyimage_handler(void)
+ {
+ 	register_handler("rawcopy", copy_raw_image,
+-				SCRIPT_HANDLER | NO_DATA_HANDLER, NULL);
++				IMAGE_HANDLER | SCRIPT_HANDLER | NO_DATA_HANDLER, NULL);
+ }
+Index: git/handlers/rdiff_handler.c
+===================================================================
+--- git.orig/handlers/rdiff_handler.c
++++ git/handlers/rdiff_handler.c
+@@ -23,6 +23,11 @@
+ #include "handler.h"
+ #include "util.h"
+ 
++#include "diff_utils.h"
++#include "rdiff_patch.h"
++#include "ab_support.h"
++
++
+ /* Use rdiff's default inbuf and outbuf size of 64K */
+ #define RDIFF_BUFFER_SIZE 64 * 1024
+ 
+@@ -109,7 +114,6 @@ static rs_result fill_inbuffer(struct rd
+ 		TEST_OR_FAIL(*len <= RDIFF_BUFFER_SIZE, RS_IO_ERROR);
+ 		buffers->next_in = rdiff_state->inbuf;
+ 		buffers->avail_in = *len;
+-		TRACE("Writing %d bytes to rdiff input buffer.", *len);
+ 		(void)memcpy(rdiff_state->inbuf, buf, *len);
+ 		*len = 0;
+ 	} else {
+@@ -123,7 +127,7 @@ static rs_result fill_inbuffer(struct rd
+ 			TRACE("Not consuming rdiff chunk input, buffer already filled.");
+ 			return RS_BLOCKED;
+ 		}
+-		TRACE("Appending %d bytes to rdiff input buffer.", buflen);
++		//TRACE("Appending %d bytes to rdiff input buffer.", buflen);
+ 		buffers->avail_in += buflen;
+ 		(void)memcpy(target, buf, buflen);
+ 		*len -= buflen;
+@@ -150,7 +154,7 @@ static rs_result drain_outbuffer(struct
+ 	}
+ #endif
+ 	if (len > 0) {
+-		TRACE("Draining %d bytes from rdiff output buffer", len);
++		//TRACE("Draining %d bytes from rdiff output buffer", len);
+ 		buffers->next_out = rdiff_state->outbuf;
+ 		buffers->avail_out = RDIFF_BUFFER_SIZE;
+ 		int dest_file_fd = fileno(rdiff_state->dest_file);
+@@ -210,7 +214,7 @@ static int apply_rdiff_chunk_cb(void *ou
+ 		rdiff_stats("[post]", rdiff_state, result);
+ 
+ 		if (result == RS_DONE) {
+-			TRACE("rdiff processing done.");
++			INFO("rdiff processing done.");
+ 			break;
+ 		}
+ 	}
+@@ -435,14 +439,473 @@ cleanup:
+ 	return ret;
+ }
+ 
++int apply_unisoc_rdiff_patch(struct img_type *img,
++							 void __attribute__((__unused__)) * data)
++{
++	int ret = 0, ret1 = 0, diff_proc_type = 0;
++	char node[64];
++	char tmp[80] = {'\0'};
++	char tmpbasefile[80] = {'\0'};
++	char real_type = 0;
++	diffdone_rec *s_diffrec;
++	s_diffproperty_t *s_diffpro;
++	long long basepart_offset = 0;
++	struct rdiff_t rdiff_state = {};
++	char *mountpoint = NULL;
++	bool use_mount = (strlen(img->device) && strlen(img->filesystem)) ? true : false;
++	char *base_file_filename = NULL;
++	char *dest_file_filename = NULL;
++	int normal_basesize = 0;
++	FILE * basepart_fd = NULL;
++	rdiff_state.type =
++		strcmp(img->type, "rdiff_image") == 0 ? IMAGE_HANDLER : FILE_HANDLER;
++	
++	char *tmp_dest_file =NULL;
++	tmp_dest_file = malloc(MAX_IMAGE_FNAME);
++	memset(tmp_dest_file, '\0', MAX_IMAGE_FNAME);
++	snprintf(tmp_dest_file, (strlen(img->fname)-strlen(DIFF_NAME_END) + 1),
++			 "%s", img->fname);
++
++	
++	INFO("rdiff debug: rdiff_state.type = %d  tmp_dest_file:%s",rdiff_state.type,tmp_dest_file);
++
++	s_diffrec = malloc(sizeof(diffdone_rec));
++	if (s_diffrec == NULL) {
++		ERROR("can't malloc for rdiff list.");
++		return -1;
++	}
++	memset(s_diffrec, 0, sizeof(diffdone_rec));
++
++	s_diffpro = malloc(sizeof(s_diffproperty_t));
++	if (s_diffpro == NULL) {
++		ERROR("can't malloc for diffpro list.");
++		free(s_diffrec);
++		return -1;
++	}
++	memset(s_diffpro, 0, sizeof(s_diffproperty_t));
++	ret = get_diffproperty(img, s_diffpro);
++	if (ret != 0) {
++		ERROR("get property error.");
++		free(s_diffrec);
++		free(s_diffpro);
++		return -1;
++	}
++	if (rdiff_state.type == IMAGE_HANDLER) {
++		if (img->seek) {
++			/*
++			 * img->seek mandates copyfile()'s out parameter to be a fd, it
++			 * isn't. So, the seek option is invalid for the rdiff handler.
++			 * */
++			free(s_diffrec);
++			free(s_diffpro);
++			ERROR("Option 'seek' is not supported for rdiff.");
++			return -1;
++		}
++
++		if (strlen(img->volname)) {
++			find_vol_by_volname(img->volname, node);
++			base_file_filename = node;
++			real_type = TYPE_UBIVOL;
++		} else {
++			base_file_filename = dict_get_value(&img->properties, "rdiffbase");
++			if (base_file_filename == NULL) {
++				//ERROR("Property 'rdiffbase' is missing in sw-description.");
++				//return -1;
++				INFO("%s %d :Device property as rdiffbase!! ab_support_flag = %d",__func__,__LINE__);
++				if(ab_support_flag ==1){
++					INFO("%s %d: in AB SUPPORT solution!", __func__,__LINE__);
++					base_file_filename = (char *)malloc(MAX_PARTITION_NAME);
++					dest_file_filename = (char *)malloc(MAX_PARTITION_NAME);
++					ret = get_base_dest_partition(img->device,dest_file_filename, base_file_filename);
++					if(ret<0){
++						ERROR("get_base_dest_partition error");
++						return -1;
++					}
++					INFO("%s %d : img->device = %s dest_file_filename:%s base_file_filename:%s ",__func__,__LINE__,img->device,dest_file_filename, base_file_filename);
++				}else{
++					base_file_filename = img->device;
++					dest_file_filename = img->device;
++				}
++			}
++			real_type = TYPE_RAW;	
++		}
++		
++	}
++	INFO("rdiff debug:real_type = %d",real_type);
++
++	snprintf(tmp, sizeof(tmp), "%s%s", diff_recpath(), img->fname);
++	tmp[strlen(tmp)- strlen(DIFF_NAME_END)] = '\0';
++	INFO("Start: partition:%s tmp file:%s, diff:%s", base_file_filename, tmp, img->fname);
++	
++	diff_proc_type = rdiff_checke_if_file_isinterrupted(img->fname, s_diffrec);
++	
++	if (diff_proc_type == DIFF_FINISH) {
++		INFO("Img has updated ,no need anymore.");
++		free(s_diffrec);
++		free(s_diffpro);
++		return 0;
++	} else if (diff_proc_type == DIFF_NONE) {
++		INFO("diff begin %s", img->fname);
++		s_diffrec->basesize = (long long int)s_diffpro->basesize;
++		sprintf(s_diffrec->name, "%s", img->fname);
++		INFO("diff %s bsize %lld progress", s_diffrec->name, s_diffrec->basesize);
++		s_diffrec->name[strlen(img->fname)] = '\0';
++		s_diffrec->partnums = 1;
++		s_diffrec->partpos = 1;
++		
++		rdiff_finishlist_recfileupdate(s_diffrec);
++		//need pre_patitions
++		INFO("rdiff debug: base_file_filename: %s diff_proc_type: %d  real_type: %d",base_file_filename,diff_proc_type,real_type);
++		ret = rdiff_pre_process_partition(s_diffpro, base_file_filename, tmp_dest_file, diff_proc_type, real_type);		
++		if (ret < 0) {
++			ERROR("pre error.");
++			ret = -1;
++			goto cleanup;
++		} else if(ret == 1) {
++			diff_proc_type = DIFF_NONE;
++		} else if(ret == 2) { /* power droped the last data, recovery in pre process */
++			ERROR("goto the last end");
++			ret = 0;
++			goto cleanup;
++		}
++		//if unzipped file is ready, set s_diffrec flag is DIFF_BEGIN
++		s_diffrec->flag = DIFF_BEGIN;
++	} else if (diff_proc_type == DIFF_BEGIN) {
++		if(access(tmp, F_OK) == 0) {
++			if(remove(tmp))
++				ERROR("cannot rm %s %s", tmp, strerror(errno));
++		}
++		INFO("diff %s continue", s_diffrec->name);
++		//need pre_patitions
++		INFO("rdiff debug: base_file_filename: %s  dest_file_filename: %s diff_proc_type: %d  real_type: %d",base_file_filename,dest_file_filename,diff_proc_type,real_type);
++		ret = rdiff_pre_process_partition(s_diffpro, base_file_filename, tmp_dest_file, diff_proc_type, real_type);	
++		if (ret < 0) {
++			ERROR("pre error.");
++			ret = -1;
++			goto cleanup;
++		} else if(ret == 1) {
++			diff_proc_type = DIFF_NONE;
++		} else if(ret == 2) { /* power droped the last data, recovery in pre process */
++			ERROR("goto the last end");
++			ret = 0;
++			goto cleanup;
++		}
++	} else if (diff_proc_type == DIFF_UPDATE) {
++		if(access(tmp, F_OK) == 0) {
++			if(remove(tmp))
++				ERROR("cannot rm %s %s", tmp, strerror(errno));
++		}
++		s_diffrec->flag = DIFF_FINISH;
++		rdiff_finishlist_recfileupdate(s_diffrec);
++		INFO("The diff has done, prog delete the temporary file and return");
++		free(s_diffrec);
++		free(s_diffpro);
++		return 0;
++	} else if (diff_proc_type == DIFF_PATCH) {
++		if(access(tmp, F_OK) == 0) {
++			INFO("The diff file exist, continue update");
++			goto updatebybackup;
++		}
++		INFO("The temporary file doesn't exist, error");
++		free(s_diffrec);
++		free(s_diffpro);
++		return -1;
++	} else {
++		INFO("Something error.");
++		free(s_diffrec);
++		free(s_diffpro);
++		return -1;
++	}
++
++
++	//if ((s_diffpro->compress == OTA_FILE_TYPE_ONLY_TARG_ZIP) ||
++	if ((s_diffpro->compress == OTA_FILE_TYPE_ONLY_BASE_ZIP) ||
++		(s_diffpro->compress == OTA_FILE_TYPE_BOTH_ZIP)){
++		normal_basesize = s_diffpro->decbasesize;
++	} else {
++		normal_basesize = s_diffpro->basesize;
++	}
++	INFO("rdiff debug: normal_basesize:%lld 0x%llx ", normal_basesize, normal_basesize);
++	
++	if ((rdiff_state.dest_file = fopen(tmp, "wb+")) == NULL) {
++		ERROR("%s cannot be opened for writing: %s", img->volname, strerror(errno));
++		free(s_diffrec);
++		free(s_diffpro);
++		return -1;
++	}
++
++
++	if (rdiff_state.type == FILE_HANDLER) {
++		int fd;
++
++		if (strlen(img->path) == 0) {
++			ERROR("Missing path attribute");
++			free(s_diffrec);
++			free(s_diffpro);
++			return -1;
++		}
++
++		if (asprintf(&dest_file_filename, "%srdiffpatch.XXXXXX", get_tmpdir()) == -1) {
++			ERROR("Cannot allocate memory for temporary filename creation.");
++			free(s_diffrec);
++			free(s_diffpro);
++			return -1;
++		}
++		if ((fd = mkstemp(dest_file_filename)) == -1) {
++			ERROR("Cannot create temporary file %s: %s", dest_file_filename,
++				  strerror(errno));
++			free(s_diffrec);
++			free(s_diffpro);
++			return -1;
++		}
++
++		if ((rdiff_state.dest_file = fdopen(fd, "wb+")) == NULL) {
++			(void)close(fd);
++			ERROR("%s cannot be opened for writing: %s", dest_file_filename,
++				  strerror(errno));
++			free(s_diffrec);
++			free(s_diffpro);
++			return -1;
++		}
++
++		base_file_filename = img->path;
++		if (use_mount) {
++			mountpoint = alloca(strlen(get_tmpdir()) + strlen(DATADST_DIR_SUFFIX) + 1);
++			sprintf(mountpoint, "%s%s", get_tmpdir(), DATADST_DIR_SUFFIX);
++
++			if (swupdate_mount(img->device, mountpoint, img->filesystem) != 0) {
++				ERROR("Device %s with filesystem %s cannot be mounted",
++					  img->device, img->filesystem);
++				ret = -1;
++				goto cleanup;
++			}
++
++			base_file_filename = alloca(strlen(mountpoint) + strlen(img->path) + 1);
++			sprintf(base_file_filename, "%s%s", mountpoint, img->path);
++		}
++
++		char* make_path = dict_get_value(&img->properties, "create-destination");
++		if (make_path != NULL && strcmp(make_path, "true") == 0) {
++			TRACE("Creating path %s", dirname(base_file_filename));
++			if (mkpath(dirname(strdupa(base_file_filename)), 0755) < 0) {
++				ERROR("Cannot create path %s: %s", dirname(base_file_filename),
++					  strerror(errno));
++				ret = -1;
++				goto cleanup;
++			}
++		}
++	}
++
++	if ((basepart_fd = fopen(base_file_filename, "rb")) == NULL) {
++		ERROR("%s cannot be opened for reading1: %s", base_file_filename, strerror(errno));
++		ret = -1;
++		goto cleanup;
++	}
++
++	if(get_folder_capacity(get_tmpdir()) > normal_basesize){
++		//snprintf(tmpbasefile, sizeof(tmpbasefile), "%s%s", get_tmpdir(), img->fname);
++		snprintf(tmpbasefile, sizeof(tmpbasefile), "%s%s", get_tmpdir(), tmp_dest_file);
++	}else if(get_folder_capacity(get_tmpdir()) <= normal_basesize &&
++		get_folder_capacity(diff_recpath()) > normal_basesize){
++		//snprintf(tmpbasefile, sizeof(tmpbasefile), "%s%s", diff_recpath(), img->fname);
++		snprintf(tmpbasefile, sizeof(tmpbasefile), "%s%s", diff_recpath(), tmp_dest_file);
++	}else{
++		ERROR("both %s and %s do not have enough space to upgrade normalbasesize = %lld %s is %lld, %s is %lld", get_tmpdir(),diff_recpath(),normal_basesize, get_tmpdir(),get_folder_capacity(get_tmpdir()),diff_recpath(),get_folder_capacity(diff_recpath()));
++		ret = -1;
++		goto cleanup;
++	}
++	
++	//snprintf(tmpbasefile, sizeof(tmpbasefile), "%s%s", get_tmpdir(), img->fname);
++	INFO("rdiff debug: tmpbasefile:%s get_tmpdir():%s, img->fname:%s", tmpbasefile, get_tmpdir(), img->fname);
++	INFO("rdiff debug: s_diffpro->psize:0x%llx s_diffpro->pos:0x%llx s_diffpro->basesize:0x%llx  s_diffpro->decbasesize: 0x%llx", s_diffpro->psize, s_diffpro->pos,s_diffpro->basesize,  s_diffpro->decbasesize);
++	
++	basepart_offset = s_diffpro->psize*(s_diffpro->pos - 1);
++	//ret = diff_read_part_tofile(basepart_fd, tmpbasefile, basepart_offset, s_diffpro->basesize,"wb");
++	ret = diff_read_part_tofile(basepart_fd, tmpbasefile, basepart_offset, normal_basesize,"wb");
++	if (ret != 0)
++	{
++		ERROR("%s cannot get %s", tmpbasefile, strerror(errno));
++		ret = -1;
++		fclose(basepart_fd);
++		goto cleanup;
++	}
++	fclose(basepart_fd);
++
++	if ((rdiff_state.base_file = fopen(tmpbasefile, "rb")) == NULL) {
++		ERROR("%s cannot be opened for reading1: %s", tmpbasefile, strerror(errno));
++		ret = -1;
++		goto cleanup;
++	}
++
++	if (!(rdiff_state.inbuf = malloc(RDIFF_BUFFER_SIZE))) {
++		ERROR("Cannot allocate memory for rdiff input buffer.");
++		ret = -1;
++		goto cleanup;
++	}
++
++	if (!(rdiff_state.outbuf = malloc(RDIFF_BUFFER_SIZE))) {
++		ERROR("Cannot allocate memory for rdiff output buffer.");
++		ret = -1;
++		goto cleanup;
++	}
++	INFO("rdiff debug: img->size:%lld 0x%llx",img->size,img->size);
++
++	int loglevelmap[] =
++	{
++		[OFF]		 = RS_LOG_ERR,
++		[ERRORLEVEL] = RS_LOG_ERR,
++		[WARNLEVEL]  = RS_LOG_WARNING,
++		[INFOLEVEL]  = RS_LOG_INFO,
++		[DEBUGLEVEL] = RS_LOG_DEBUG,
++		[TRACELEVEL] = RS_LOG_DEBUG,
++	};
++	rs_trace_set_level(loglevelmap[loglevel]);
++	rs_trace_to(rdiff_log);
++
++	rdiff_state.job = rs_patch_begin(base_file_read_cb, rdiff_state.base_file);
++	ret = copyfile(img->fdin,
++			&rdiff_state,
++			img->size,
++			(unsigned long *)&img->offset,
++			img->seek,
++			0, /* no skip */
++			img->compressed,
++			&img->checksum,
++			img->sha256,
++			img->is_encrypted,
++			img->ivt_ascii,
++			apply_rdiff_chunk_cb);
++
++
++
++	if (ret != 0) {
++		ERROR("Error %d running rdiff job, aborting.", ret);
++		goto cleanup;
++	}
++	diff_sync_path();
++	//zip the dest file when target needs zip
++	INFO("rdiff debug: tmpbasefile: %s base_file_filename: %s  dest_file_filename: %s diff_proc_type: %d  real_type: %d",tmpbasefile,base_file_filename,dest_file_filename,diff_proc_type,real_type);
++	ret = rdiff_post_process_partition(s_diffpro, tmp,tmp_dest_file, real_type);
++	fsync(fileno(rdiff_state.dest_file)); /* write hw truelly */
++
++	if (rdiff_state.type == FILE_HANDLER) {
++		struct stat stat_dest_file;
++		if (fstat(fileno(rdiff_state.dest_file), &stat_dest_file) == -1) {
++			ERROR("Cannot fstat file %s: %s", dest_file_filename, strerror(errno));
++			ret = -1;
++			goto cleanup;
++		}
++
++		/*
++		 * Most often $TMPDIR -- in which dest_file resides -- is a different
++		 * filesystem (probably tmpfs) than that base_file resides in. Hence,
++		 * substituting base_file by dest_file cross-filesystem via renameat()
++		 * won't work. If dest_file and base_file are indeed in the same
++		 * filesystem, metadata (uid, gid, mode, xattrs, acl, ...) has to be
++		 * preserved after renameat(). This isn't worth the effort as Linux's
++		 * sendfile() is fast, so copy the content.
++		 */
++		rdiff_state.base_file = freopen(NULL, "wb", rdiff_state.base_file);
++		rdiff_state.dest_file = freopen(NULL, "rb", rdiff_state.dest_file);
++		if ((rdiff_state.base_file == NULL) || (rdiff_state.dest_file == NULL)) {
++			ERROR("Cannot reopen %s or %s: %s", dest_file_filename,
++				  base_file_filename, strerror(errno));
++			ret = -1;
++			goto cleanup;
++		}
++
++#if defined(__FreeBSD__)
++		(void)stat_dest_file;
++		char buf[DFLTPHYS];
++		int r;
++		while ((r = read(fileno(rdiff_state.dest_file), buf, DFLTPHYS)) > 0) {
++			if (write(fileno(rdiff_state.base_file), buf, r) != r) {
++				ERROR("Write to %s failed.", base_file_filename);
++				ret = -1;
++				break;
++			}
++		}
++		if (r < 0) {
++			ERROR("Read from to %s failed.", dest_file_filename);
++			ret = -1;
++		}
++#else
++		if (sendfile(fileno(rdiff_state.base_file), fileno(rdiff_state.dest_file),
++					 NULL, stat_dest_file.st_size) == -1) {
++			ERROR("Cannot copy from %s to %s: %s", dest_file_filename,
++				  base_file_filename, strerror(errno));
++			ret = -1;
++			goto cleanup;
++		}
++#endif
++	}
++
++cleanup:
++	free(rdiff_state.inbuf);
++	free(rdiff_state.outbuf);
++	if (rdiff_state.job != NULL) {
++		(void)rs_job_free(rdiff_state.job);
++	}
++	if (rdiff_state.base_file != NULL) {
++		if (fclose(rdiff_state.base_file) == EOF) {
++			ERROR("Error while closing rdiff base: %s", strerror(errno));
++		}
++		remove(tmpbasefile);
++	}
++	if (rdiff_state.dest_file != NULL) {
++		if (fclose(rdiff_state.dest_file) == EOF) {
++			ERROR("Error while closing rdiff destination: %s",
++				  strerror(errno));
++		}
++	}
++	sw_msdelay(5);
++	INFO("close temp file");
++	if (rdiff_state.type == FILE_HANDLER) {
++		if (unlink(dest_file_filename) == -1) {
++			ERROR("Cannot delete temporary file %s, please clean up manually: %s",
++				  dest_file_filename, strerror(errno));
++		}
++		if (use_mount == true) {
++			swupdate_umount(mountpoint);
++		}
++	}
++	s_diffrec->flag = DIFF_PATCH;
++	rdiff_finishlist_recfileupdate(s_diffrec);
++updatebybackup:
++	INFO("%s %d:ab_support_flag = %d ", __func__, __LINE__,ab_support_flag);
++	if(ab_support_flag ==1){
++		INFO("%s %d:fsource: %s, fdes: %s ", __func__, __LINE__,tmp, dest_file_filename);
++		ret = unisoc_update_volume(tmp, dest_file_filename, real_type, s_diffpro);
++	}else{
++		INFO("%s %d:fsource: %s, fdes: %s ", __func__, __LINE__,tmp, base_file_filename);
++		ret = unisoc_update_volume(tmp, base_file_filename, real_type, s_diffpro);
++	}
++
++	if (ret != 0) {
++		ERROR("update error");
++		free(s_diffrec);
++		free(s_diffpro);
++		return -1;
++	}
++	s_diffrec->flag = DIFF_UPDATE;
++	rdiff_finishlist_recfileupdate(s_diffrec);
++	ret1 = remove(tmp);
++	s_diffrec->flag = DIFF_FINISH;
++	rdiff_finishlist_recfileupdate(s_diffrec);
++	free(s_diffrec);
++	free(s_diffpro);
++	INFO("End: part:%s, rm %d", base_file_filename, ret1);
++	return ret;
++}
++
+ __attribute__((constructor))
+ void rdiff_image_handler(void)
+ {
+-	register_handler("rdiff_image", apply_rdiff_patch, IMAGE_HANDLER, NULL);
++	register_handler("rdiff_image", apply_unisoc_rdiff_patch, IMAGE_HANDLER, NULL);
+ }
+ 
+ __attribute__((constructor))
+ void rdiff_file_handler(void)
+ {
+-	register_handler("rdiff_file", apply_rdiff_patch, FILE_HANDLER, NULL);
++	register_handler("rdiff_file", apply_unisoc_rdiff_patch, FILE_HANDLER, NULL);
+ }
+Index: git/include/swupdate.h
+===================================================================
+--- git.orig/include/swupdate.h
++++ git/include/swupdate.h
+@@ -94,6 +94,7 @@ struct img_type {
+ 	long long size;
+ 	unsigned int checksum;
+ 	unsigned char sha256[SHA256_HASH_LENGTH];	/* SHA-256 is 32 byte */
++	int diffinstallflag;   /* for rec the diff file installed state: 0.not, 1. installed; 2. intalling; */
+ 	LIST_ENTRY(img_type) next;
+ };
+ 
+@@ -183,6 +184,9 @@ struct swupdate_cfg {
+ 	} \
+ } while(0)
+ 
++
++
++
+ int cpio_scan(int fd, struct swupdate_cfg *cfg, off_t start);
+ struct swupdate_cfg *get_swupdate_cfg(void);
+ void free_image(struct img_type *img);
+Index: git/parser/parser.c
+===================================================================
+--- git.orig/parser/parser.c
++++ git/parser/parser.c
+@@ -773,7 +773,7 @@ static int _parse_images(parsertype p, v
+ 			return -1;
+ 		}
+ 
+-		TRACE("%s %sImage%s%s%s%s: %s in %s : %s for handler %s%s%s",
++		INFO("%s %sImage%s%s%s%s: %s in %s : %s for handler %s%s%s",
+ 			skip ? "Skip" : "Found",
+ 			image->compressed ? "compressed " : "",
+ 			strlen(image->id.name) ? " " : "", image->id.name,

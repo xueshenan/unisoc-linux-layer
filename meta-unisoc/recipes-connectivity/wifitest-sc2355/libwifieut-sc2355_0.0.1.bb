@@ -1,0 +1,27 @@
+DESCRIPTION = "Unisoc vendor wifi module"
+HOMEPAGE = "http://www.unisoc.com/"
+LICENSE = "LGPL-3.0"
+SECTION = "lib"
+DEPENDS = ""
+LIC_FILES_CHKSUM = "file://COPYING;md5=5abd27680acec55893a065d21d3ffaff"
+PV = "0.1"
+PR = "r0"
+PROVIDES = "libwifieut"
+
+SRC_URI = "ssh://gitadmin@gitmirror.unisoc.com/yocto/unisoc/wcn;protocol=ssh;branch=unc_linux_trunk_2.0"
+
+do_compile () {
+    make clean -C ${S} OBJ_DIR=${B}
+    make libwifieut -C ${S} OBJ_DIR=${B}
+}
+
+do_install () {
+    install -d ${D}${libdir}/
+    install -d ${D}${libdir}/npidevice/
+    install -m 0777 ${S}/libwifieut.so ${D}${libdir}/npidevice/
+}
+
+FILES_${PN} += "${libdir}/*"
+FILES_SOLIBSDEV = ""
+INSANE_SKIP_${PN} = "dev-so"
+TARGET_CC_ARCH += "${LDFLAGS}"

@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<audio_config>
+    <log level="3" />
+    <primary_card name="sprdphone-sc2730">
+        <audio_hw>
+            <MAINMIC>
+                <on>
+                    <ctl name="ADC LRCLK Select" val="invert"/>
+                    <ctl name="ADC1 LRCLK Select" val="invert"/>
+                    <ctl name="ADC_1 Mixer MIC1PGA_1 Switch" val="1" />
+                    <ctl name="AUD ADC0L Switch" val="1" />
+                    <ctl name="AUD ADC0R Switch" val="1" />
+                    <ctl name="Mic Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="Mic Function" val="0" />
+                    <ctl name="AUD ADC0L Switch" val="0" />
+                    <ctl name="AUD ADC0R Switch" val="0" />
+                    <ctl name="ADC_1 Mixer MIC1PGA_1 Switch" val="0" />
+                    <ctl name="ADC LRCLK Select" val="normal"/>
+                    <ctl name="ADC1 LRCLK Select" val="normal"/>
+                </off>
+            </MAINMIC>
+            <AUXMIC>
+                <on>
+                    <ctl name="DSP_AUX_MIC2_SEL" val="enable"/>
+                    <ctl name="ADC LRCLK Select" val="invert"/>
+                    <ctl name="ADC1 LRCLK Select" val="invert"/>
+                    <ctl name="ADC_3 Mixer MIC3PGA_3 Switch" val="1" />
+                    <ctl name="AUD ADC1L Switch" val="1" />
+                    <ctl name="AUD ADC1R Switch" val="1" />
+                    <ctl name="Aux Mic2 Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="Aux Mic2 Function" val="0" />
+                    <ctl name="AUD ADC1L Switch" val="0" />
+                    <ctl name="AUD ADC1R Switch" val="0" />
+                    <ctl name="ADC_3 Mixer MIC3PGA_3 Switch" val="0" />
+                    <ctl name="ADC LRCLK Select" val="normal"/>
+                    <ctl name="ADC1 LRCLK Select" val="normal"/>
+                    <ctl name="DSP_AUX_MIC2_SEL" val="disable"/>
+                </off>
+            </AUXMIC>
+            <DULMIC>
+                <on>
+                    <ctl name="DSP_AUX_MIC2_SEL" val="enable"/>
+                    <ctl name="ADC LRCLK Select" val="invert"/>
+                    <ctl name="ADC1 LRCLK Select" val="invert"/>
+                    <ctl name="ADC_1 Mixer MIC1PGA_1 Switch" val="1"/>
+                    <ctl name="ADC_3 Mixer MIC3PGA_3 Switch" val="1" />
+                    <ctl name="AUD ADC0L Switch" val="1" />
+                    <ctl name="AUD ADC0R Switch" val="1" />
+                    <ctl name="AUD ADC1L Switch" val="1" />
+                    <ctl name="AUD ADC1R Switch" val="1" />
+                    <ctl name="Aux Mic2 Function" val="1" />
+                    <ctl name="Mic Function" val="1"/>
+                </on>
+                <off>
+                    <ctl name="ADC_1 Mixer MIC1PGA_1 Switch" val="0"/>
+                    <ctl name="ADC_3 Mixer MIC3PGA_3 Switch" val="0" />
+                    <ctl name="Aux Mic2 Function" val="0" />
+                    <ctl name="Mic Function" val="0"/>
+                    <ctl name="AUD ADC0L Switch" val="0" />
+                    <ctl name="AUD ADC0R Switch" val="0" />
+                    <ctl name="AUD ADC1L Switch" val="0" />
+                    <ctl name="AUD ADC1R Switch" val="0" />
+                    <ctl name="ADC LRCLK Select" val="normal"/>
+                    <ctl name="ADC1 LRCLK Select" val="normal"/>
+                    <ctl name="DSP_AUX_MIC2_SEL" val="disable"/>
+                </off>
+            </DULMIC>
+            <HEADMIC>
+                <on>
+                    <ctl name="ADC_1 Mixer HPMICPGA_1 Switch" val="1" />
+                    <ctl name="ADC_2 Mixer HPMICPGA_2 Switch" val="1" />
+                    <ctl name="HP Mic Function" val="1" />
+                    <ctl name="AUD ADC0L Switch" val="1" />
+                    <ctl name="AUD ADC0R Switch" val="1" />
+                </on>
+                <off>
+                    <ctl name="AUD ADC0L Switch" val="0" />
+                    <ctl name="AUD ADC0R Switch" val="0" />
+                    <ctl name="HP Mic Function" val="0" />
+                    <ctl name="ADC_1 Mixer HPMICPGA_1 Switch" val="0" />
+                    <ctl name="ADC_2 Mixer HPMICPGA_2 Switch" val="0" />
+                </off>
+            </HEADMIC>
+            <SPK>
+                <on>
+
+                    <ctl name="DAC LRCLK Select" val="invert"/>
+                    <ctl name="AO Mixer AOL Switch" val="1" />
+                    <ctl name="AO Mixer AOR Switch" val="1" />
+                    <ctl name="DA AOR Switch" val="1" />
+                    <ctl name="AOL EAR Sel" val="AOL" /> <!--do not add in off? or need not add this in on? -->
+                    <ctl name="Speaker Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="Speaker Function" val="0" />
+                    <ctl name="AOL EAR Sel" val="EAR"/>
+                    <ctl name="DA AOR Switch" val="0" />
+                    <ctl name="AO Mixer AOL Switch" val="0" />
+                    <ctl name="AO Mixer AOR Switch" val="0" />
+                    <ctl name="DAC LRCLK Select" val="normal"/>
+                </off>
+            </SPK>
+            <HPLR>
+                <on>
+                    <!-- "only use hp path" is not selected -->
+                    <ctl name="HP mix mode" val="0" />
+                    <ctl name="DAC LRCLK Select" val="invert"/>
+                    <ctl name="HPL Mixer DACLHPL Switch" val="1" />
+                    <ctl name="HPR Mixer DACRHPR Switch" val="1" />
+                    <ctl name="HPL EAR Sel" val="HPL" />
+                    <!-- the default value is 0 (is "only using HP path") , only need set to 1 when in "de-pop" -->
+                    <!--ctl name="DALDO BYPASS" val="0" /-->
+                    <!-- 0(normal) in default -->
+                    <!--ctl name="DAHP OS INV" val="normal" /-->
+                    <!-- set to 7 in "de-pop" , set to 0 in "only using HP path", 0 is default -->
+                    <!--ctl name="DAHP OS D" val="0" /-->
+
+                    <ctl name="HP Virt Switch" val="1" />
+                    <ctl name="HeadPhone Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="DAC LRCLK Select" val="normal"/>
+                    <ctl name="HeadPhone Function" val="0" />
+                    <ctl name="HP Virt Switch" val="0" />
+                    <ctl name="HPL Mixer DACLHPL Switch" val="0" />
+                    <ctl name="HPR Mixer DACRHPR Switch" val="0" />
+                    <!--ctl name="DALDO BYPASS" val="0" /-->
+                    <!-- needn't call this in PMD -->
+                    <!--ctl name="DAHP OS D" val="0" /-->
+                    <ctl name="HPL EAR Sel" val="EAR" />
+                    <ctl name="HP mix mode" val="1" />
+                </off>
+            </HPLR>
+            <HPL>
+                <on>
+                    <!-- "only use hp path" is not selected -->
+                    <ctl name="HP mix mode" val="0" />
+                    <ctl name="DAC LRCLK Select" val="invert"/>
+                    <ctl name="HPL Mixer DACLHPL Switch" val="1" />
+                    <ctl name="HPR Mixer DACRHPR Switch" val="1" />
+                    <ctl name="HPL EAR Sel" val="HPL" />
+                    <!-- the default value is 0 (is "only using HP path") , only need set to 1 when in "de-pop" -->
+                    <!--ctl name="DALDO BYPASS" val="0" /-->
+                    <!-- 0(normal) in default -->
+                    <!--ctl name="DAHP OS INV" val="normal" /-->
+                    <!-- set to 7 in "de-pop" , set to 0 in "only using HP path", 0 is default -->
+                    <!--ctl name="DAHP OS D" val="0" /-->
+
+                    <ctl name="HP Virt Switch" val="1" />
+                    <ctl name="HeadPhone Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="DAC LRCLK Select" val="normal"/>
+                    <ctl name="HeadPhone Function" val="0" />
+                    <ctl name="HP Virt Switch" val="0" />
+                    <ctl name="HPL Mixer DACLHPL Switch" val="0" />
+                    <ctl name="HPR Mixer DACRHPR Switch" val="0" />
+                    <!--ctl name="DALDO BYPASS" val="0" /-->
+                    <!-- needn't call this in PMD -->
+                    <!--ctl name="DAHP OS D" val="0" /-->
+                    <ctl name="HPL EAR Sel" val="EAR" />
+                    <ctl name="HP mix mode" val="1" />
+                </off>
+            </HPL>
+            <HPR>
+                <on>
+                    <!-- "only use hp path" is not selected -->
+                    <ctl name="HP mix mode" val="0" />
+                    <ctl name="DAC LRCLK Select" val="invert"/>
+                    <ctl name="HPL Mixer DACLHPL Switch" val="1" />
+                    <ctl name="HPR Mixer DACRHPR Switch" val="1" />
+                    <ctl name="HPL EAR Sel" val="HPL" />
+                    <!-- the default value is 0 (is "only using HP path") , only need set to 1 when in "de-pop" -->
+                    <!--ctl name="DALDO BYPASS" val="0" /-->
+                    <!-- 0(normal) in default -->
+                    <!--ctl name="DAHP OS INV" val="normal" /-->
+                    <!-- set to 7 in "de-pop" , set to 0 in "only using HP path", 0 is default -->
+                    <!--ctl name="DAHP OS D" val="0" /-->
+
+                    <ctl name="HP Virt Switch" val="1" />
+                    <ctl name="HeadPhone Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="DAC LRCLK Select" val="normal"/>
+                    <ctl name="HeadPhone Function" val="0" />
+                    <ctl name="HP Virt Switch" val="0" />
+                    <ctl name="HPL Mixer DACLHPL Switch" val="0" />
+                    <ctl name="HPR Mixer DACRHPR Switch" val="0" />
+                    <!--ctl name="DALDO BYPASS" val="0" /-->
+                    <!-- needn't call this in PMD -->
+                    <!--ctl name="DAHP OS D" val="0" /-->
+                    <ctl name="HPL EAR Sel" val="EAR" />
+                    <ctl name="HP mix mode" val="1" />
+                </off>
+            </HPR>
+            <RCV>
+                <on>
+                     <!--ctl name="DAHP OS INV" val="normal" /-->
+                     <ctl name="DAHP OS D" val="5" />
+
+                     <ctl name="EAR_HPL Mixer DACHPL Switch" val="1" />
+                     <ctl name="HPL EAR Sel" val="EAR" />
+
+                     <!-- dac aol path -->
+                     <!--ctl name="AO Mixer AOL Switch" val="1"/>
+                     <ctl name="DAAOL BUF DCCAL" val="NOT_CAL"/>
+                     <ctl name="EAR_AOL Mixer DACAOL Switch" val="1"/>
+                     <ctl name="AOL EAR Sel" val="EAR"/-->
+
+                     <!-- all -->
+                     <!--ctl name="RCV POP RAMP" val="1" /backup for pop-->
+                     <!--ctl name="DALDO BYPASS" val="0" /-->
+                     <ctl name="VBC_MIXER1_DAC0" val="HALF_ADD" />
+                     <ctl name="Earpiece Function" val="1"/>
+                </on>
+                <off>
+                     <ctl name="EAR_HPL Mixer DACHPL Switch" val="0" />
+                     <ctl name="HPL EAR Sel" val="HPL" />
+
+                     <!--ctl name="AOL EAR Sel" val="AOL"/>
+                     <ctl name="EAR_AOL Mixer DACAOL Switch" val="0"/-->
+
+                     <ctl name="Earpiece Function" val="0"/>
+                     <ctl name="VBC_MIXER1_DAC0" val="NOT_MIX" />
+                </off>
+            </RCV>
+            <BTSCOOUT>
+                <on>
+                    <ctl name="SYS_IIS0" val="vbc_iis3"/>
+                </on>
+                <off>
+                    <ctl name="VBC_SRC_BT_ADC" val="48000"/>
+                    <ctl name="VBC_SRC_BT_DAC" val="48000"/>
+                </off>
+            </BTSCOOUT>
+            <BTSCOIN>
+                <on>
+                    <ctl name="SYS_IIS0" val="vbc_iis3"/>
+                </on>
+                <off>
+                    <ctl name="VBC_SRC_BT_ADC" val="48000"/>
+                    <ctl name="VBC_SRC_BT_DAC" val="48000"/>
+                </off>
+            </BTSCOIN>
+            <USBIN>
+                <on />
+                <off />
+            </USBIN>
+            <USBOUT>
+                <on />
+                <off />
+            </USBOUT>
+        </audio_hw>
+        <kcontrol>
+            <adcl_capture_volume ctl="ADCL Gain ADCL Capture Volume" audiohw="MAINMIC|DULMIC|HEADMIC" />
+            <adcr_capture_volume ctl="ADCR Gain ADCR Capture Volume" audiohw="AUXMIC|DULMIC|HEADMIC" />
+            <spkl_playback_volume ctl="SPKL Gain SPKL Playback Volume" audiohw="SPK" />
+            <hpl_playback_volume ctl="HPL Gain HPL Playback Volume" audiohw="HPLR|HPL" />
+            <hpr_playback_volume ctl="HPR Gain HPR Playback Volume" audiohw="HPLR|HPR" />
+            <ear_playback_volume ctl="EAR Gain EAR Playback Volume" audiohw="RCV" />
+            <iner_pa_config ctl="Inter PA Config" audiohw="SPK" />
+            <dacl_playback_volume ctl="DAC Gain DAC Playback Volume" audiohw="HPLR|HPL|RCV|SPK" />
+            <UCP130X_1_AGC_EN ctl="UCP1301 AGC Enable" audiohw="SPK" />
+            <UCP130X_1_Mode ctl="UCP1301 Class Mode" audiohw="SPK" />
+            <UCP130X_1_PGA_Gain ctl="UCP1301 AGC Gain" audiohw="SPK" />
+            <UCP130X_1_Class_D_F ctl="UCP1301 CLSD Trim" audiohw="SPK" />
+            <UCP130X_1_RL ctl="UCP1301 R Load" audiohw="SPK" />
+            <UCP130X_1_Power_Limit_P2 ctl="UCP1301 Power Limit P2" audiohw="SPK" />
+            <VBC_ADC0_DG ctl="VBC ADC0 DG Set" count="2" />
+            <VBC_ADC1_DG ctl="VBC ADC1 DG Set" count="2" />
+            <VBC_ADC2_DG ctl="VBC ADC2 DG Set" count="2" />
+            <VBC_ADC3_DG ctl="VBC ADC3 DG Set" count="2" />
+            <VBC_DAC0_DG ctl="VBC DAC0 DG Set" count="2" />
+            <VBC_DAC1_DG ctl="VBC DAC1 DG Set" count="2" />
+            <VBC_ST_DG ctl="VBC ST DG Set" count="2" />
+            <VBC_FM_DG ctl="VBC FM DG Set" count="2" />
+        </kcontrol>
+        <mdg-kcontrol>
+            <dsp_da0_mdg_mute ctl="VBC DAC0 DSP MDG Set" step="128" pcm_device="4,15" />
+            <dsp_da1_mdg_mute ctl="VBC DAC1 DSP MDG Set" step="4" pcm_device="5,6,8,10" />
+            <dsp_da0_mdg_mute ctl="VBC DAC0 AUD MDG Set" step="128" pcm_device="0,3" />
+            <dsp_da1_mdg_mute ctl="VBC DAC0 AUD23 MDG Set" step="128" pcm_device="1" />
+        </mdg-kcontrol>
+        <private_kcontrol>
+            <digital_codec_power ctl="Virt Output Switch" />
+            <dsp_volume ctl="VBC_VOLUME" />
+            <vbc_ul_mute ctl="VBC_UL_MUTE" />
+            <vbc_dl_mute ctl="VBC_DL_MUTE" />
+            <vbc_src_bt_dac ctl="VBC_SRC_BT_DAC" />
+            <vbc_src_bt_adc ctl="VBC_SRC_BT_ADC" />
+            <codec_infor ctl="Aud Codec Info" />
+            <offload_dg ctl="OFFLOAD DG Set" />
+            <agdsp_access_en ctl="agdsp_access_en" />
+            <Codec_Digital_Access_Disable ctl="Codec Digital Access Disable" />
+            <vbc_iis_master ctl="VBC IIS Master Setting" />
+        </private_kcontrol>
+    </primary_card>
+    <audioparam>
+        <sprd path="/etc/audio/audio_param" />
+        <vendor01 path="/vendor/etc/audio_params/01" />
+    </audioparam>
+    <microphone_characteristics>
+        <microphone
+            device_id="MainMic"
+            type="0x80000004"
+            address=""
+            location="1"
+            group="0"
+            index_in_the_group="0"
+            directionality="1"
+            num_frequency_responses="18"
+            frequencies="200,400,600,800,1000,1200,1500,1800,2000,3000,4000,8000,10000,120000,140000,160000,180000,200000"
+            responses="0.1,0.3,0.5,0.8,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.8,0.6,0.6,0.4,0.4"
+            sensitivity="0.0"
+            max_spl="1.0"
+            min_spl="0.0"
+            orientation="0.0,0.0,0.0"
+            geometric_location="0.0,0.0,0.0"/>
+        <microphone
+            device_id="AuxMic"
+            type="0x80000080"
+            address=""
+            location="1"
+            group="0"
+            index_in_the_group="0"
+            directionality="1"
+            num_frequency_responses="18"
+            frequencies="200,400,600,800,1000,1200,1500,1800,2000,3000,4000,8000,10000,120000,140000,160000,180000,200000"
+            responses="0.1,0.3,0.5,0.8,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.8,0.6,0.6,0.4,0.4"
+            sensitivity="0.0"
+            max_spl="1.0"
+            min_spl="0.0"
+            orientation="0.0,0.0,0.0"
+            geometric_location="0.0,0.0,0.0"/>
+        <microphone
+            device_id="wiredheadset"
+            type="0x80000010"
+            address=""
+            location="1"
+            group="0"
+            index_in_the_group="0"
+            directionality="1"
+            num_frequency_responses="18"
+            frequencies="200,400,600,800,1000,1200,1500,1800,2000,3000,4000,8000,10000,120000,140000,160000,180000,200000"
+            responses="0.1,0.3,0.5,0.8,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.8,0.6,0.6,0.4,0.4"
+            sensitivity="0.0"
+            max_spl="1.0"
+            min_spl="0.0"
+            orientation="0.0,0.0,0.0"
+            geometric_location="0.0,0.0,0.0"/>
+        <microphone
+            device_id="btscoheadset"
+            type="0x80000008"
+            address="btscoheadset"
+            location="1"
+            group="0"
+            index_in_the_group="0"
+            directionality="1"
+            num_frequency_responses="12"
+            frequencies="200,400,600,800,1000,1200,1500,1800,2000,3000,4000,8000"
+            responses="0.1,0.3,0.5,0.8,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0"
+            sensitivity="0.0"
+            max_spl="1.0"
+            min_spl="0.0"
+            orientation="0.0,0.0,0.0"
+            geometric_location="0.0,0.0,0.0"/>
+        <microphone
+            device_id="btscoheadset"
+            type="0x80000040"
+            address="btscoheadset"
+            location="1"
+            group="0"
+            index_in_the_group="0"
+            directionality="1"
+            num_frequency_responses="12"
+            frequencies="200,400,600,800,1000,1200,1500,1800,2000,3000,4000,8000"
+            responses="0.1,0.3,0.5,0.8,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0"
+            sensitivity="0.0"
+            max_spl="1.0"
+            min_spl="0.0"
+            orientation="0.0,0.0,0.0"
+            geometric_location="0.0,0.0,0.0"/>
+    </microphone_characteristics>
+</audio_config>

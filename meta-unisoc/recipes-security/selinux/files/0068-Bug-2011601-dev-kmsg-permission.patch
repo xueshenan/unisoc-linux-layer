@@ -1,0 +1,163 @@
+From b7f016e1365bc6064af6abfb0774e9372feb779e Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Wed, 12 Oct 2022 16:58:29 +0800
+Subject: [PATCH] Bug #2011601 dev/kmsg-permission
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/roles/sysadm.if    |  2 +-
+ policy/modules/system/clock.if    |  7 +++++++
+ policy/modules/system/clock.te    |  2 ++
+ policy/modules/system/hostname.if |  9 +++++++++
+ policy/modules/system/hostname.te |  3 +++
+ policy/modules/system/mount.if    | 16 ++++++++++------
+ policy/modules/system/mount.te    |  3 ++-
+ 7 files changed, 34 insertions(+), 8 deletions(-)
+
+diff --git a/policy/modules/roles/sysadm.if b/policy/modules/roles/sysadm.if
+index 0c76bad76..17ad6609f 100644
+--- a/policy/modules/roles/sysadm.if
++++ b/policy/modules/roles/sysadm.if
+@@ -363,7 +363,7 @@ interface(`sysadm_kmsg_device_t_chr_file',`
+         type kmsg_device_t;
+     ')
+ 
+-    allow $1 kmsg_device_t:chr_file {write open read ioctl map};
++    allow $1 kmsg_device_t:chr_file {write open read ioctl map append};
+ ')
+ 
+ interface(`sysadm_random_device_t_chr_file',`
+diff --git a/policy/modules/system/clock.if b/policy/modules/system/clock.if
+index 69f12c0fc..388cf9424 100644
+--- a/policy/modules/system/clock.if
++++ b/policy/modules/system/clock.if
+@@ -150,3 +150,10 @@ interface(`hwclock_device_t_chr_file',`
+     allow $1 device_t:chr_file {read append write create open ioctl map};
+ ')
+ 
++interface(`hwclock_kmsg_device_t_chr_file',`
++    gen_require(`
++       type kmsg_device_t;
++    ')
++    allow $1 kmsg_device_t:chr_file {read append write create open ioctl map};
++')
++
+diff --git a/policy/modules/system/clock.te b/policy/modules/system/clock.te
+index f3dc1f890..deb9319a3 100644
+--- a/policy/modules/system/clock.te
++++ b/policy/modules/system/clock.te
+@@ -80,8 +80,10 @@ optional_policy(`
+ 	userdom_allow_use_unpriv_user_fds(hwclock_t)
+ ')
+ 
++####Unisoc######
+ hwclock_device_t_file(hwclock_t)
+ hwclock_etc_t_file(hwclock_t)
+ hwclock_etc_t_dir(hwclock_t)
+ hwclock_device_t_chr_file(hwclock_t)
++hwclock_kmsg_device_t_chr_file(hwclock_t)
+ 
+diff --git a/policy/modules/system/hostname.if b/policy/modules/system/hostname.if
+index d79544d2d..2a8c33e63 100644
+--- a/policy/modules/system/hostname.if
++++ b/policy/modules/system/hostname.if
+@@ -64,6 +64,7 @@ interface(`hostname_exec',`
+ 	can_exec($1, hostname_exec_t)
+ ')
+ 
++#######unisoc########
+ interface(`hostname_device_t_file',`
+     gen_require(`
+ 		type device_t;
+@@ -72,3 +73,11 @@ interface(`hostname_device_t_file',`
+     allow $1 device_t:file {read append write open ioctl map create getattr};
+ ')
+ 
++interface(`hostname_kmsg_device_t_chr_file',`
++    gen_require(`
++        type kmsg_device_t;
++    ')
++
++    allow $1 kmsg_device_t:chr_file {read append write open ioctl map create getattr};
++')
++
+diff --git a/policy/modules/system/hostname.te b/policy/modules/system/hostname.te
+index 1348fa282..934af6f92 100644
+--- a/policy/modules/system/hostname.te
++++ b/policy/modules/system/hostname.te
+@@ -71,5 +71,8 @@ optional_policy(`
+ 	unconfined_allow_rw_pipes(hostname_t)
+ ')
+ 
++####unisoc######
+ hostname_device_t_file(hostname_t)
++hostname_kmsg_device_t_chr_file(hostname_t)
++
+ 
+diff --git a/policy/modules/system/mount.if b/policy/modules/system/mount.if
+index 60132ce58..b5df3bd38 100644
+--- a/policy/modules/system/mount.if
++++ b/policy/modules/system/mount.if
+@@ -293,7 +293,6 @@ interface(`mount_unlabeled_t_filesystem',`
+     allow $1 unlabeled_t:filesystem { unmount remount};
+ ')
+ 
+-##### unisoc permission #####
+ interface(`mount_initrc_t_netlink_kobject_uevent_socket',`
+         gen_require(`
+                 type initrc_t;
+@@ -302,14 +301,19 @@ interface(`mount_initrc_t_netlink_kobject_uevent_socket',`
+         allow $1 initrc_t:netlink_kobject_uevent_socket { create_socket_perms };
+ ')
+ 
+-
+-
+-
+-##### Bug 1804011###################3
+ interface(`mount_initrc_t_unix_stream_socket',`
+ 	gen_require(`
+ 		type initrc_t;
+ 	')
+ 		 
+ 	allow $1 initrc_t:unix_stream_socket { read write };
+-')
+\ No newline at end of file
++')
++
++interface(`mount_kmsg_device_t_chr_file',`
++    gen_require(`
++        type kmsg_device_t;
++    ')
++
++    allow $1 kmsg_device_t:chr_file {getattr read open ioctl write append create map};
++')
++
+diff --git a/policy/modules/system/mount.te b/policy/modules/system/mount.te
+index 0f32298d7..41c3015bf 100644
+--- a/policy/modules/system/mount.te
++++ b/policy/modules/system/mount.te
+@@ -241,6 +241,7 @@ mount_etc_t_dir(mount_t)
+ mount_configfs_t_dir(mount_t)
+ mount_tmpfs_t_dir(mount_t)
+ mount_unlabeled_t_filesystem(mount_t)
+-
+ mount_initrc_t_netlink_kobject_uevent_socket(mount_t)
+ mount_initrc_t_unix_stream_socket(mount_t)
++mount_kmsg_device_t_chr_file(mount_t)
++
+-- 
+2.17.1
+

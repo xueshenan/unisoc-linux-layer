@@ -1,0 +1,44 @@
+diff --git a/src/extra/libs/lv_libs.h b/src/extra/libs/lv_libs.h
+new file mode 100755
+index 00000000..d5852d64
+--- /dev/null
++++ b/src/extra/libs/lv_libs.h
+@@ -0,0 +1,38 @@
++/**
++ * @file lv_libs.h
++ *
++ */
++
++#ifndef LV_LIBS_H
++#define LV_LIBS_H
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/*********************
++ *      INCLUDES
++ *********************/
++#include "freetype/lv_freetype.h"
++
++/*********************
++ *      DEFINES
++ *********************/
++
++/**********************
++ *      TYPEDEFS
++ **********************/
++
++/**********************
++ * GLOBAL PROTOTYPES
++ **********************/
++
++/**********************
++ *      MACROS
++ **********************/
++
++#ifdef __cplusplus
++} /*extern "C"*/
++#endif
++
++#endif /*LV_LIBS_H*/

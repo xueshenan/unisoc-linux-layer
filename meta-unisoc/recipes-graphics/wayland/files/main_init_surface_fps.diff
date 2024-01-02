@@ -1,0 +1,16 @@
+diff --git a/compositor/main.c b/compositor/main.c
+index f8a60e9..f96fa1b 100644
+--- a/compositor/main.c
++++ b/compositor/main.c
+@@ -1879,6 +1879,11 @@ int main(int argc, char *argv[])
+ 				       &require_input, true);
+ 	ec->require_input = require_input;
+ 
++	weston_config_section_get_bool(section, "surface-fps",
++				       &ec->surface_fps, false);
++	if (ec->surface_fps)
++		weston_log("using surface fps\n");
++
+ 	if (load_backend(ec, backend, &argc, argv, config) < 0) {
+ 		weston_log("fatal: failed to create compositor backend\n");
+ 		goto out;

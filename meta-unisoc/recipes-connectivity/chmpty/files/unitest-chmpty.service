@@ -1,0 +1,12 @@
+[Unit]
+Description=chmpty test-demo app
+After=channelmanager.service
+
+
+[Service]
+ExecStart=/usr/bin/unitest-chmpty
+Restart=always
+
+
+[Install]
+WantedBy=multi-user.target

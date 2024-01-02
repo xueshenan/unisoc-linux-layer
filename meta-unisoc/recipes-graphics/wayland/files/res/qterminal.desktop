@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=qterminal
+Exec=/etc/init.d/qterminal-init
+Icon=/usr/share/icons/icon_terminal.png
+Type=Application
+Terminal=false
+Categories=System;
+X-Desktop-File-Install-Version=0.2

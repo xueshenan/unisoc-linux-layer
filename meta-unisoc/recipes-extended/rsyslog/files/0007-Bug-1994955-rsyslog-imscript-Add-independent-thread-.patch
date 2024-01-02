@@ -1,0 +1,160 @@
+From afeff4ae6dd7f55163018e835592be3a551c6d74 Mon Sep 17 00:00:00 2001
+From: "etham.li" <etham.li@unisoc.com>
+Date: Fri, 26 Aug 2022 09:12:43 +0800
+Subject: [PATCH] Bug #1994955 - [rsyslog][imscript] Add independent thread for
+ multiple scripts
+
+[root cause  ]:Add independent thread for multiple scripts
+[changes     ]:Add independent thread for multiple scripts
+[side effects]:no
+[self test   ]:build pass
+[download normally]:yes
+[power on/off normally]:yes
+[do common repository/branch inspection]:no
+[is there dependence]:no
+[confirm dependent commit]:no
+[board]:glp2.0
+[test case]:build pass
+[reviewers]:zhenghai.yang
+
+commit_template_version:v1
+---
+ plugins/imscript/imscript.c | 52 ++++++++++++++++++++++++++-----------
+ 1 file changed, 37 insertions(+), 15 deletions(-)
+
+diff --git a/plugins/imscript/imscript.c b/plugins/imscript/imscript.c
+index 53b291c..6f2aa1c 100755
+--- a/plugins/imscript/imscript.c
++++ b/plugins/imscript/imscript.c
+@@ -15,6 +15,8 @@
+ #include <sys/types.h>
+ #include <sys/wait.h>
+ #include <sys/types.h>
++#include <pthread.h>
++#include <errno.h>
+ 
+ #include "rsyslog.h"
+ #include "dirty.h"
+@@ -90,20 +92,20 @@ static struct cnfparamblk inppblk =
+ /************************************************************/
+ static int ecode_check(pid_t status) {
+   if (-1 == status) {
+-    DBGPRINTF("system error!");
++    DBGPRINTF("imscript: system error!\n");
+     return -1;
+   } else {
+-    DBGPRINTF("exit status value = [0x%x]\n", status);
++    DBGPRINTF("imscript: exit status value = [0x%x]\n", status);
+     if (WIFEXITED(status)) {
+       if (0 == WEXITSTATUS(status)) {
+-        DBGPRINTF("run shell script successfully.\n");
++        DBGPRINTF("imscript: run shell script successfully.\n");
+       } else {
+-        DBGPRINTF("run shell script fail, script exit code: %d\n", WEXITSTATUS(
++        DBGPRINTF("imscript: run shell script fail, script exit code: %d\n", WEXITSTATUS(
+             status));
+         return -1;
+       }
+     } else {
+-      DBGPRINTF("exit status = [%d]\n", WEXITSTATUS(status));
++      DBGPRINTF("imscript: exit status = [%d]\n", WEXITSTATUS(status));
+       return -1;
+     }
+   }
+@@ -111,6 +113,7 @@ static int ecode_check(pid_t status) {
+ }
+ 
+ static int exec_cmd(const char * cmd_fmt, ...) {
++  DBGPRINTF("imscript: enter exec_cmd\n");
+   char cmd[128];
+   va_list va;
+   int ecode;
+@@ -120,10 +123,23 @@ static int exec_cmd(const char * cmd_fmt, ...) {
+   va_end(va);
+ 
+   ecode = system(cmd);
+-  DBGPRINTF("%s exit with %d\n", cmd, ecode);
++  DBGPRINTF("imscript: %s exit with %d\n", cmd, ecode);
++  DBGPRINTF("imscript: exit exec_cmd\n");
+   return ecode_check(ecode);
+ }
+ 
++void* ExecCmdThreadFunc(void* params) {
++  char * getcmd = (char*)(params);
++  char tmpcmd[128];
++  int ret = 0;
++  memset(tmpcmd, 0, sizeof(tmpcmd));
++  strncpy(tmpcmd, getcmd, strlen(getcmd)+1);
++
++  DBGPRINTF("imscript: %s will exec\n", tmpcmd);
++  ret = exec_cmd(tmpcmd);
++  DBGPRINTF("imscript: exit ExecCmdThreadFunc\n");
++}
++
+ /* create input instance, set default parameters, and
+  * add it to the list of instances.
+  */
+@@ -150,22 +166,27 @@ finalize_it:
+ 	RETiRet;
+ }
+ 
+-/* enqueue the the /dev/kmsg message into the main message-queue.*/
+ static rsRetVal
+ RunScript(instanceConf_t *inst)
+ {
+ 	DBGPRINTF("imscript: emter RunScript\n");
+-	char cmd[128];
+-	int ret;
++	static char cmd[128];
+ 	DEFiRet;
+ 	assert(msg != NULL);
+ 	assert(inst->pszFile != NULL);
+ 	assert(inst->pszLogName != NULL);
+-	DBGPRINTF("imscript: input scriptfile = %s", inst->pszFile);
+-	DBGPRINTF("imscript: input scriptlogname = %s", inst->pszLogName);
++	DBGPRINTF("imscript: input scriptfile = %s\n", inst->pszFile);
++	DBGPRINTF("imscript: input scriptlogname = %s\n", inst->pszLogName);
+ 	snprintf(cmd, sizeof(cmd), "%s %s", inst->pszFile, inst->pszLogName);
+-	ret = exec_cmd(cmd);
+-	DBGPRINTF("imscript: input scriptfile exec = %d", ret);
++	pthread_t tid;
++	pthread_attr_t attr;
++	pthread_attr_init(&attr);
++	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
++	if (0 != pthread_create(&tid, NULL, ExecCmdThreadFunc, (void*)(cmd))) {
++      DBGPRINTF("imscript: ExecCmdThreadFunc create failed, error: %s\n", strerror(errno));
++	}
++	pthread_attr_destroy(&attr);
++	DBGPRINTF("imscript: exit RunScript\n");
+ finalize_it:
+ 	RETiRet;
+ }
+@@ -180,7 +201,7 @@ BEGINnewInpInst
+ CODESTARTnewInpInst
+ 	pvals = nvlstGetParams(lst, &inppblk, NULL);
+ 	if(pvals == NULL) {
+-		DBGPRINTF("imscript: error processing input config parameters [input(...)]");
++		DBGPRINTF("imscript: error processing input config parameters [input(...)]\n");
+ 		ABORT_FINALIZE(RS_RET_MISSING_CNFPARAMS);
+ 	}
+ 
+@@ -241,7 +262,7 @@ ENDendCnfLoad
+ BEGINcheckCnf
+ CODESTARTcheckCnf
+ 	if(pModConf->root == NULL) {
+-		DBGPRINTF("imscript: no files configured to be monitored no input will be gathered");
++		DBGPRINTF("imscript: no files configured to be monitored no input will be gathered\n");
+ 		iRet = RS_RET_NO_LISTNERS;
+ 	}
+ ENDcheckCnf
+@@ -278,6 +299,7 @@ CODESTARTrunInput
+ 		RunScript(inst); //run scripts
+ 		sleep(1);
+ 	}
++	DBGPRINTF("imscript: exit all RunScript\n");
+ finalize_it:
+ ENDrunInput
+ 
+-- 
+2.17.1
+

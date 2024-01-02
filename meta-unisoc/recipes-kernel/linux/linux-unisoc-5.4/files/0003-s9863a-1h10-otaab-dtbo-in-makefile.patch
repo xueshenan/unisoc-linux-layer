@@ -1,0 +1,27 @@
+diff --git a/arch/arm64/boot/dts/sprd/Makefile b/arch/arm64/boot/dts/sprd/Makefile
+index 1e6fe5296bd0..75b0f0d8ec36 100644
+--- a/arch/arm64/boot/dts/sprd/Makefile
++++ b/arch/arm64/boot/dts/sprd/Makefile
+@@ -7,12 +7,14 @@ ifeq ($(BSP_BUILD_ANDROID_OS),y)
+ ifeq ($(BSP_BUILD_FAMILY),sharkl3)
+ dtbo-$(CONFIG_ARCH_SPRD) += \
+     sp9863a-1h10-overlay.dtbo \
++    sp9863a-1h10-otaab-overlay.dtbo \
+     sp9863a-1h10_go-overlay.dtbo \
+     sp9863a-14c10_go-overlay.dtbo
+ 
+ sp9863a-1h10-overlay.dtbo-base := sp9863a.dtb
+ sp9863a-1h10_go-overlay.dtbo-base := sp9863a.dtb
+ sp9863a-14c10_go-overlay.dtbo-base := sp9863a.dtb
++sp9863a-1h10-otaab-overlay.dtbo-base := sp9863a.dtb
+ endif
+ 
+ ifeq ($(BSP_BUILD_FAMILY),sharkl5Pro)
+@@ -72,6 +74,7 @@ dtb-$(CONFIG_ARCH_SPRD) += \
+ 
+ dtbo-$(CONFIG_ARCH_SPRD) += \
+ 	sp9863a-1h10-overlay.dtbo \
++	sp9863a-1h10-otaab-overlay.dtbo \
+ 	sp9863a-1h10_go-overlay.dtbo \
+ 	sp9863a-14c10_go-overlay.dtbo \
+ 	ums512-1h10-overlay.dtbo \

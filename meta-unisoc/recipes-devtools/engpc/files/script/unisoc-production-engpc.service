@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2021 Unisoc (Shanghai) Technologies Co., Ltd.
+#
+# SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
+
+[Unit]
+Description=Engpc Service
+
+[Service]
+ExecStart=/usr/bin/engpc
+ExecStartPre=/bin/mkdir -p /var/log/englog
+
+[Install]
+WantedBy=multi-user.target
+Alias=unisoc-production-engpc.service

@@ -1,0 +1,45 @@
+From 4e55767cab0383abc262bb973d333b26ba2bf378 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Mon, 10 Oct 2022 23:59:52 +0800
+Subject: [PATCH] Bug #2011601-transplant-1.0-refpolicy-3
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/services/dbus.if | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/policy/modules/services/dbus.if b/policy/modules/services/dbus.if
+index 8ad811ef0..d8648bb07 100644
+--- a/policy/modules/services/dbus.if
++++ b/policy/modules/services/dbus.if
+@@ -595,6 +595,14 @@ interface(`dbus_unconfined',`
+ ')
+ 
+ ##### unisoc permission #####
++interface(`domain_etc_t_map',`
++    gen_require(`
++        type etc_t;
++   ')
++
++    allow $1 etc_t:file { map };
++')
++
+ interface(`dbus_unlabeled_t_lnk_file',`
+         gen_require(`
+                 type unlabeled_t;
+-- 
+2.17.1
+

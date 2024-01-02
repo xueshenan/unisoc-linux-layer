@@ -1,0 +1,35 @@
+diff --git a/libweston/compositor.h b/libweston/compositor.h
+index 769203a..f742bac 100644
+--- a/libweston/compositor.h
++++ b/libweston/compositor.h
+@@ -944,13 +944,17 @@ struct weston_compositor {
+ 	/* Whether to let the compositor run without any input device. */
+ 	bool require_input;
+
++ struct weston_log_scope *debug_fps;
++ bool surface_fps;
++
++
+ };
+
+ struct weston_buffer {
+ 	struct wl_resource *resource;
+ 	struct wl_signal destroy_signal;
+ 	struct wl_listener destroy_listener;
+-
++
+ 	union {
+ 		struct wl_shm_buffer *shm_buffer;
+ 		void *legacy_buffer;
+@@ -1263,6 +1267,11 @@ struct weston_surface {
+
+ 	/* An list of per seat pointer constraints. */
+ 	struct wl_list pointer_constraints;
++
++ struct wl_listener surface_committed;
++ struct wl_event_source *surface_fps_timer_source;
++ uint32_t frame_count;
++
+ };
+
+ struct weston_subsurface {

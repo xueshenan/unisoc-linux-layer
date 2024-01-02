@@ -1,0 +1,212 @@
+From b02dc0b074c25c3bb4d8c98cfb0af4b0c4bc67dc Mon Sep 17 00:00:00 2001
+From: fujia <fujia@bingtangtech.com>
+Date: Tue, 1 Aug 2023 18:38:59 +0800
+Subject: [PATCH] add lcm dts
+
+---
+ arch/arm/dts/lcd/lcd_rm67295_mipi_hd.dtsi | 161 ++++++++++++++++++++++
+ arch/arm/dts/ums9620_2h10.dts             |   9 +-
+ 2 files changed, 163 insertions(+), 7 deletions(-)
+ create mode 100755 arch/arm/dts/lcd/lcd_rm67295_mipi_hd.dtsi
+
+diff --git a/arch/arm/dts/lcd/lcd_rm67295_mipi_hd.dtsi b/arch/arm/dts/lcd/lcd_rm67295_mipi_hd.dtsi
+new file mode 100755
+index 0000000..2a4ad05
+--- /dev/null
++++ b/arch/arm/dts/lcd/lcd_rm67295_mipi_hd.dtsi
+@@ -0,0 +1,161 @@
++/ { lcds {
++	lcd_rm67295_edo_mipi_fhd: lcd_rm67295_edo_mipi_fhd {
++
++		sprd,dsi-work-mode = <1>; 
++		sprd,dsi-lane-number = <4>;
++		sprd,dsi-color-format = "rgb888";
++		sprd,phy-bit-clock = <500000>;  /* kbps */
++		sprd,phy-escape-clock = <20000>;/* kHz */
++	
++		sprd,video-lp-cmd-enable = <1>;
++		sprd,hporch-lp-disable = <1>;
++		
++		/*----Id register ----*/
++		sprd,lcd-id-register = [04];
++		sprd,lcd-id-value-len = <1>;
++		sprd,lcd-id-value = [00 80 00];
++		sprd,lcd-id-tokernel = <0x67295>;
++		
++		sprd,reset-on-sequence = <1 5>, <0 5>, <1 20>;
++		sprd,reset-off-sequence = <0 5>;
++		
++		sprd,use-dcs-write;
++		
++		sprd,initial-command = [
++			23 00 00 02 FE 04
++			23 00 00 02 01 08
++			23 00 00 02 0e 10
++			23 00 00 02 0A E6 
++			23 00 00 02 0B 8C 
++			23 00 00 02 0D A0
++			23 00 00 02 0F 40
++			23 00 00 02 16 19
++			23 00 00 02 29 93
++			23 00 00 02 2A 93
++			23 00 00 02 2F 02
++			23 00 00 02 31 02
++			23 00 00 02 33 05
++			23 00 00 02 37 2F 
++			23 00 00 02 38 2F 
++			23 00 00 02 3A 1E 
++			23 00 00 02 3B 1E 
++			23 00 00 02 3D 1D 
++			23 00 00 02 3F 80
++			23 00 00 02 40 48
++			23 00 00 02 41 E0 
++			23 00 00 02 4F 2F 
++			23 00 00 02 50 1e
++			23 00 00 02 51 0A 
++			23 00 00 02 E2 00
++			23 00 00 02 FE 07
++			23 00 00 02 03 40
++			23 00 00 02 05 00
++			23 00 00 02 07 1E 
++			23 00 00 02 5B 85
++			23 00 00 02 FE 06
++			23 00 00 02 00 EC 
++			23 00 00 02 05 08
++			23 00 00 02 07 E2 
++			23 00 00 02 08 EC 
++			23 00 00 02 0D 02
++			23 00 00 02 0F E2 
++			23 00 00 02 32 EC 
++			23 00 00 02 37 05
++			23 00 00 02 39 A0 
++			23 00 00 02 3A EC 
++			23 00 00 02 41 04
++			23 00 00 02 43 A0 
++			23 00 00 02 44 EC 
++			23 00 00 02 49 08
++			23 00 00 02 4B E2 
++			23 00 00 02 4C EC 
++			23 00 00 02 51 02
++			23 00 00 02 53 E2 
++			23 00 00 02 75 EC 
++			23 00 00 02 7A 05
++			23 00 00 02 7C A0 
++			23 00 00 02 7D EC 
++			23 00 00 02 82 04
++			23 00 00 02 84 A0 
++			23 00 00 02 85 EC 
++			23 00 00 02 86 0F 
++			23 00 00 02 87 FF 
++			23 00 00 02 88 00
++			23 00 00 02 8A 02
++			23 00 00 02 8C A0 
++			23 00 00 02 8D EA 
++			23 00 00 02 8E 0F 
++			23 00 00 02 8F FF 
++			23 00 00 02 90 06
++			23 00 00 02 91 00
++			23 00 00 02 92 05
++			23 00 00 02 93 F0 
++			23 00 00 02 94 28
++			23 00 00 02 95 EC 
++			23 00 00 02 96 0F 
++			23 00 00 02 97 FF 
++			23 00 00 02 98 00
++			23 00 00 02 9A 02
++			23 00 00 02 9C A0 
++			23 00 00 02 AC 04
++			23 00 00 02 B1 12
++			23 00 00 02 B2 17
++			23 00 00 02 B3 17
++			23 00 00 02 B4 17
++			23 00 00 02 B5 17
++			23 00 00 02 B6 11
++			23 00 00 02 B7 08
++			23 00 00 02 B8 09
++			23 00 00 02 B9 06
++			23 00 00 02 BA 07
++			23 00 00 02 BB 17
++			23 00 00 02 BC 17
++			23 00 00 02 BD 17
++			23 00 00 02 BE 17
++			23 00 00 02 BF 17
++			23 00 00 02 C0 17
++			23 00 00 02 C1 17
++			23 00 00 02 C2 17
++			23 00 00 02 C3 17
++			23 00 00 02 C4 0F 
++			23 00 00 02 C5 0E 
++			23 00 00 02 C6 00
++			23 00 00 02 C7 01
++			23 00 00 02 C8 10
++			23 00 00 02 FE 0E 
++			23 00 00 02 12 37
++			23 00 00 02 FE 0A 
++			23 00 00 02 25 66
++			23 00 00 02 FE 0D 
++			23 00 00 02 72 09
++			23 00 00 02 FE 0D 
++			23 00 00 02 03 20
++			23 00 00 02 20 00
++			23 00 00 02 21 00
++			23 00 00 02 1D 89
++			23 00 00 02 FE 40
++			23 00 00 02 0E 10
++			23 00 00 02 FE 00
++			23 00 00 02 51 88
++			23 00 00 02 35 00
++			23 78 00 02 11 00
++			23 0a 00 02 29 00
++			];
++	
++		display-timings {
++			native-mode = <&rm67295_timing0>;
++			rm67295_timing0: timing0 {
++				clock-frequency = <64000000>;
++				hactive = <720>;
++				vactive = <1280>;
++				hback-porch = <36>;
++				hfront-porch = <31>;
++				vback-porch = <16>;
++				vfront-porch = <8>;
++				hsync-len = <4>;
++				vsync-len = <4>;
++				};
++			};
++		};
++
++};};
+diff --git a/arch/arm/dts/ums9620_2h10.dts b/arch/arm/dts/ums9620_2h10.dts
+index d6b7431..abcf452 100644
+--- a/arch/arm/dts/ums9620_2h10.dts
++++ b/arch/arm/dts/ums9620_2h10.dts
+@@ -9,10 +9,7 @@
+ /dts-v1/;
+ 
+ #include "ums9620.dtsi"
+-#include "lcd/lcd_g40396_truly_mipi_fhd.dtsi"
+-#include "lcd/lcd_nt36672e_truly_mipi_fhd_nodsc.dtsi"
+-#include "lcd/lcd_ili7806s_truly_mipi_hdplus.dtsi"
+-#include "lcd/lcd_dummy_mipi.dtsi"
++#include "lcd/lcd_rm67295_mipi_hd.dtsi"
+ 
+ / {
+ 	model = "Spreadtrum ums9620_2h10 Board";
+@@ -153,6 +150,7 @@
+ 		sprd,lcd-avdd-gpio = <192>;
+ 		sprd,lcd-avee-gpio = <191>;
+ 		sprd,lcd-reset-gpio = <11>;
++		sprd,lcd-iovdd-gpio = <194>;
+ 	};
+ 
+ 	bq2560x-charger {
+@@ -161,6 +159,3 @@
+ 	};
+ };
+ 
+-&lcd_g40396_truly_mipi_fhd {
+-	sprd,power-i2c-bus = <6>;
+-};
+-- 
+2.25.1
+

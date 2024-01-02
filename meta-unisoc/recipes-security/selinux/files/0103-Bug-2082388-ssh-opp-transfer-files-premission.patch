@@ -1,0 +1,82 @@
+From f22c55e8e51bec9924fa1f4be8953cebaab0b294 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Mon, 21 Nov 2022 10:50:25 +0800
+Subject: [PATCH] Bug #2082388 ssh-opp-transfer-files-premission
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/roles/staff.if | 9 +++++++++
+ policy/modules/roles/staff.te | 1 +
+ policy/modules/system/udev.if | 8 ++++++++
+ policy/modules/system/udev.te | 1 +
+ 4 files changed, 19 insertions(+)
+
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+index 057aca6ad..b3c4b8c45 100755
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -615,3 +615,12 @@ interface(`staff_mount_runtime_t_dir',`
+     allow $1 mount_runtime_t:dir { rw_dir_perms remove_name };
+ ')
+ 
++interface(`staff_staff_t_dbus',`
++    gen_require(`
++		class dbus acquire_svc;
++        type staff_t;
++    ')
++
++    allow $1 staff_t:dbus { acquire_svc };
++')
++
+diff --git a/policy/modules/roles/staff.te b/policy/modules/roles/staff.te
+index b4ac2f6fb..53fc17a1a 100644
+--- a/policy/modules/roles/staff.te
++++ b/policy/modules/roles/staff.te
+@@ -289,4 +289,5 @@ staff_var_run_t_sock_file(staff_t)
+ staff_var_lock_t_file(staff_t)
+ staff_xkb_var_lib_t_file(staff_t)
+ staff_mount_runtime_t_dir(staff_t)
++staff_staff_t_dbus(staff_t)
+ 
+diff --git a/policy/modules/system/udev.if b/policy/modules/system/udev.if
+index 510f4b53f..866c61731 100644
+--- a/policy/modules/system/udev.if
++++ b/policy/modules/system/udev.if
+@@ -567,3 +567,11 @@ interface(`udevadm_kmsg_device_t_chr_file',`
+    allow $1 kmsg_device_t:chr_file {write read open map append ioctl getattr};
+ ')
+ 
++interface(`udevadm_tty_device_t_chr_file',`
++    gen_require(`
++        type tty_device_t;
++    ')
++
++    allow $1 tty_device_t:chr_file {write read open map append ioctl getattr};
++')
++
+diff --git a/policy/modules/system/udev.te b/policy/modules/system/udev.te
+index 8b9c45f8e..9756167fd 100644
+--- a/policy/modules/system/udev.te
++++ b/policy/modules/system/udev.te
+@@ -417,4 +417,5 @@ udevadm_device_t_file(udevadm_t)
+ udevadm_sysadm_t_unix_stream_socket(udevadm_t)
+ udevadm_var_run_t_dir(udevadm_t)
+ udevadm_kmsg_device_t_chr_file(udevadm_t)
++udevadm_tty_device_t_chr_file(udevadm_t)
+ 
+-- 
+2.17.1
+

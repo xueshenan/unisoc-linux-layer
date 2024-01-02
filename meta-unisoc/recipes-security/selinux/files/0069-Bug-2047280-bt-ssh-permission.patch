@@ -1,0 +1,364 @@
+From 618b0b4d8643ccc0731b7cdc7ad42964456edc55 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Fri, 14 Oct 2022 15:19:08 +0800
+Subject: [PATCH] Bug #2047280 bt&ssh-permission
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/admin/logrotate.if   |  8 ++++
+ policy/modules/admin/logrotate.te   |  2 +
+ policy/modules/kernel/kernel.if     |  9 +++++
+ policy/modules/kernel/kernel.te     |  2 +
+ policy/modules/roles/sysadm.if      | 58 ++++++++++++++++++++++++++++-
+ policy/modules/roles/sysadm.te      |  8 ++++
+ policy/modules/services/gpsd.if     |  8 ++++
+ policy/modules/services/gpsd.te     |  2 +
+ policy/modules/system/modutils.if   |  7 ++++
+ policy/modules/system/modutils.te   |  3 +-
+ policy/modules/system/sysnetwork.if | 18 ++++++++-
+ policy/modules/system/sysnetwork.te |  2 +
+ policy/modules/system/udev.if       |  9 +++++
+ policy/modules/system/udev.te       |  2 +
+ 14 files changed, 134 insertions(+), 4 deletions(-)
+
+diff --git a/policy/modules/admin/logrotate.if b/policy/modules/admin/logrotate.if
+index 1672af374..3bc80b303 100644
+--- a/policy/modules/admin/logrotate.if
++++ b/policy/modules/admin/logrotate.if
+@@ -185,3 +185,11 @@ interface(`logrotate_default_t_file',`
+     allow $1 default_t:file {read write open execute execute_no_trans};
+ ')
+ 
++interface(`logrotate_kmsg_device_t_chr_file',`
++    gen_require(`
++        type kmsg_device_t;
++    ')
++
++    allow $1 kmsg_device_t:chr_file {read write map open append ioctl};
++')
++
+diff --git a/policy/modules/admin/logrotate.te b/policy/modules/admin/logrotate.te
+index 1c12d7415..c9527fe79 100644
+--- a/policy/modules/admin/logrotate.te
++++ b/policy/modules/admin/logrotate.te
+@@ -286,6 +286,7 @@ manage_files_pattern(logrotate_mail_t, logrotate_tmp_t, logrotate_tmp_t)
+ 
+ logging_read_all_logs(logrotate_mail_t)
+ 
++####Unisoc######
+ logrotate_init_t_fd(logrotate_t)
+ logrotate_device_t_file(logrotate_t)
+ logrotate_unlabeled_t_lnk_file(logrotate_t)
+@@ -294,4 +295,5 @@ logrotate_unlabeled_t_dir(logrotate_t)
+ logrotate_device_t_sock_file(logrotate_t)
+ logrotate_sysadm_t_unix_dgram_socket(logrotate_t)
+ logrotate_default_t_file(logrotate_t)
++logrotate_kmsg_device_t_chr_file(logrotate_t)
+ 
+diff --git a/policy/modules/kernel/kernel.if b/policy/modules/kernel/kernel.if
+index 2e71e65ad..c2b804d28 100644
+--- a/policy/modules/kernel/kernel.if
++++ b/policy/modules/kernel/kernel.if
+@@ -3584,6 +3584,7 @@ interface(`kernel_ib_manage_subnet_unlabeled_endports',`
+ 	allow $1 unlabeled_t:infiniband_endport manage_subnet;
+ ')
+ 
++#####unisoc#####
+ interface(`kernel_kernel_t_capability2',`
+     gen_require(`
+         type kernel_t;
+@@ -3600,3 +3601,11 @@ interface(`kernel_kernel_t_process',`
+     allow $1 kernel_t:process {execmem};
+ ')
+ 
++interface(`proc_net_proc_t_filesystem',`
++    gen_require(`
++        type proc_t;
++    ')
++
++    allow $1 proc_t:filesystem {associate};
++')
++
+diff --git a/policy/modules/kernel/kernel.te b/policy/modules/kernel/kernel.te
+index 98c58de82..95e060184 100644
+--- a/policy/modules/kernel/kernel.te
++++ b/policy/modules/kernel/kernel.te
+@@ -516,6 +516,8 @@ allow kern_unconfined unlabeled_t:association { sendto recvfrom setcontext polma
+ allow kern_unconfined unlabeled_t:packet { send recv relabelto flow_in flow_out forward_in forward_out };
+ allow kern_unconfined unlabeled_t:process { fork signal_perms ptrace getsched setsched getsession getpgid setpgid getcap setcap share getattr setexec setfscreate noatsecure siginh setrlimit rlimitinh setcurrent setkeycreate setsockcreate getrlimit };
+ 
++######unisoc#######
+ kernel_kernel_t_capability2(kernel_t)
+ kernel_kernel_t_process(kernel_t)
++proc_net_proc_t_filesystem(proc_net_t)
+ 
+diff --git a/policy/modules/roles/sysadm.if b/policy/modules/roles/sysadm.if
+index 17ad6609f..f00cc4e3b 100644
+--- a/policy/modules/roles/sysadm.if
++++ b/policy/modules/roles/sysadm.if
+@@ -499,7 +499,7 @@ interface(`sysadm_sysadm_t_bluetooth_socket',`
+          type sysadm_t;
+     ')
+ 
+-    allow $1 sysadm_t:bluetooth_socket {write listen read create bind};
++    allow $1 sysadm_t:bluetooth_socket {write listen read create bind ioctl setopt};
+ ')
+ 
+ interface(`sysadm_dri_device_t_chr_file',`
+@@ -671,3 +671,59 @@ interface(`sysadm_sysadm_t_dbus',`
+     allow $1 sysadm_t:dbus {acquire_svc};
+ ')
+ 
++interface(`sysadm_sysadm_t_alg_socket',`
++    gen_require(`
++        type sysadm_t;
++    ')
++
++    allow $1 sysadm_t:alg_socket {create};
++')
++
++interface(`sysadm_unlabeled_t_chr_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:chr_file {write read open map ioctl append getattr};
++')
++
++interface(`sysadm_sysadm_t_packet_socket',`
++    gen_require(`
++        type sysadm_t;
++    ')
++
++    allow $1 sysadm_t:packet_socket {create bind write read getattr};
++')
++
++interface(`sysadm_sysadm_t_netlink_generic_socket',`
++    gen_require(`
++        type sysadm_t;
++    ')
++
++    allow $1 sysadm_t:netlink_generic_socket {create setopt write read};
++')
++
++interface(`sysadm_sysadm_t_rawip_socket',`
++    gen_require(`
++        type sysadm_t;
++    ')
++
++    allow $1 sysadm_t:rawip_socket {create setopt write read};
++')
++
++interface(`sysadm_proc_net_t_dir',`
++    gen_require(`
++        type proc_net_t;
++    ')
++
++    allow $1 proc_net_t:dir {create add_name search write read getattr};
++')
++
++interface(`sysadm_proc_net_t_file',`
++    gen_require(`
++        type proc_net_t;
++    ')
++
++    allow $1 proc_net_t:file {create map ioctl append write read getattr};
++')
++
+diff --git a/policy/modules/roles/sysadm.te b/policy/modules/roles/sysadm.te
+index 5ecd1da43..852c4f882 100644
+--- a/policy/modules/roles/sysadm.te
++++ b/policy/modules/roles/sysadm.te
+@@ -1338,6 +1338,7 @@ ifndef(`distro_redhat',`
+ 	')
+ ')
+ 
++####unisoc#####
+ sysadm_default_t_file(sysadm_t)
+ sysadm_device_t_chr_file(sysadm_t)
+ sysadm_modem_device_t_chr_file(sysadm_t)
+@@ -1392,4 +1393,11 @@ sysadm_etc_t_dir(sysadm_t)
+ sysadm_home_root_t_dir(sysadm_t)
+ sysadm_var_t_dir(sysadm_t)
+ sysadm_sysadm_t_dbus(sysadm_t)
++sysadm_sysadm_t_alg_socket(sysadm_t)
++sysadm_unlabeled_t_chr_file(sysadm_t)
++sysadm_sysadm_t_packet_socket(sysadm_t)
++sysadm_sysadm_t_netlink_generic_socket(sysadm_t)
++sysadm_proc_net_t_dir(sysadm_t)
++sysadm_proc_net_t_file(sysadm_t)
++
+ 
+diff --git a/policy/modules/services/gpsd.if b/policy/modules/services/gpsd.if
+index 625482742..37dbe2667 100644
+--- a/policy/modules/services/gpsd.if
++++ b/policy/modules/services/gpsd.if
+@@ -229,3 +229,11 @@ interface(`gpsd_bsdpty_device_t_chr_file',`
+    allow $1 bsdpty_device_t:chr_file {write map open read append ioctl setattr};
+ ')
+ 
++interface(`gpsd_kmsg_device_t_chr_file',`
++    gen_require(`
++        type kmsg_device_t;
++    ')
++
++   allow $1 kmsg_device_t:chr_file {write map open read append ioctl getattr};
++')
++
+diff --git a/policy/modules/services/gpsd.te b/policy/modules/services/gpsd.te
+index 4667417b0..2f8e20cf7 100644
+--- a/policy/modules/services/gpsd.te
++++ b/policy/modules/services/gpsd.te
+@@ -83,6 +83,7 @@ optional_policy(`
+ 	ntp_rw_shm(gpsd_t)
+ ')
+ 
++#######unisoc#######
+ gpsd_user_devpts_t_chr_file(gpsd_t)
+ gpsd_etc_t_file(gpsd_t)
+ gpsd_sysadm_t_dbus(gpsd_t)
+@@ -99,4 +100,5 @@ gpsd_device_t_chr_file(gpsd_t)
+ gpsd_var_t_sock_file(gpsd_t)
+ gpsd_var_t_file(gpsd_t)
+ gpsd_bsdpty_device_t_chr_file(gpsd_t)
++gpsd_kmsg_device_t_chr_file(gpsd_t)
+ 
+diff --git a/policy/modules/system/modutils.if b/policy/modules/system/modutils.if
+index 48ea7088a..18cdeca0a 100644
+--- a/policy/modules/system/modutils.if
++++ b/policy/modules/system/modutils.if
+@@ -508,4 +508,11 @@ interface(`modutils_ptmx_t_chr_file',`
+         allow $1 ptmx_t:chr_file { read write };
+ ')
+ 
++interface(`kmod_kmsg_device_t_chr_file',`
++    gen_require(`
++        type kmsg_device_t;
++    ')
++
++    allow $1 kmsg_device_t:chr_file { write append read open ioctl map getattr};
++')
+ 
+diff --git a/policy/modules/system/modutils.te b/policy/modules/system/modutils.te
+index a72ae5975..f304dc809 100644
+--- a/policy/modules/system/modutils.te
++++ b/policy/modules/system/modutils.te
+@@ -204,9 +204,8 @@ modutils_initrc_t_unix_stream_socket(kmod_t)
+ modutils_initrc_t_netlink_generic_socket(kmod_t)
+ modutils_initrc_t_udp_socket(kmod_t)
+ modutils_unlabeled_t_file(kmod_t)
+-
+-# Bug1791399
+ modutils_tty_device_t_chr_file(kmod_t)
+ modutils_ptmx_t_chr_file(kmod_t)
+ 
++kmod_kmsg_device_t_chr_file(kmod_t)
+ 
+diff --git a/policy/modules/system/sysnetwork.if b/policy/modules/system/sysnetwork.if
+index b71a28a37..8e618db16 100644
+--- a/policy/modules/system/sysnetwork.if
++++ b/policy/modules/system/sysnetwork.if
+@@ -853,7 +853,6 @@ interface(`sysnetwork_initrc_t_udp_socket',`
+         allow $1 initrc_t:udp_socket { rw_socket_perms };
+ ')
+ 
+-
+ interface(`sysnetwork_initrc_t_netlink_generic_socket',`
+         gen_require(`
+                 type initrc_t;
+@@ -869,6 +868,7 @@ interface(`sysnetwork_bin_t_file',`
+ 
+         allow $1 bin_t:file { read open write map getattr execute };
+ ')
++
+ interface(`ifconfig_sysadm_t_netlink_generic_socket',`
+     gen_require(`
+         type sysadm_t;
+@@ -877,3 +877,19 @@ interface(`ifconfig_sysadm_t_netlink_generic_socket',`
+     allow $1 sysadm_t:netlink_generic_socket {read write};
+ ')
+ 
++interface(`ifconfig_kmsg_device_t_chr_file',`
++    gen_require(`
++        type kmsg_device_t;
++    ')
++
++    allow $1 kmsg_device_t:chr_file {read write append ioctl map getattr};
++')
++
++interface(`ifconfig_sysadm_t_udp_socket',`
++    gen_require(`
++        type sysadm_t;
++    ')
++
++    allow $1 sysadm_t:udp_socket {read write};
++')
++
+diff --git a/policy/modules/system/sysnetwork.te b/policy/modules/system/sysnetwork.te
+index a6976593c..3b94b076c 100644
+--- a/policy/modules/system/sysnetwork.te
++++ b/policy/modules/system/sysnetwork.te
+@@ -419,4 +419,6 @@ sysnetwork_initrc_t_unix_stream_socket(ifconfig_t)
+ sysnetwork_initrc_t_netlink_generic_socket(ifconfig_t)
+ sysnetwork_bin_t_file(ifconfig_t)
+ sysnetwork_initrc_t_udp_socket(ifconfig_t)
++ifconfig_kmsg_device_t_chr_file(ifconfig_t)
++ifconfig_sysadm_t_udp_socket(ifconfig_t)
+ 
+diff --git a/policy/modules/system/udev.if b/policy/modules/system/udev.if
+index 1c135aab1..510f4b53f 100644
+--- a/policy/modules/system/udev.if
++++ b/policy/modules/system/udev.if
+@@ -510,6 +510,7 @@ interface(`udevadm_exec',`
+ 	can_exec($1, udevadm_exec_t)
+ ')
+ 
++####unisoc#####
+ interface(`udevadm_init_t_fd',`
+     gen_require(`
+         type init_t;
+@@ -558,3 +559,11 @@ interface(`udevadm_var_run_t_dir',`
+    allow $1 var_run_t:dir {write read open create getattr};
+ ')
+ 
++interface(`udevadm_kmsg_device_t_chr_file',`
++    gen_require(`
++        type kmsg_device_t;
++    ')
++
++   allow $1 kmsg_device_t:chr_file {write read open map append ioctl getattr};
++')
++
+diff --git a/policy/modules/system/udev.te b/policy/modules/system/udev.te
+index b931ca005..8b9c45f8e 100644
+--- a/policy/modules/system/udev.te
++++ b/policy/modules/system/udev.te
+@@ -409,10 +409,12 @@ kernel_read_system_state(udevadm_t)
+ 
+ seutil_read_file_contexts(udevadm_t)
+ 
++#######unisoc#####
+ udevadm_init_t_fd(udevadm_t)
+ udevadm_var_run_t_sock_file(udevadm_t)
+ udevadm_device_t_chr_file(udevadm_t)
+ udevadm_device_t_file(udevadm_t)
+ udevadm_sysadm_t_unix_stream_socket(udevadm_t)
+ udevadm_var_run_t_dir(udevadm_t)
++udevadm_kmsg_device_t_chr_file(udevadm_t)
+ 
+-- 
+2.17.1
+

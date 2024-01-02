@@ -1,0 +1,13 @@
+diff --git a/src/lv_conf_internal.h b/src/lv_conf_internal.h
+index 135e8c3..c45b2c1 100644
+--- a/src/lv_conf_internal.h
++++ b/src/lv_conf_internal.h
+@@ -19,7 +19,7 @@
+ #elif defined(LV_CONF_INCLUDE_SIMPLE)
+ #include "lv_conf.h"
+ #else
+-#include "../../lv_conf.h"
++#include "../lv_conf.h"
+ #endif
+
+ /* clang-format off */

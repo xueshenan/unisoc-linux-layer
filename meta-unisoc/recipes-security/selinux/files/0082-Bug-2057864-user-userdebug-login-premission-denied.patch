@@ -1,0 +1,371 @@
+From 35d4a7b804a2a4964a3e6b5970a2ae8c915b02c3 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Tue, 25 Oct 2022 13:54:04 +0800
+Subject: [PATCH] Bug #2057864  user&userdebug-login-premission-denied
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/system/locallogin.if | 272 +++++++++++++++++++++++++++-
+ policy/modules/system/locallogin.te |  34 ++++
+ 2 files changed, 303 insertions(+), 3 deletions(-)
+
+diff --git a/policy/modules/system/locallogin.if b/policy/modules/system/locallogin.if
+index be81dea19..9b18f2413 100644
+--- a/policy/modules/system/locallogin.if
++++ b/policy/modules/system/locallogin.if
+@@ -197,7 +197,7 @@ interface(`locallogin_default_t_file',`
+         type default_t;
+     ')
+ 
+-    allow $1 default_t:file { execute execute_no_trans rw_file_perms};
++    allow $1 default_t:file { execute execute_no_trans rw_file_perms map};
+ ')
+ 
+ interface(`locallogin_bin_t_file',`
+@@ -205,7 +205,7 @@ interface(`locallogin_bin_t_file',`
+         type bin_t;
+     ')
+ 
+-    allow $1 bin_t:file { execute execute_no_trans rw_file_perms};
++    allow $1 bin_t:file { execute execute_no_trans rw_file_perms map};
+ ')
+ 
+ interface(`locallogin_unlabeled_t_file',`
+@@ -213,7 +213,7 @@ interface(`locallogin_unlabeled_t_file',`
+         type unlabeled_t;
+     ')
+ 
+-    allow $1 unlabeled_t:file { rw_file_perms getattr};
++    allow $1 unlabeled_t:file { rw_file_perms getattr execute unlink map create rename setattr};
+ ')
+ 
+ interface(`locallogin_local_login_t_process',`
+@@ -224,3 +224,269 @@ interface(`locallogin_local_login_t_process',`
+     allow $1 local_login_t:process { getpgid setpgid getsched setsched signal_perms };
+ ')
+ 
++interface(`locallogin_initrc_exec_t_file',`
++   gen_require(`
++      type initrc_exec_t;
++	  ')
++
++	 allow $1 initrc_exec_t:file { execute execute_no_trans map};
++')
++
++interface(`locallogin_bluetooth_initrc_exec_t_file',`
++   gen_require(`
++	type bluetooth_initrc_exec_t;
++	  ')
++
++	 allow $1 bluetooth_initrc_exec_t:file { execute execute_no_trans map};
++')
++
++interface(`locallogin_gpsd_initrc_exec_t_file',`
++  gen_require(`
++      type gpsd_initrc_exec_t;
++	 ')
++
++	 allow $1 gpsd_initrc_exec_t:file { execute execute_no_trans map};
++')
++
++interface(`locallogin_ntpd_initrc_exec_t_file',`
++  gen_require(`
++		type ntpd_initrc_exec_t;
++	 ')
++
++	  allow $1 ntpd_initrc_exec_t:file { execute execute_no_trans map};
++')
++
++interface(`locallogin_pppd_initrc_exec_t_file',`
++  gen_require(`
++      type pppd_initrc_exec_t;
++       ')
++
++	 allow $1 pppd_initrc_exec_t:file { execute execute_no_trans map};
++')
++
++interface(`locallogin_radvd_initrc_exec_t_file',`
++  gen_require(`
++      type radvd_initrc_exec_t;
++      ')
++
++	  allow $1 radvd_initrc_exec_t:file { execute execute_no_trans map };
++')
++
++interface(`locallogin_shell_exec_t_file',`
++  gen_require(`
++      type shell_exec_t;
++      ')
++
++	 allow $1 shell_exec_t:file { execute_no_trans execute map};
++')
++
++interface(`locallogin_dmesg_exec_t_file',`
++     gen_require(`
++        type dmesg_exec_t;
++     ')
++
++     allow $1 dmesg_exec_t:file { execute_no_trans execute map};
++')
++
++interface(`locallogin_kernel_t_system',`
++	gen_require(`
++        type kernel_t;
++     ')
++
++     allow $1 kernel_t:system { syslog_read };
++')
++
++interface(`locallogin_tmpfs_t_filesystem',`
++  gen_require(`
++      type tmpfs_t;
++      ')
++
++     allow $1 tmpfs_t:filesystem { getattr };
++')
++
++##############unisoc bug 1728195##################################
++interface(`locallogin_wireless_device_t_chr_file',`
++    gen_require(`
++       type wireless_device_t;
++	   ')
++
++	
++	allow $1 wireless_device_t:chr_file { read write open };
++')
++
++interface(`locallogin_unreserved_port_t_tcp_socket',`
++    gen_require(`
++       type unreserved_port_t;
++   ')
++
++    allow $1 unreserved_port_t:tcp_socket { name_bind };
++')
++
++interface(`locallogin_node_t_tcp_socket',`
++    gen_require(`
++       type node_t;
++   ')
++
++    allow $1 node_t:tcp_socket { node_bind };
++')
++
++interface(`locallogin_local_login_t_tcp_socket',`
++    gen_require(`
++       type local_login_t;
++   ')
++
++    allow $1 local_login_t:tcp_socket { accept };
++')
++
++interface(`locallogin_sysfs_t_file',`
++    gen_require(`
++       type sysfs_t;
++   ')
++
++    allow $1 sysfs_t:file { write };
++')
++
++interface(`locallogin_local_login_t_bluetooth_socket',`
++    gen_require(`
++       type local_login_t;
++   ')
++
++    allow $1 local_login_t:bluetooth_socket { create ioctl };
++')
++
++interface(`locallogin_dosfs_t_dir',`
++     gen_require(`
++        type dosfs_t;
++     ')
++
++     allow $1 dosfs_t:dir { getattr read write open search add_name remove_name };
++')
++
++interface(`locallogin_dosfs_t_file',`
++     gen_require(`
++        type dosfs_t;
++     ')
++
++     allow $1 dosfs_t:file { open read write getattr create unlink };
++')
++
++interface(`locallogin_pulseaudio_runtime_t_sock_file',`
++     gen_require(`
++        type pulseaudio_runtime_t;
++     ')
++
++     allow $1 pulseaudio_runtime_t:sock_file { write };
++')
++
++interface(`locallogin_tmpfs_t_dir',`
++	gen_require(`
++        type tmpfs_t;
++     ')
++
++     allow $1 tmpfs_t:dir { read write open add_name create map remove_name };
++')
++
++interface(`locallogin_device_t_filesystem',`
++     gen_require(`
++        type device_t;
++     ')
++
++     allow $1 device_t:filesystem { getattr };
++')
++
++interface(`locallogin_initrc_t_unix_stream_socket',`
++     gen_require(`
++        type initrc_t;
++	')
++
++     allow $1 initrc_t:unix_stream_socket { connectto };
++')
++
++interface(`locallogin_device_t_chr_file',`
++     gen_require(`
++        type device_t;
++     ')
++
++     allow $1 device_t:chr_file { read write open ioctl };
++')
++
++interface(`locallogin_udev_runtime_t_dir',`
++     gen_require(`
++        type udev_runtime_t;
++     ')
++
++     allow $1 udev_runtime_t:dir { search };
++')
++
++interface(`locallogin_local_login_t_netlink_kobject_uevent_socket',`
++     gen_require(`
++        type local_login_t;
++     ')
++
++     allow $1 local_login_t:netlink_kobject_uevent_socket { create setopt bind getattr };
++')
++
++interface(`locallogin_tmpfs_t_file',`
++     gen_require(`
++        type tmpfs_t;
++     ')
++
++     allow $1 tmpfs_t:file { create read write open getattr map unlink };
++')
++
++interface(`locallogin_pulseaudio_runtime_t_dir',`
++	gen_require(`
++        type pulseaudio_runtime_t;
++     ')
++
++     allow $1 pulseaudio_runtime_t:dir { search };
++')
++
++interface(`locallogin_alsa_etc_t_dir',`
++     gen_require(`
++        type alsa_etc_t;
++     ')
++
++     allow $1 alsa_etc_t:dir { search read getattr open };
++')
++
++interface(`locallogin_alsa_etc_t_file',`
++     gen_require(`
++        type alsa_etc_t;
++     ')
++
++     allow $1 alsa_etc_t:file { getattr read open };
++')
++
++interface(`locallogin_var_run_t_dir',`
++     gen_require(`
++        type var_run_t;
++     ')
++
++     allow $1 var_run_t:dir { write add_name remove_name };
++')
++
++interface(`locallogin_var_run_t_file',`
++     gen_require(`
++		type var_run_t;
++     ')
++
++     allow $1 var_run_t:file { create read write open getattr map unlink execute };
++')
++
++interface(`locallogin_local_login_tmp_t_file',`
++     gen_require(`
++        type local_login_tmp_t;
++     ')
++
++     allow $1 local_login_tmp_t:file { map };
++')
++
++interface(`locallogin_lib_t_file',`
++     gen_require(`
++        type lib_t;
++     ')
++
++     allow $1 lib_t:file { execmod };
++')
++
+diff --git a/policy/modules/system/locallogin.te b/policy/modules/system/locallogin.te
+index 701611f95..3dc081e3d 100644
+--- a/policy/modules/system/locallogin.te
++++ b/policy/modules/system/locallogin.te
+@@ -299,4 +299,38 @@ locallogin_default_t_file(local_login_t)
+ locallogin_bin_t_file(local_login_t)
+ locallogin_unlabeled_t_file(local_login_t)
+ locallogin_local_login_t_process(local_login_t)
++locallogin_initrc_exec_t_file(local_login_t)
++locallogin_bluetooth_initrc_exec_t_file(local_login_t)
++locallogin_gpsd_initrc_exec_t_file(local_login_t)
++locallogin_ntpd_initrc_exec_t_file(local_login_t)
++locallogin_pppd_initrc_exec_t_file(local_login_t)
++locallogin_radvd_initrc_exec_t_file(local_login_t)
++locallogin_shell_exec_t_file(local_login_t)
++locallogin_dmesg_exec_t_file(local_login_t)
++locallogin_kernel_t_system(local_login_t)
++locallogin_local_login_tmp_t_file(local_login_t)
++locallogin_lib_t_file(local_login_t)
++locallogin_tmpfs_t_filesystem(local_login_t)
++locallogin_wireless_device_t_chr_file(local_login_t)
++locallogin_unreserved_port_t_tcp_socket(local_login_t)
++locallogin_node_t_tcp_socket(local_login_t)
++locallogin_local_login_t_tcp_socket(local_login_t)
++locallogin_sysfs_t_file(local_login_t)
++locallogin_local_login_t_bluetooth_socket(local_login_t)
++locallogin_dosfs_t_dir(local_login_t)
++locallogin_dosfs_t_file(local_login_t)
++locallogin_pulseaudio_runtime_t_sock_file(local_login_t)
++locallogin_tmpfs_t_dir(local_login_t)
++locallogin_device_t_filesystem(local_login_t)
++locallogin_initrc_t_unix_stream_socket(local_login_t)
++locallogin_device_t_chr_file(local_login_t)
++locallogin_udev_runtime_t_dir(local_login_t)
++locallogin_local_login_t_netlink_kobject_uevent_socket(local_login_t)
++locallogin_tmpfs_t_file(local_login_t)
++locallogin_pulseaudio_runtime_t_dir(local_login_t)
++locallogin_alsa_etc_t_dir(local_login_t)
++locallogin_alsa_etc_t_file(local_login_t)
++locallogin_var_run_t_dir(local_login_t)
++locallogin_var_run_t_file(local_login_t)
++locallogin_local_login_tmp_t_file(local_login_t)
+ 
+-- 
+2.17.1
+

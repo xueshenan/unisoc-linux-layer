@@ -1,0 +1,70 @@
+From f3709b52dbe9e951edff9156770c6422e4c2eb18 Mon Sep 17 00:00:00 2001
+From: suqing guo <suqing.guo@unisoc.com>
+Date: Tue, 29 Nov 2022 21:04:23 +0800
+Subject: [PATCH] Bug #2082388-ssh-opp-transfer-files-premission_1
+
+[root cause  ]: NA
+[changes     ]: NA
+[side effects]: NA
+[self test   ]: test
+[download normally]: yes
+[power on/off normally]: yes
+[do common repository/branch inspection]: no
+[is there dependence]: no
+[confirm dependent commit]: test
+[board]: 9863
+[test case]: test
+[reviewers]: chao.meng
+
+commit_template_version:v1
+---
+ policy/modules/roles/staff.if | 10 +++++++++-
+ policy/modules/roles/staff.te |  1 +
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+ mode change 100644 => 100755 policy/modules/roles/staff.if
+ mode change 100644 => 100755 policy/modules/roles/staff.te
+
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+old mode 100644
+new mode 100755
+index 4d7842f6c..4a6764458
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -524,7 +524,7 @@ interface(`staff_staff_t_bluetooth_socket',`
+         type staff_t;
+     ')
+ 
+-    allow $1 staff_t:bluetooth_socket { create bind listen connect write read accept setopt getattr };
++    allow $1 staff_t:bluetooth_socket { create bind listen connect write read accept setopt getattr getopt };
+ ')
+ 
+ interface(`staff_bluetooth_var_run_t_sock_file',`
+@@ -607,3 +607,11 @@ interface(`staff_xkb_var_lib_t_file',`
+     allow $1 xkb_var_lib_t:file {map};
+ ')
+ 
++interface(`staff_initrc_t_bluetooth_socket',`
++    gen_require(`
++        type initrc_t;
++    ')
++
++    allow $1 initrc_t:bluetooth_socket { write read setopt getattr getopt };
++')
++
+diff --git a/policy/modules/roles/staff.te b/policy/modules/roles/staff.te
+old mode 100644
+new mode 100755
+index 7e1239c91..460118228
+--- a/policy/modules/roles/staff.te
++++ b/policy/modules/roles/staff.te
+@@ -278,6 +278,7 @@ staff_staff_t_rawip_socket(staff_t)
+ staff_initrc_t_dbus(staff_t)
+ staff_kernel_t_process(staff_t)
+ staff_staff_t_bluetooth_socket(staff_t)
++staff_initrc_t_bluetooth_socket(staff_t)
+ staff_bluetooth_var_run_t_sock_file(staff_t)
+ staff_bluetooth_t_unix_stream_socket(staff_t)
+ staff_modules_dep_t_file(staff_t)
+-- 
+2.17.1
+

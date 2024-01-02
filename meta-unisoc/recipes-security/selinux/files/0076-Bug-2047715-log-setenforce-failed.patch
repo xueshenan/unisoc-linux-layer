@@ -1,0 +1,130 @@
+From d691adf333f2f41beb2ff81ee0fce2d19a738d28 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Fri, 21 Oct 2022 10:29:54 +0800
+Subject: [PATCH] Bug #2047715 log&setenforce-failed
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/kernel/corecommands.fc | 5 +----
+ policy/modules/roles/sysadm.te        | 2 ++
+ policy/modules/services/rngd.if       | 8 ++++++++
+ policy/modules/services/rngd.te       | 1 +
+ policy/modules/system/locallogin.fc   | 4 +---
+ policy/modules/system/logging.if      | 8 ++++++++
+ policy/modules/system/logging.te      | 1 +
+ 7 files changed, 22 insertions(+), 7 deletions(-)
+
+diff --git a/policy/modules/kernel/corecommands.fc b/policy/modules/kernel/corecommands.fc
+index 5a4ef6c3f..9d3a3ecd3 100644
+--- a/policy/modules/kernel/corecommands.fc
++++ b/policy/modules/kernel/corecommands.fc
+@@ -150,10 +150,6 @@ ifdef(`distro_gentoo',`
+ /usr/bin/mksh			--	gen_context(system_u:object_r:shell_exec_t,s0)
+ /usr/bin/mountpoint		--	gen_context(system_u:object_r:bin_t,s0)
+ /usr/bin/nologin		--	gen_context(system_u:object_r:shell_exec_t,s0)
+-###unisoc####
+-/usr/bin/mountpoint\.sysvinit	    	gen_context(system_u:object_r:bin_t,s0)
+-/usr/bin/mountpoint\.util-linux			gen_context(system_u:object_r:bin_t,s0)
+-
+ /usr/bin/sash			--	gen_context(system_u:object_r:shell_exec_t,s0)
+ /usr/bin/sesh			--	gen_context(system_u:object_r:shell_exec_t,s0)
+ /usr/bin/scponly		--	gen_context(system_u:object_r:shell_exec_t,s0)
+@@ -450,3 +446,4 @@ ifdef(`distro_suse', `
+ ifdef(`distro_suse',`
+ /var/lib/samba/bin/.+			gen_context(system_u:object_r:bin_t,s0)
+ ')
++
+diff --git a/policy/modules/roles/sysadm.te b/policy/modules/roles/sysadm.te
+index 9c40505da..d2007e5c7 100755
+--- a/policy/modules/roles/sysadm.te
++++ b/policy/modules/roles/sysadm.te
+@@ -46,6 +46,8 @@ ubac_fd_exempt(sysadm_t)
+ init_exec(sysadm_t)
+ init_admin(sysadm_t)
+ 
++selinux_read_policy(sysadm_t)
++
+ # Add/remove user home directories
+ userdom_manage_user_home_dirs(sysadm_t)
+ userdom_home_filetrans_user_home_dir(sysadm_t)
+diff --git a/policy/modules/services/rngd.if b/policy/modules/services/rngd.if
+index 43d7e2d25..2117133f1 100644
+--- a/policy/modules/services/rngd.if
++++ b/policy/modules/services/rngd.if
+@@ -56,3 +56,11 @@ interface(`rngd_unlabeled_t_lnk_file',`
+     allow $1 unlabeled_t:lnk_file {rw_lnk_file_perms};
+ ')
+ 
++interface(`rngd_rngd_t_process',`
++    gen_require(`
++        type rngd_t;
++    ')
++
++    allow $1 rngd_t:process {setsched getsched};
++')
++
+diff --git a/policy/modules/services/rngd.te b/policy/modules/services/rngd.te
+index 7b818a1e0..2aea8f60c 100644
+--- a/policy/modules/services/rngd.te
++++ b/policy/modules/services/rngd.te
+@@ -45,4 +45,5 @@ miscfiles_read_localization(rngd_t)
+ rngd_kmsg_device_t_chr_file(rngd_t)
+ rngd_unlabeled_t_dir(rngd_t)
+ rngd_unlabeled_t_lnk_file(rngd_t)
++rngd_rngd_t_process(rngd_t)
+ 
+diff --git a/policy/modules/system/locallogin.fc b/policy/modules/system/locallogin.fc
+index 7bc7bdc05..aeb7864a8 100644
+--- a/policy/modules/system/locallogin.fc
++++ b/policy/modules/system/locallogin.fc
+@@ -2,7 +2,5 @@
+ /usr/bin/sushell	--	gen_context(system_u:object_r:sulogin_exec_t,s0)
+ 
+ /usr/sbin/sulogin	--	gen_context(system_u:object_r:sulogin_exec_t,s0)
+-###unisoc###
+-/usr/sbin/sulogin\.util-linux	gen_context(system_u:object_r:sulogin_exec_t,s0)
+-
+ /usr/sbin/sushell	--	gen_context(system_u:object_r:sulogin_exec_t,s0)
++
+diff --git a/policy/modules/system/logging.if b/policy/modules/system/logging.if
+index b470a6f54..9b264dfb2 100644
+--- a/policy/modules/system/logging.if
++++ b/policy/modules/system/logging.if
+@@ -1455,3 +1455,11 @@ interface(`syslogd_unlabeled_t_file',`
+     allow $1 unlabeled_t:file {rw_file_perms};
+ ')
+ 
++interface(`syslogd_unlabeled_t_dir',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:dir {rw_dir_perms create_dir_perms search_dir_perms};
++')
++
+diff --git a/policy/modules/system/logging.te b/policy/modules/system/logging.te
+index 2e7340802..448e6e2f6 100644
+--- a/policy/modules/system/logging.te
++++ b/policy/modules/system/logging.te
+@@ -642,4 +642,5 @@ logging_device_t_chr_file(klogd_t)
+ logging_device_t_chr_file(syslogd_t)
+ syslogd_etc_t_file(syslogd_t)
+ syslogd_unlabeled_t_file(syslogd_t)
++syslogd_unlabeled_t_dir(syslogd_t)
+ 
+-- 
+2.17.1
+

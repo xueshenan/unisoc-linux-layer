@@ -1,0 +1,17 @@
+diff --git a/src/lv_core/lv_obj.h b/src/lv_core/lv_obj.h
+index 3b97675..065e7d4 100644
+--- a/src/lv_core/lv_obj.h
++++ b/src/lv_core/lv_obj.h
+@@ -33,9 +33,9 @@ extern "C" {
+  *********************/
+
+ /*Error check of lv_conf.h*/
+-#if LV_HOR_RES_MAX == 0 || LV_VER_RES_MAX == 0
+-#error "LVGL: LV_HOR_RES_MAX and LV_VER_RES_MAX must be greater than 0"
+-#endif
++//#if LV_HOR_RES_MAX == 0 || LV_VER_RES_MAX == 0
++//#error "LVGL: LV_HOR_RES_MAX and LV_VER_RES_MAX must be greater than 0"
++//#endif
+
+ #if LV_ANTIALIAS > 1
+ #error "LVGL: LV_ANTIALIAS can be only 0 or 1"

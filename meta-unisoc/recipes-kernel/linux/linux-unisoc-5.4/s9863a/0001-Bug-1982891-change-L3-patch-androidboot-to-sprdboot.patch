@@ -1,0 +1,44 @@
+From b7252d9359b60c38d308acda838dc8bdbfe922ea Mon Sep 17 00:00:00 2001
+From: Chengyuan Li <chengyuan.li@unisoc.com>
+Date: Wed, 17 Aug 2022 09:23:24 +0800
+Subject: [PATCH] Bug #1982891 change L3 patch androidboot to sprdboot
+
+[root cause  ]: change androidboot in L3 patch
+[changes     ]: change androidboot to sprdboot
+[side effects]: na
+[self test   ]:ok
+[download normally]:ok
+[power on/off normally]:ok
+[do common repository/branch inspection]:ok
+[is there dependence]:ok
+[confirm dependent commit]:ok
+[board]:all
+[test case]:ok
+[reviewers]:
+
+commit_template_version:v1
+[change_type ] bringup --> sprd_chip_support
+[tag_product ] common
+
+Change-Id: If0d736ea26def3284d8bab798d3f3c650dccdf90
+---
+ drivers/soc/sprd/domain/sprd_camsys_pw_domain_r5p0.c | 2 +-
+ drivers/soc/sprd/modem/iq/sprd_iq.c                  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/soc/sprd/modem/iq/sprd_iq.c b/drivers/soc/sprd/modem/iq/sprd_iq.c
+index 21b22207e5ef..94372e7d3589 100644
+--- a/drivers/soc/sprd/modem/iq/sprd_iq.c
++++ b/drivers/soc/sprd/modem/iq/sprd_iq.c
+@@ -390,7 +390,7 @@ static int in_iqmode(void)
+ 		return 0;
+ 	}
+ 
+-	mode = strstr(cmdline, "androidboot.mode=iq");
++	mode = strstr(cmdline, "sprdboot.mode=iq");
+ 	if (mode)
+ 		return 1;
+ 	else
+-- 
+2.17.1
+

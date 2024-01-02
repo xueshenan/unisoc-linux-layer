@@ -1,0 +1,12 @@
+[Unit]
+Description=powermanager Service
+
+[Service]
+ExecStart=/usr/bin/manager
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+Alias=powermanager.service
+

@@ -1,0 +1,6 @@
+# Configuration script used by ntpdate-sync script
+
+NTPSERVERS="ntp.aliyun.com"
+
+# Set to "yes" to write time to hardware clock on success
+UPDATE_HWCLOCK="yes"

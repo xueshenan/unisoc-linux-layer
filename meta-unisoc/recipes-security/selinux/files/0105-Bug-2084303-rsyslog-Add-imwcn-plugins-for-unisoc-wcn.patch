@@ -1,0 +1,59 @@
+From 9697a1f368b3df3e4553a91320270f2a27b9048a Mon Sep 17 00:00:00 2001
+From: "etham.li" <etham.li@unisoc.com>
+Date: Wed, 23 Nov 2022 18:18:10 +0800
+Subject: [PATCH] Bug #2084303 - [rsyslog] Add imwcn plugins for unisoc wcn log
+ && dump log
+
+[root cause  ]:Add imwcn plugins for unisoc wcn log && dump log
+[changes     ]:Add imwcn plugins for unisoc wcn log && dump log
+[side effects]:no
+[self test   ]:build pass
+[download normally]:yes
+[power on/off normally]:yes
+[do common repository/branch inspection]:no
+[is there dependence]:no
+[confirm dependent commit]:no
+[board]:glp2.0
+[test case]:build pass
+[reviewers]:sam.hua
+
+commit_template_version:v1
+---
+ policy/modules/system/logging.if | 7 +++++++
+ policy/modules/system/logging.te | 2 +-
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+ mode change 100644 => 100755 policy/modules/system/logging.if
+ mode change 100644 => 100755 policy/modules/system/logging.te
+
+diff --git a/policy/modules/system/logging.if b/policy/modules/system/logging.if
+old mode 100644
+new mode 100755
+index 8c31267c6..0e1a5d368
+--- a/policy/modules/system/logging.if
++++ b/policy/modules/system/logging.if
+@@ -1535,3 +1535,10 @@ interface(`syslogd_crond_t_fifo_file',`
+     allow $1 crond_t:fifo_file {read append ioctl getattr write open setattr};
+ ')
+ 
++interface(`logging_syslogd_t_netlink_kobject_uevent_socket',`
++    gen_require(`
++        type syslogd_t;
++    ')
++
++    allow $1 syslogd_t:netlink_kobject_uevent_socket {create setopt bind read};
++')
+diff --git a/policy/modules/system/logging.te b/policy/modules/system/logging.te
+old mode 100644
+new mode 100755
+index fe871f86d..1e2ee4a3a
+--- a/policy/modules/system/logging.te
++++ b/policy/modules/system/logging.te
+@@ -652,4 +652,4 @@ syslogd_device_t_dir(syslogd_t)
+ syslogd_default_t_dir(syslogd_t)
+ syslogd_default_t_file(syslogd_t)
+ syslogd_crond_t_fifo_file(syslogd_t)
+-
++logging_syslogd_t_netlink_kobject_uevent_socket(syslogd_t)
+-- 
+2.17.1
+

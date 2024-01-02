@@ -1,0 +1,115 @@
+From 11b6eeabe3357505419b5b2bf71a2c50f8590351 Mon Sep 17 00:00:00 2001
+From: "kaiqi.chen" <kaiqi.chen@unisoc.com>
+Date: Tue, 1 Nov 2022 11:15:46 +0800
+Subject: [PATCH] Bug #x
+
+[root cause  ]:x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/system/locallogin.if | 63 +++++++++++++++++++++++++++++
+ policy/modules/system/locallogin.te |  9 ++++-
+ 2 files changed, 71 insertions(+), 1 deletion(-)
+
+diff --git a/policy/modules/system/locallogin.if b/policy/modules/system/locallogin.if
+index 9a8a86172..7c8cef175 100644
+--- a/policy/modules/system/locallogin.if
++++ b/policy/modules/system/locallogin.if
+@@ -482,3 +482,66 @@ interface(`locallogin_iptables_initrc_exec_t_file',`
+     allow $1 iptables_initrc_exec_t:file { execute_no_trans execute map};
+ ')
+ 
++interface(`locallogin_configfs_t_dir',`
++    gen_require(`
++        type configfs_t;
++    ')
++
++    allow $1 configfs_t:dir { search write add_name remove_name };
++')
++
++interface(`locallogin_initrc_t_process',`
++    gen_require(`
++        type initrc_t;
++    ')
++
++    allow $1 initrc_t:process { signal };
++')
++
++interface(`locallogin_proc_net_t_file',`
++    gen_require(`
++        type proc_net_t;
++    ')
++
++    allow $1 proc_net_t:file { read open getattr };
++')
++
++interface(`locallogin_configfs_t_file',`
++    gen_require(`
++        type configfs_t;
++    ')
++
++    allow $1 configfs_t:file { create write open };
++')
++
++interface(`locallogin_configfs_t_lnk_file',`
++    gen_require(`
++        type configfs_t;
++    ')
++
++    allow $1 configfs_t:lnk_file { getattr unlink };
++')
++
++interface(`locallogin_ptmx_t_chr_file',`
++    gen_require(`
++        type ptmx_t;
++    ')
++
++    allow $1 ptmx_t:chr_file { read write open ioctl };
++')
++
++interface(`locallogin_devpts_t_dir',`
++    gen_require(`
++        type devpts_t;
++    ')
++
++    allow $1 devpts_t:dir { search };
++')
++
++interface(`locallogin_devpts_t_chr_file',`
++    gen_require(`
++        type devpts_t;
++    ')
++
++    allow $1 devpts_t:chr_file { getattr read write open ioctl };
++')
+diff --git a/policy/modules/system/locallogin.te b/policy/modules/system/locallogin.te
+index 9734bb868..67ade5f90 100644
+--- a/policy/modules/system/locallogin.te
++++ b/policy/modules/system/locallogin.te
+@@ -332,4 +332,11 @@ locallogin_var_run_t_file(local_login_t)
+ locallogin_local_login_tmp_t_file(local_login_t)
+ locallogin_kmsg_device_t_chr_file(local_login_t)
+ locallogin_iptables_initrc_exec_t_file(local_login_t)
+-
++locallogin_configfs_t_dir(local_login_t)
++locallogin_initrc_t_process(local_login_t)
++locallogin_proc_net_t_file(local_login_t)
++locallogin_configfs_t_file(local_login_t)
++locallogin_configfs_t_lnk_file(local_login_t)
++locallogin_ptmx_t_chr_file(local_login_t)
++locallogin_devpts_t_dir(local_login_t)
++locallogin_devpts_t_chr_file(local_login_t)
+-- 
+2.17.1
+

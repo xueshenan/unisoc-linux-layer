@@ -1,0 +1,38 @@
+From 1eb0392557cab004aa058d40dbb0c81d4a232ed1 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Tue, 11 Oct 2022 09:49:26 +0800
+Subject: [PATCH] Bug #2011601 transplant-1.0-refpolicy-11
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/roles/staff.if | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+index 06b801be6..71ac993e9 100644
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -392,6 +392,7 @@ interface(`staff_pulseaudio_runtime_t_sock_file',`
+ interface(`staff_initrc_t_dbus',`
+         gen_require(`
+                 class dbus send_msg;
++				type initrc_t;
+         ')
+ 
+         allow $1 initrc_t:dbus send_msg;
+-- 
+2.17.1
+

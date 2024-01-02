@@ -1,0 +1,39 @@
+From 546e8f6251e46adb46a41d1158d519f2fcfce4af Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Tue, 11 Oct 2022 00:20:50 +0800
+Subject: [PATCH] Bug #2011601 transpolant-1.0-refpolicy-6
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/system/modutils.te | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/policy/modules/system/modutils.te b/policy/modules/system/modutils.te
+index ec16ad08e..a72ae5975 100644
+--- a/policy/modules/system/modutils.te
++++ b/policy/modules/system/modutils.te
+@@ -200,8 +200,6 @@ kmod_var_run_t_file(kmod_t)
+ kmod_iptables_t_rawip_socket(kmod_t)
+ kmod_devpts_t_chr_file(kmod_t)
+ 
+-modutils_iptables_t_rawip_socket(kmod_t)
+-
+ modutils_initrc_t_unix_stream_socket(kmod_t)
+ modutils_initrc_t_netlink_generic_socket(kmod_t)
+ modutils_initrc_t_udp_socket(kmod_t)
+-- 
+2.17.1
+

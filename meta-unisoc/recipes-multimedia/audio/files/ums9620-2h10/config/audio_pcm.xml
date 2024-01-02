@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<rootnode>
+	<playback>
+		<mm_normal channels="2" rate="48000" period_size="960" period_count="4" format="0" stop_threshold="-1" card="sprdphone-sc2730"  pcm_device="3" apptype="AUDIO_HW_APP_PRIMARY" />
+		<mmap_noirq channels="2" rate="48000" period_size="960" period_count="4" format="0" card="sprdphone-sc2730"  pcm_device="1" apptype="AUDIO_HW_APP_MMAP" />
+		<modem_dl channels="1" rate="8000" period_size="160" period_count="2" format="0" stop_threshold="-1" card="sprdphone-sc2730"  pcm_device="8" apptype="AUDIO_HW_APP_CALL" />
+		<voip channels="1" rate="16000" period_size="640" period_count="2" format="0" start_threshold="1280" card="sprdphone-sc2730"  pcm_device="9" apptype="AUDIO_HW_APP_VOIP" />
+		<fm channels="2" rate="32000" period_size="1280" period_count="2" format="0" stop_threshold="-1" card="sprdphone-sc2730"  pcm_device="7" apptype="AUDIO_HW_APP_FM" />
+		<fm_bydsp channels="2" rate="32000" period_size="1280" period_count="2" format="0" stop_threshold="-1" card="sprdphone-sc2730"  pcm_device="15" apptype="AUDIO_HW_APP_DSPFM"/>
+		<fast channels="2" rate="48000" period_size="960" period_count="4" format="0" card="sprdphone-sc2730"  pcm_device="0" apptype="AUDIO_HW_APP_FAST"/>
+		<dsp_loop channels="1" rate="8000" period_size="640" period_count="4" format="0" card="sprdphone-sc2730"  pcm_device="13" apptype="AUDIO_HW_APP_DSP_LOOP"/>
+	</playback>
+	<record>
+		<recognition channels="1" period_size="960" period_count="2" format="0" rate="48000" card="sprdphone-sc2730"  pcm_device="0" apptype="AUDIO_HW_APP_RECOGNITION" />
+		<mm_normal channels="2" period_size="1920" period_count="4" format="0" start_threshold="1920" rate="48000" card="sprdphone-sc2730"  pcm_device="5" apptype="AUDIO_HW_APP_NORMAL_RECORD" />
+		<mmap_noirq channels="1" period_size="960" period_count="2" format="0" rate="48000" card="sprdphone-sc2730"  pcm_device="1" apptype="AUDIO_HW_APP_MMAP_RECORD" />
+		<modem_ul channels="1" rate="8000" period_size="160" period_count="2" format="0" stop_threshold="-1" card="sprdphone-sc2730"  pcm_device="8" apptype="AUDIO_HW_APP_CALL" />
+		<voip channels="1" rate="16000" period_size="640" period_count="2" format="0" start_threshold="1280" card="sprdphone-sc2730"  pcm_device="9" apptype="AUDIO_HW_APP_VOIP_RECORD" />
+		<fm channels="2" rate="48000" period_size="960" period_count="2" format="0" card="sprdphone-sc2730"  pcm_device="13" apptype="AUDIO_HW_APP_FM_RECORD" />
+		<voice_c channels="1" period_size="960" period_count="2" format="0" rate="8000" card="sprdphone-sc2730"  pcm_device="9" apptype="AUDIO_HW_APP_CALL_RECORD" />
+		<dsp_loop channels="1" rate="8000" period_size="640" period_count="4" format="0" card="sprdphone-sc2730" pcm_device="13" apptype="AUDIO_HW_APP_DSP_LOOP" />
+		<btsco_record channels="1" period_size="960" period_count="2" format="0" rate="48000" card="sprdphone-sc2730"  pcm_device="14" apptype="AUDIO_HW_APP_BT_RECORD" />
+		<vbcdump channels="1" rate="48000" period_size="640" period_count="8" format="0" card="sprdphone-sc2730"  pcm_device="16" apptype="AUDIO_HW_APP_VBC_PCM_DUMP" />
+	</record>
+	<compress fragment_size="0x5000" fragments="0x40" card="sprdphone-sc2730" pcm_device="0x04" apptype="AUDIO_HW_APP_OFFLOAD" />
+	<!--Note:modify period_size and period_count affect the latency-->
+	<offload>
+		<a2dp>
+			<mixer channels="2" rate="48000" period_size="960" period_count="4" format="0" stop_threshold="-1" card="sprdphone-sc2730"  device="12"/>
+			<compress fragment_size="0x5000" fragments="0x08" card="sprdphone-sc2730" device="11"/>
+		</a2dp>
+	</offload>
+</rootnode>

@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2021 Unisoc (Shanghai) Technologies Co., Ltd.
+#
+# SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
+
+[Unit]
+Description=ATRouter Service
+
+[Service]
+ExecStart=/usr/bin/atrouter
+ExecStartPre=/bin/mkdir -p /var/log/atrouterlog
+
+[Install]
+WantedBy=multi-user.target
+Alias=unisoc-connectivity-atrouter.service

@@ -1,0 +1,192 @@
+From ff588ce99732e20526f9db6dd48da216c41db3fc Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Tue, 20 Sep 2022 17:41:10 +0800
+Subject: [PATCH] Bug #2011601 delete-neverallow-2
+
+[root cause  ]:x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/kernel/devices.te     | 3 ---
+ policy/modules/kernel/domain.te      | 8 --------
+ policy/modules/kernel/kernel.te      | 3 ---
+ policy/modules/kernel/selinux.te     | 3 ---
+ policy/modules/kernel/storage.te     | 4 ----
+ policy/modules/system/authlogin.te   | 3 ---
+ policy/modules/system/selinuxutil.te | 3 ---
+ 7 files changed, 27 deletions(-)
+
+diff --git a/policy/modules/kernel/devices.te b/policy/modules/kernel/devices.te
+index 027c5239f..ffc813b02 100644
+--- a/policy/modules/kernel/devices.te
++++ b/policy/modules/kernel/devices.te
+@@ -150,9 +150,6 @@ dev_node(mei_device_t)
+ type memory_device_t;
+ dev_node(memory_device_t)
+ 
+-neverallow ~{ memory_raw_read devices_unconfined_type } memory_device_t:{ chr_file blk_file } read;
+-neverallow ~{ memory_raw_write devices_unconfined_type } memory_device_t:{ chr_file blk_file } { append write };
+-
+ type misc_device_t;
+ dev_node(misc_device_t)
+ 
+diff --git a/policy/modules/kernel/domain.te b/policy/modules/kernel/domain.te
+index babb794f2..1fcc00f45 100644
+--- a/policy/modules/kernel/domain.te
++++ b/policy/modules/kernel/domain.te
+@@ -16,15 +16,12 @@ gen_tunable(mmap_low_allowed, false)
+ # Mark process types as domains
+ attribute domain;
+ 
+-# Transitions only allowed from domains to other domains
+-neverallow domain ~domain:process { transition dyntransition };
+ 
+ # Domains that are unconfined
+ attribute unconfined_domain_type;
+ 
+ # Domains that can mmap low memory.
+ attribute mmap_low_domain_type;
+-neverallow { domain -mmap_low_domain_type } self:memprotect mmap_zero;
+ 
+ # Domains that can set their current context
+ # (perform dynamic transitions)
+@@ -33,10 +30,7 @@ attribute set_curr_context;
+ # enabling setcurrent breaks process tranquility.  If you do not
+ # know what this means or do not understand the implications of a
+ # dynamic transition, you should not be using it!!!
+-neverallow { domain -set_curr_context } self:process setcurrent;
+ 
+-# No domain needs mac_override as it is unused by SELinux.
+-neverallow domain self:capability2 mac_override;
+ 
+ # entrypoint executables
+ attribute entry_type;
+@@ -77,8 +71,6 @@ attribute cron_job_domain;
+ # SELinux identity and role change constraints
+ attribute process_uncond_exempt;	# add userhelperdomain to this one
+ 
+-neverallow { domain unlabeled_t } ~{ domain unlabeled_t }:process *;
+-neverallow ~{ domain unlabeled_t } *:process *;
+ 
+ ########################################
+ #
+diff --git a/policy/modules/kernel/kernel.te b/policy/modules/kernel/kernel.te
+index b51035169..d1eb4323f 100644
+--- a/policy/modules/kernel/kernel.te
++++ b/policy/modules/kernel/kernel.te
+@@ -17,7 +17,6 @@ attribute can_load_kernmodule;
+ attribute can_receive_kernel_messages;
+ attribute can_dump_kernel;
+ 
+-neverallow ~can_load_kernmodule self:capability sys_module;
+ 
+ # domains with unconfined access to kernel resources
+ attribute kern_unconfined;
+@@ -87,7 +86,6 @@ genfscon proc /kmsg gen_context(system_u:object_r:proc_kmsg_t,mls_systemhigh)
+ 
+ # /proc kcore: inaccessible
+ type proc_kcore_t, proc_type;
+-neverallow ~{ can_dump_kernel kern_unconfined } proc_kcore_t:file ~getattr;
+ genfscon proc /kcore gen_context(system_u:object_r:proc_kcore_t,mls_systemhigh)
+ 
+ type proc_mdstat_t, proc_type;
+@@ -173,7 +171,6 @@ files_mountpoint(unlabeled_t)
+ fs_associate(unlabeled_t)
+ sid file gen_context(system_u:object_r:unlabeled_t,s0)
+ sid unlabeled gen_context(system_u:object_r:unlabeled_t,mls_systemhigh)
+-neverallow * unlabeled_t:file entrypoint;
+ 
+ # These initial sids are no longer used, and can be removed:
+ sid any_socket		gen_context(system_u:object_r:unlabeled_t,mls_systemhigh)
+diff --git a/policy/modules/kernel/selinux.te b/policy/modules/kernel/selinux.te
+index 0b30bb7a5..edd07cdee 100644
+--- a/policy/modules/kernel/selinux.te
++++ b/policy/modules/kernel/selinux.te
+@@ -41,7 +41,6 @@ genfscon securityfs / gen_context(system_u:object_r:security_t,s0)
+ # Controlled setenforce access
+ #
+ 
+-neverallow ~{ selinux_unconfined_type can_setenforce } security_t:security setenforce;
+ 
+ allow can_setenforce security_t:dir list_dir_perms;
+ allow can_setenforce security_t:file rw_file_perms;
+@@ -57,7 +56,6 @@ if(!secure_mode_policyload) {
+ # Controlled load_policy access
+ #
+ 
+-neverallow ~{ selinux_unconfined_type can_load_policy } security_t:security load_policy;
+ 
+ allow can_load_policy security_t:dir list_dir_perms;
+ allow can_load_policy security_t:file rw_file_perms;
+@@ -73,7 +71,6 @@ if(!secure_mode_policyload) {
+ # Controlled security parameters access
+ #
+ 
+-neverallow ~{ selinux_unconfined_type can_setsecparam } security_t:security setsecparam;
+ 
+ allow can_setsecparam security_t:dir list_dir_perms;
+ allow can_setsecparam security_t:file rw_file_perms;
+diff --git a/policy/modules/kernel/storage.te b/policy/modules/kernel/storage.te
+index c10290c06..ee179a4a4 100644
+--- a/policy/modules/kernel/storage.te
++++ b/policy/modules/kernel/storage.te
+@@ -18,8 +18,6 @@ attribute storage_unconfined_type;
+ type fixed_disk_device_t;
+ dev_node(fixed_disk_device_t)
+ 
+-neverallow ~{ fixed_disk_raw_read storage_unconfined_type } fixed_disk_device_t:{ chr_file blk_file } read;
+-neverallow ~{ fixed_disk_raw_write storage_unconfined_type } fixed_disk_device_t:{ chr_file blk_file } { append write };
+ 
+ #
+ # fuse_device_t is the type of /dev/fuse
+@@ -34,8 +32,6 @@ dev_node(fuse_device_t)
+ type scsi_generic_device_t;
+ dev_node(scsi_generic_device_t)
+ 
+-neverallow ~{ scsi_generic_read storage_unconfined_type } scsi_generic_device_t:{ chr_file blk_file } read;
+-neverallow ~{ scsi_generic_write storage_unconfined_type } scsi_generic_device_t:{ chr_file blk_file } { append write };
+ 
+ #
+ # removable_device_t is the type of
+diff --git a/policy/modules/system/authlogin.te b/policy/modules/system/authlogin.te
+index 28f74bac3..bfd94a5cb 100644
+--- a/policy/modules/system/authlogin.te
++++ b/policy/modules/system/authlogin.te
+@@ -60,9 +60,6 @@ files_pid_file(pam_var_run_t)
+ 
+ type shadow_t;
+ files_auth_file(shadow_t)
+-neverallow ~can_read_shadow_passwords shadow_t:file read;
+-neverallow ~can_write_shadow_passwords shadow_t:file { create write };
+-neverallow ~can_relabelto_shadow_passwords shadow_t:file relabelto;
+ 
+ type updpwd_t;
+ type updpwd_exec_t;
+diff --git a/policy/modules/system/selinuxutil.te b/policy/modules/system/selinuxutil.te
+index 82ddda061..8fdc7da84 100644
+--- a/policy/modules/system/selinuxutil.te
++++ b/policy/modules/system/selinuxutil.te
+@@ -69,9 +69,6 @@ role newrole_roles types newrole_t;
+ type policy_config_t;
+ files_security_file(policy_config_t)
+ 
+-neverallow ~can_relabelto_binary_policy policy_config_t:file relabelto;
+-#neverallow ~can_write_binary_policy policy_config_t:file { write append };
+-
+ #
+ # policy_src_t is the type of the policy source
+ # files.
+-- 
+2.17.1
+

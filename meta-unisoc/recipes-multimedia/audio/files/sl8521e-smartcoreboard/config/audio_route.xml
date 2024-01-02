@@ -1,0 +1,236 @@
+<root>
+    <devices>
+        <single-mic device00="0x80000004">
+                <on>
+                    <ctl name="ADC LRCLK Select" val="invert" />
+                    <ctl name="ADC1 LRCLK Select" val="invert" />
+                    <ctl name="ADCL Mixer MainMICADCL Switch" val="1" />
+                    <ctl name="Mic Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="Mic Function" val="0" />
+                    <ctl name="ADCL Mixer MainMICADCL Switch" val="0" />
+                    <ctl name="ADC1 LRCLK Select" val="normal" />
+                    <ctl name="ADC LRCLK Select" val="normal" />
+                </off>
+        </single-mic>
+        <back-mic device00="0x80000080">
+                <on>
+                    <ctl name="ADC LRCLK Select" val="normal" />
+                    <ctl name="ADC1 LRCLK Select" val="normal" />
+                    <ctl name="ADCR Mixer AuxMICADCR Switch" val="1" />
+                    <ctl name="Aux Mic Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="Aux Mic Function" val="0" />
+                    <ctl name="ADCR Mixer AuxMICADCR Switch" val="0" />
+                </off>
+        </back-mic>
+        <double-mic device00="0x80000084">
+                <on>
+                    <ctl name="ADC LRCLK Select" val="invert" />
+                    <ctl name="ADC1 LRCLK Select" val="invert" />
+                    <ctl name="ADCL Mixer MainMICADCL Switch" val="1" />
+                    <ctl name="ADCR Mixer AuxMICADCR Switch" val="1" />
+                    <ctl name="Mic Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="Mic Function" val="0" />
+                    <ctl name="ADCL Mixer MainMICADCL Switch" val="0" />
+                    <ctl name="ADCR Mixer AuxMICADCR Switch" val="0" />
+                    <ctl name="ADC1 LRCLK Select" val="normal" />
+                    <ctl name="ADC LRCLK Select" val="normal" />
+                </off>
+        </double-mic>
+        <headset-mic device00="0x80000010">
+                <on>
+                    <ctl name="ADC LRCLK Select" val="normal" />
+                    <ctl name="ADC1 LRCLK Select" val="normal" />
+                    <ctl name="ADCL Mixer HPMICADCL Switch" val="1" />
+                    <ctl name="ADCR Mixer HPMICADCR Switch" val="1" />
+                    <ctl name="HP Mic Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="HP Mic Function" val="0" />
+                    <ctl name="ADCL Mixer HPMICADCL Switch" val="0" />
+                    <ctl name="ADCR Mixer HPMICADCR Switch" val="0" />
+                </off>
+        </headset-mic>
+        <speaker device00="0x2">
+                <on>
+                    <ctl name="UCP1301 AGC Gain" val="77" />
+                    <ctl name="SPKL Mixer DACLSPKL Switch" val="1" />
+                    <ctl name="Speaker Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="Speaker Function" val="0" />
+                    <ctl name="SPKL Mixer DACLSPKL Switch" val="0" />
+                </off>
+        </speaker>
+        <headphone device00="0xc">
+                <on>
+                    <ctl name="HPL EAR Sel" val="HPL" />
+                    <ctl name="HPL Mixer DACLHPL Switch" val="1" />
+                    <ctl name="HPR Mixer DACRHPR Switch" val="1" />
+                    <ctl name="HeadPhone Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="HeadPhone Function" val="0" />
+                    <ctl name="HPL Mixer DACLHPL Switch" val="0" />
+                    <ctl name="HPR Mixer DACRHPR Switch" val="0" />
+                    <ctl name="HPL EAR Sel" val="EAR" />
+                </off>
+        </headphone>
+        <headphone-speaker device00="0x2" device01="0xc">
+                <on>
+                    <ctl name="HPL EAR Sel" val="HPL" />
+                    <ctl name="HPL Mixer DACLHPL Switch" val="1" />
+                    <ctl name="HPR Mixer DACRHPR Switch" val="1" />
+                    <ctl name="HeadPhone Function" val="1" />
+                    <ctl name="UCP1301 AGC Gain" val="77" />
+                    <ctl name="SPKL Mixer DACLSPKL Switch" val="1" />
+                    <ctl name="Speaker Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="HeadPhone Function" val="0" />
+                    <ctl name="HPL Mixer DACLHPL Switch" val="0" />
+                    <ctl name="HPR Mixer DACRHPR Switch" val="0" />
+                    <ctl name="HPL EAR Sel" val="EAR" />
+                    <ctl name="Speaker Function" val="0" />
+                    <ctl name="SPKL Mixer DACLSPKL Switch" val="0" />
+                </off>
+        </headphone-speaker>
+        <handset device00="0x1">
+                <on>
+                    <ctl name="EAR Mixer DACLEAR Switch" val="1" />
+                    <ctl name="Earpiece Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="Earpiece Function" val="0" />
+                    <ctl name="EAR Mixer DACLEAR Switch" val="0" />
+                </off>
+        </handset>
+        <fm-record device00="0x80002000">
+            <on />
+            <off />
+        </fm-record>
+        <bt_sco device00="0x70">
+            <on>
+            </on>
+            <off>
+            </off>
+        </bt_sco>
+        <bt_sco_spk device00="0x70" device01="0x2">
+            <on>
+                <ctl name="SYS_IIS3" val="wcn_iis0" />
+                <ctl name="SYS_IIS4" val="ap_iis0" />
+                <ctl name="UCP1301 AGC Gain" val="77" />
+                <ctl name="SPKL Mixer DACLSPKL Switch" val="1" />
+                <ctl name="Speaker Function" val="1" />
+            </on>
+            <off>
+                <ctl name="Speaker Function" val="0" />
+                <ctl name="SPKL Mixer DACLSPKL Switch" val="0" />
+            </off>
+        </bt_sco_spk>
+        <bt_mic device00="0x80000008">
+            <on>
+            </on>
+            <off>
+            </off>
+        </bt_mic>
+    </devices>
+    <vbc_iis>
+        <CP_CSFB>
+            <on>
+                <ctl name="SYS_IIS3" val="wcn_iis0" />
+                <ctl name="SYS_IIS4" val="tgdsp_iis0" />
+                <ctl name="IIS_BT_FM_LOOP" val="1" />
+            </on>
+            <off />
+        </CP_CSFB>
+        <FM_IIS>
+            <on>
+                <ctl name="SYS_IIS3" val="wcn_iis0" />
+                <ctl name="SYS_IIS4" val="vbc_iis1" />
+                <ctl name="IIS_BT_FM_LOOP" val="1" />
+            </on>
+            <off />
+        </FM_IIS>
+        <AP_TYPE>
+            <on>
+                <ctl name="SYS_IIS3" val="wcn_iis0" />
+                <ctl name="SYS_IIS4" val="ap_iis0" />
+                <ctl name="SYS_IIS0" val="ap_iis1" />
+                <ctl name="IIS_BT_FM_LOOP" val="1" />
+              </on>
+            <off />
+        </AP_TYPE>
+        <PUBCP>
+            <on>
+                <ctl name="SYS_IIS3" val="wcn_iis0" />
+                <ctl name="SYS_IIS4" val="pubcp_iis0" />
+                <ctl name="IIS_BT_FM_LOOP" val="1" />
+            </on>
+            <off />
+        </PUBCP>
+        <fm>
+            <on>
+                <ctl name="Digital FM Function" val="1" />
+                <ctl name="DA0 ADDFM MUX" val="1" />
+                <ctl name="DA1 ADDFM MUX" val="1" />
+                <ctl name="DA0 ADDST MUX" val="0" />
+                <ctl name="DA1 ADDST MUX" val="0" />
+                <ctl name="IIS_BT_FM_LOOP" val="1" />
+                <ctl name="AD IISMUX" val="DIGFM" />
+            </on>
+            <off>
+                <ctl name="Digital FM Function" val="0" />
+                <ctl name="DA0 ADDST MUX" val="0" />
+                <ctl name="DA1 ADDST MUX" val="0" />
+                <ctl name="DA0 ADDFM MUX" val="0" />
+                <ctl name="DA1 ADDFM MUX" val="0" />
+            </off>
+        </fm>
+        <record>
+            <on>
+                <ctl name="AD IISMUX" val="AUDIIS0" />
+            </on>
+            <off>
+                <ctl name="AD IISMUX" val="DIGFM" />
+            </off>
+        </record>
+        <playback>
+            <on>
+                <ctl name="VBC DAC01 MIXERDG" val="4096" count="2"/>
+            </on>
+            <off />
+        </playback>
+    </vbc_iis>
+    <usecase_device>
+        <voip device="0xf">
+            <on>
+            </on>
+            <off />
+        </voip>
+        <voip device="0x70">
+            <on>
+                <ctl name="SYS_IIS3" val="wcn_iis0" />
+                <ctl name="SYS_IIS4" val="tgdsp_iis0" />
+            </on>
+            <off />
+        </voip>
+        <voice_playback device="0xf">
+            <on>
+              </on>
+            <off />
+        </voice_playback>
+        <voice_playback device="0x70">
+            <on>
+                <ctl name="SYS_IIS3" val="wcn_iis0" />
+                <ctl name="SYS_IIS4" val="tgdsp_iis0" />
+            </on>
+            <off />
+        </voice_playback>
+    </usecase_device>
+</root>

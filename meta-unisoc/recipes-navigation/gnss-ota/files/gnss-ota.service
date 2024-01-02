@@ -1,0 +1,9 @@
+[Unit]
+Description=gnss-ota
+
+[Service]
+ExecStart=/usr/bin/gnss-ota
+
+[Install]
+WantedBy=multi-user.target
+Alias=gnss-ota.service

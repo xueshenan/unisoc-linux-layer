@@ -1,0 +1,13 @@
+diff --git a/aplay/aplay.c b/aplay/aplay.c
+index 274bbce..16a17c4 100755
+--- a/aplay/aplay.c
++++ b/aplay/aplay.c
+@@ -2806,7 +2806,7 @@ static void playback_go(int fd, size_t loaded, off64_t count, int rtype, char *n
+ 		l = 0;
+ 	}
+ 	snd_pcm_nonblock(handle, 0);
+-	snd_pcm_drain(handle);
++	snd_pcm_drop(handle);
+ 	snd_pcm_nonblock(handle, nonblock);
+ }
+ 

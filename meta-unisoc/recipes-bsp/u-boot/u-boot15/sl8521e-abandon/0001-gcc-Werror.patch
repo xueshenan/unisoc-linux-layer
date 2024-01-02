@@ -1,0 +1,60 @@
+diff --git a/Makefile b/Makefile
+index ab566b7..cfa5bea 100644
+--- a/Makefile
++++ b/Makefile
+@@ -702,7 +702,7 @@ libs-$(CONFIG_UT_ENV) += test/env/
+ 
+ libs-y += $(if $(BOARDDIR),board/$(BOARDDIR)/)
+ 
+-libs-y := $(sort $(libs-y))
++#libs-y := $(sort $(libs-y))
+ 
+ u-boot-dirs	:= $(patsubst %/,%,$(filter %/, $(libs-y))) tools examples
+ 
+diff --git a/drivers/video/sprdfb/sprdfb_main.c b/drivers/video/sprdfb/sprdfb_main.c
+index 6fd29a9..d9240e0 100644
+--- a/drivers/video/sprdfb/sprdfb_main.c
++++ b/drivers/video/sprdfb/sprdfb_main.c
+@@ -47,12 +47,11 @@ uint32_t lcd_get_pixel_clock(void)
+ 	return 0;
+ }
+ 
+-void inline save_lcd_id_to_kernel(uint32_t id)
++void save_lcd_id_to_kernel(uint32_t id)
+ {
+ 	lcd_id_to_kernel = id;
+ }
+-
+-uint32_t inline load_lcd_id_to_kernel(void)
++uint32_t load_lcd_id_to_kernel(void)
+ {
+ 	return lcd_id_to_kernel;
+ }
+diff --git a/drivers/video/sprdfb/sprdfb_panel.c b/drivers/video/sprdfb/sprdfb_panel.c
+index e910cde..42cf89f 100644
+--- a/drivers/video/sprdfb/sprdfb_panel.c
++++ b/drivers/video/sprdfb/sprdfb_panel.c
+@@ -650,6 +650,9 @@ vidinfo_t panel_info = {
+ 	.cmap = colormap,
+ };
+ 
++extern void save_lcd_id_to_kernel(uint32_t id);
++
++
+ static int32_t panel_reset_dispc(struct panel_spec *self)
+ {
+ 	dispc_write(1, DISPC_RSTN);
+diff --git a/include/sprd_log.h b/include/sprd_log.h
+index 76b6800..327e38b 100644
+--- a/include/sprd_log.h
++++ b/include/sprd_log.h
+@@ -110,7 +110,8 @@ void flush_log_buffer(void);
+ 
+ #else
+ 
+-# if defined(CONFIG_LOG_2_EMMC)
++# if defined(CONFIG_LOG_2_EMMC) 
++#undef write_log_last
+ #define write_log_last() do {		\
+ 	init_log_struct();		\
+ 	init_log_partition_hdr();	\

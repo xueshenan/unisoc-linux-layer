@@ -1,0 +1,76 @@
+From f79c7291a9fd8600732086fce9d4efdae0228020 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Fri, 21 Oct 2022 13:42:32 +0800
+Subject: [PATCH] Bug #2047715 N6p-no-log
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/roles/staff.if    | 8 ++++++++
+ policy/modules/roles/staff.te    | 1 +
+ policy/modules/system/logging.if | 4 ++--
+ 3 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+index 8663db628..25e5cd1d2 100644
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -81,3 +81,11 @@ interface(`staff_default_t_file',`
+     allow $1 default_t:file { rw_file_perms execute};
+ ')
+ 
++interface(`staff_security_t_security',`
++	gen_require(`
++        type security_t;
++    ')
++
++    allow $1 security_t:security { setenforce };
++')
++
+diff --git a/policy/modules/roles/staff.te b/policy/modules/roles/staff.te
+index 7d9852595..30acea096 100644
+--- a/policy/modules/roles/staff.te
++++ b/policy/modules/roles/staff.te
+@@ -223,4 +223,5 @@ staff_unlabeled_t_lnk_file(staff_t)
+ staff_kmsg_device_t_chr_file(staff_t)
+ staff_unlabeled_t_file(staff_t)
+ staff_default_t_file(staff_t)
++staff_security_t_security(staff_t)
+ 
+diff --git a/policy/modules/system/logging.if b/policy/modules/system/logging.if
+index 9b264dfb2..a9bda555a 100644
+--- a/policy/modules/system/logging.if
++++ b/policy/modules/system/logging.if
+@@ -1444,7 +1444,7 @@ interface(`syslogd_etc_t_file',`
+         type etc_t;
+     ')
+ 
+-    allow $1 etc_t:file {rw_file_perms};
++    allow $1 etc_t:file {rw_file_perms map};
+ ')
+ 
+ interface(`syslogd_unlabeled_t_file',`
+@@ -1452,7 +1452,7 @@ interface(`syslogd_unlabeled_t_file',`
+         type unlabeled_t;
+     ')
+ 
+-    allow $1 unlabeled_t:file {rw_file_perms};
++    allow $1 unlabeled_t:file {rw_file_perms create};
+ ')
+ 
+ interface(`syslogd_unlabeled_t_dir',`
+-- 
+2.17.1
+

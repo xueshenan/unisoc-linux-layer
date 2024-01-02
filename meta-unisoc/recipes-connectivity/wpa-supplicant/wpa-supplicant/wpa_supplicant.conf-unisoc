@@ -1,0 +1,8 @@
+ctrl_interface=/var/run/wpa_supplicant
+ctrl_interface_group=0
+update_config=1
+external_sim=1
+wowlan_triggers=any
+country=CN
+p2p_disabled=1
+pmf=1

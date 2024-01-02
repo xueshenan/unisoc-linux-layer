@@ -1,0 +1,731 @@
+From 1f95787706aaf6eea8e664187c8e0c7b82fbc04c Mon Sep 17 00:00:00 2001
+From: "etham.li" <etham.li@unisoc.com>
+Date: Tue, 22 Nov 2022 14:16:46 +0800
+Subject: [PATCH] Bug #2084303 - [rsyslog] Add imwcn plugins for unisoc wcn log
+ && dump log
+
+[root cause  ]:Add imwcn plugins for unisoc wcn log && dump log
+[changes     ]:Add imwcn plugins for unisoc wcn log && dump log
+[side effects]:no
+[self test   ]:build pass
+[download normally]:yes
+[power on/off normally]:yes
+[do common repository/branch inspection]:no
+[is there dependence]:no
+[confirm dependent commit]:no
+[board]:glp2.0
+[test case]:build pass
+[reviewers]:zhenghai.yang
+
+commit_template_version:v1
+---
+ Makefile.am               |   4 +
+ configure.ac              |  13 +
+ plugins/imwcn/Makefile.am |   6 +
+ plugins/imwcn/imwcn.c     | 505 ++++++++++++++++++++++++++++++++++++++
+ plugins/imwcn/uevent.c    |  96 ++++++++
+ plugins/imwcn/uevent.h    |  18 ++
+ 6 files changed, 642 insertions(+)
+ create mode 100755 plugins/imwcn/Makefile.am
+ create mode 100755 plugins/imwcn/imwcn.c
+ create mode 100755 plugins/imwcn/uevent.c
+ create mode 100755 plugins/imwcn/uevent.h
+
+diff --git a/Makefile.am b/Makefile.am
+index 3c446b6..fd61cba 100755
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -42,6 +42,10 @@ if ENABLE_IMSCRIPT
+ SUBDIRS += plugins/imscript
+ endif
+ 
++if ENABLE_IMWCN
++SUBDIRS += plugins/imwcn
++endif
++
+ if ENABLE_IMKMSG
+ SUBDIRS += contrib/imkmsg
+ endif
+diff --git a/configure.ac b/configure.ac
+index 684faa7..717995f 100755
+--- a/configure.ac
++++ b/configure.ac
+@@ -615,6 +615,18 @@ AC_ARG_ENABLE(script,
+ )
+ AM_CONDITIONAL(ENABLE_IMSCRIPT, test x$enable_script = xyes)
+ 
++# wcn
++AC_ARG_ENABLE(wcn,
++        [AS_HELP_STRING([--enable-wcn],[Integrated wcn functionality @<:@default=yes@:>@])],
++        [case "${enableval}" in
++         yes) enable_wcn="yes" ;;
++          no) enable_wcn="no" ;;
++           *) AC_MSG_ERROR(bad value ${enableval} for --enable-wcn) ;;
++         esac],
++        [enable_wcn="no"]
++)
++AM_CONDITIONAL(ENABLE_IMWCN, test x$enable_wcn = xyes)
++
+ # kmsg
+ AC_ARG_ENABLE(kmsg,
+         [AS_HELP_STRING([--enable-kmsg],[Kmsg structured kernel logs functionality @<:@default=no@:>@])],
+@@ -2712,6 +2724,7 @@ AC_CONFIG_FILES([Makefile \
+ 		plugins/imtest/Makefile \
+ 		plugins/imevents/Makefile \
+ 		plugins/imscript/Makefile \
++		plugins/imwcn/Makefile \
+ 		plugins/omhdfs/Makefile \
+ 		plugins/omkafka/Makefile \
+ 		plugins/omprog/Makefile \
+diff --git a/plugins/imwcn/Makefile.am b/plugins/imwcn/Makefile.am
+new file mode 100755
+index 0000000..bbd61f0
+--- /dev/null
++++ b/plugins/imwcn/Makefile.am
+@@ -0,0 +1,6 @@
++pkglib_LTLIBRARIES = imwcn.la
++
++imwcn_la_SOURCES = imwcn.c uevent.c uevent.h
++imwcn_la_CPPFLAGS = -I$(top_srcdir) $(PTHREADS_CFLAGS) $(RSRT_CFLAGS)
++imwcn_la_LDFLAGS = -module -avoid-version
++imwcn_la_LIBADD = 
+diff --git a/plugins/imwcn/imwcn.c b/plugins/imwcn/imwcn.c
+new file mode 100755
+index 0000000..1b80ba6
+--- /dev/null
++++ b/plugins/imwcn/imwcn.c
+@@ -0,0 +1,505 @@
++/*
++ * SPDX-FileCopyrightText: 2022 Unisoc (Shanghai) Technologies Co., Ltd.
++ *
++ * SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
++ *
++ */
++#include "config.h"
++#include <stdio.h>
++#include <unistd.h>
++#include <assert.h>
++#include <string.h>
++#include <stdarg.h>
++#include <ctype.h>
++#include <stdlib.h>
++#include <poll.h>
++#include <sys/types.h>
++#include <sys/wait.h>
++#include <sys/types.h>
++#include <pthread.h>
++#include <errno.h>
++#include <fcntl.h>
++#include <time.h>
++
++#include "rsyslog.h"
++#include "dirty.h"
++#include "cfsysline.h"
++#include "obj.h"
++#include "msg.h"
++#include "glbl.h"
++#include "prop.h"
++#include "errmsg.h"
++#include "stream.h"
++#include "unicode-helper.h"
++#include "module-template.h"
++#include "stringbuf.h"
++#include "uevent.h"
++
++MODULE_TYPE_INPUT
++MODULE_TYPE_NOKEEP
++MODULE_CNFNAME("imwcn")
++
++/* Module static data */
++DEF_IMOD_STATIC_DATA
++DEFobjCurrIf(glbl)
++DEFobjCurrIf(strm)
++DEFobjCurrIf(prop)
++
++static int bLegacyCnfModGlobalsPermitted;
++
++static struct configSettings_s {
++	uchar *pszWCNLogPath;
++} cs;
++
++/* input params config settings */
++struct instanceConf_s {
++	uchar *pszLogPath;
++	struct instanceConf_s *next;
++};
++
++/* module params config settings */
++struct modConfData_s {
++	rsconf_t *pConf;
++	instanceConf_t *root, *tail;
++};
++
++static modConfData_t *loadModConf = NULL;
++static modConfData_t *runModConf = NULL;
++
++#define WCN_PORT_PATH "/dev/slog_wcn0"
++#define WCN_LOG_FILE_NAME "wcn.log"
++#define WCN_DUMP_FILE_NAME "wcn.dump"
++#define WCN_DUMP "EVENT=FW_ERROR"
++#define UEVENT_MSG_LEN 1024
++#define UEVENT_OPEN_SOCKET_LENGTH (256*1024)
++static int m_uevent_fd;
++static int m_read_fd;
++static int m_wcndump_flag;
++static int m_running;
++
++/* global property */
++static prop_t *pInputName = NULL;
++
++/* module-global parameters */
++static struct cnfparamdescr modpdescr[] = {
++};
++
++static struct cnfparamblk modpblk =
++	{ CNFPARAMBLK_VERSION,
++	  sizeof(modpdescr)/sizeof(struct cnfparamdescr),
++	  modpdescr
++	};
++
++/* input instance parameters */
++static struct cnfparamdescr inppdescr[] = {
++	{ "logpath", eCmdHdlrString, CNFPARAM_REQUIRED }
++};
++
++static struct cnfparamblk inppblk =
++	{ CNFPARAMBLK_VERSION,
++	  sizeof(inppdescr)/sizeof(struct cnfparamdescr),
++	  inppdescr
++	};
++
++/************************************************************/
++/* Module function define                                   */
++/************************************************************/
++static void parse_event(const char *msg) {
++	char * subsystem = NULL;
++	while (*msg) {
++	  if (!strncmp(msg, WCN_DUMP, strlen(WCN_DUMP))) {
++		msg += (strlen(WCN_DUMP) + 1);
++		//set wcn dump flag
++		m_wcndump_flag = 1;
++		DBGPRINTF("imwcnlog: wcm dump\n");
++	  }
++	  /* advance to after the next \0 */
++	  while (*msg++)
++		;
++	}
++}
++
++static int handle_uevent_fd() {
++	char msg[UEVENT_MSG_LEN + 2];
++	int n;
++	uid_t uid = -1;
++	while ((n = uevent_kernel_recv(m_uevent_fd, msg, UEVENT_MSG_LEN, true, &uid))
++		> 0) {
++		if (n >= UEVENT_MSG_LEN) { /* overflow -- discard */
++		  DBGPRINTF("imwcnlog: uevent_kernel_recv overflow!discard it!\n");
++		  continue;
++		}
++		msg[n] = '\0';
++		msg[n + 1] = '\0';
++		parse_event(msg);
++	}
++	return 0;
++}
++
++void* ListenThreadFunc(void* params) {
++	DBGPRINTF("imwcnlog: enter ListenThreadFunc\n");
++	int nr;
++	struct pollfd ufd;
++
++	m_uevent_fd = uevent_open_socket(UEVENT_OPEN_SOCKET_LENGTH, true);
++	if (-1 == m_uevent_fd) {
++		DBGPRINTF("imwcnlog: uevent socket init failed !\n");
++		LogError(errno, NO_ERRCODE, "imwcnlog: uevent socket init failed !\n");
++		return NULL;
++	}
++
++	ufd.events = POLLIN;
++	ufd.fd = m_uevent_fd;
++
++	while (m_running == 1) {
++		ufd.revents = 0;
++		nr = poll(&ufd, 1, -1);
++		if (nr <= 0)
++			continue;
++		if (ufd.revents == POLLIN)
++			handle_uevent_fd();
++	}
++}
++
++static int OpenPort() {
++	//open /dev/slog_wcn0
++	m_read_fd = open(WCN_PORT_PATH, O_RDONLY);
++	if (m_read_fd < 0) {
++		DBGPRINTF("imwcnlog: open port error,err:%s\n", strerror(errno));
++		return -1;
++	}
++	return 0;
++}
++
++static int ReadPort(char* buf, int max_len) {
++	int cnt;
++	// read data from uart
++	if (m_read_fd < 0) {
++		DBGPRINTF("imwcnlog:reopen m_read_fd here\n");
++		OpenPort();
++		if (m_read_fd < 0) {
++			return -1;
++		}
++	}
++
++	cnt = read(m_read_fd, buf, max_len);
++	if (cnt <= 0) {
++	  DBGPRINTF("imwcnlog:read no host data from serial: %s,r_cnt = %d\n", strerror(errno),
++			cnt);
++		close (m_read_fd);
++		m_read_fd = -1;
++	}
++	return cnt;
++}
++
++static rsRetVal
++StartWCNMonitor(instanceConf_t *inst)
++{
++	DBGPRINTF("imwcnlog: emter StartWCNMonitor\n");
++	char logpath[128];
++	char readbuffer[4096];
++	char tmpcmd[128];
++	int r_cnt;
++	int wcn_dump_file = 0;
++	DEFiRet;
++	assert(inst->pszLogPath != NULL);
++	memset(logpath, 0, sizeof(logpath));
++	DBGPRINTF("imwcnlog: pszLogPath = %s\n", inst->pszLogPath);
++
++	if (access(inst->pszLogPath, 0) != 0) {
++		DBGPRINTF("imwcnlog: Dir %s not exist\n", inst->pszLogPath);
++		//mkdir
++		memset(tmpcmd, 0, sizeof(tmpcmd));
++		snprintf(tmpcmd, sizeof(tmpcmd), "mkdir %s", inst->pszLogPath);
++		system(tmpcmd);
++	}
++
++	snprintf(logpath, sizeof(logpath), "%s%s", inst->pszLogPath, WCN_LOG_FILE_NAME);
++
++	//Init WCN Configure
++	m_wcndump_flag = 0;
++	m_running = 1;
++	if(OpenPort() < 0) {
++		DBGPRINTF("imwcnlog: Open /dev/slog_wcn0 fail, Exit WCNMonitor\n");
++		LogError(errno, NO_ERRCODE, "imwcnlog: Open /dev/slog_wcn0 fail, Exit WCNMonitor\n");
++		return -1;
++	}
++
++	FILE *fptr = NULL;
++	int errNum = 0;
++	fptr = fopen(logpath, "at+");
++	if (fptr == NULL) {
++		fptr = fopen(logpath, "at+");
++		if (fptr == NULL) {
++			errNum = errno;
++			DBGPRINTF("imwcnlog: Open %s fail, errno = %d, reason = %s\n", logpath, errNum, strerror(errNum));
++			LogError(errno, NO_ERRCODE, "imwcnlog: Open %s fail, errno = %d, reason = %s\n", logpath, errNum, strerror(errNum));
++			return -1;
++		}
++	} else {
++		DBGPRINTF("imwcnlog: Open %s success\n", logpath);
++	}
++
++	//Start Monitor uevent
++	pthread_t tid;
++	pthread_attr_t attr;
++	pthread_attr_init(&attr);
++	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
++	if (0 != pthread_create(&tid, &attr, ListenThreadFunc, NULL)) {
++		DBGPRINTF("imwcnlog: ListenThreadFunc create failed, error: %s\n", strerror(errno));
++		LogError(errno, NO_ERRCODE, "imwcnlog: ListenThreadFunc create failed, error: %s\n", strerror(errno));
++		return -1;
++	}
++	pthread_attr_destroy(&attr);
++
++	//Start wcn log read/write
++	while(m_running == 1) {
++		if (m_wcndump_flag == 1 && wcn_dump_file != 1) {
++			time_t ts = time(NULL);
++			struct tm *stime = localtime(&ts);
++			char tmp[32];
++			memset(tmp, 0, sizeof(tmp));
++			snprintf(tmp, sizeof(tmp), "%04d%02d%02d%02d%02d%02d", 1900 + stime->tm_year,
++				1 + stime->tm_mon, stime->tm_mday, stime->tm_hour, stime->tm_min, stime->tm_sec);
++			snprintf(logpath, sizeof(logpath), "%s%s%s", inst->pszLogPath, tmp, WCN_DUMP_FILE_NAME);
++			// close wcn.log
++			fclose(fptr);
++			fptr = NULL;
++
++			fptr = fopen(logpath, "at+");
++			if (fptr == NULL) {
++				fptr = fopen(logpath, "at+");
++				if (fptr == NULL) {
++					errNum = errno;
++					DBGPRINTF("imwcnlog: Open %s fail, errno = %d, reason = %s\n", logpath, errNum, strerror(errNum));
++					LogError(errno, NO_ERRCODE, "imwcnlog: Open %s fail, errno = %d, reason = %s\n", logpath, errNum, strerror(errNum));
++					return -1;
++				}
++			} else {
++				DBGPRINTF("imwcnlog: Open %s success\n", logpath);
++			}
++			wcn_dump_file = 1;
++		}
++
++		//read from /dev/wcn_log0
++		memset(readbuffer, 0, sizeof(readbuffer));
++		r_cnt = ReadPort(readbuffer, sizeof(readbuffer));
++		DBGPRINTF("imwcnlog: r_cnt = %d\n", r_cnt);
++		if (r_cnt <= 0) {
++			DBGPRINTF("imwcnlog: r_cnt less zero,retry\n");
++			continue;
++		}
++
++		//write to *.log
++		if (fptr == NULL) {
++			DBGPRINTF("imwcnlog: fptr = NULL, error\n");
++			fptr = fopen(logpath, "at+");
++			if (fptr == NULL) {
++				errNum = errno;
++				DBGPRINTF("imwcnlog: write Open %s fail, errno = %d, reason = %s\n", logpath, errNum, strerror(errNum));
++				LogError(errno, NO_ERRCODE, "imwcnlog: write Open %s fail, errno = %d, reason = %s\n", logpath, errNum, strerror(errNum));
++				return -1;
++			}
++		}
++		DBGPRINTF("imwcnlog: fwrite success, fptr = %p\n", fptr);
++		fwrite(readbuffer, r_cnt, 1, fptr);
++	}
++
++	fclose(fptr);
++	close(m_read_fd);
++
++finalize_it:
++	RETiRet;
++}
++
++/* create input instance, set default parameters, and
++ * add it to the list of instances.
++ */
++static rsRetVal
++createInstance(instanceConf_t **pinst)
++{
++	DBGPRINTF("imwcnlog: createInstance\n");
++	instanceConf_t *inst;
++	DEFiRet;
++	CHKmalloc(inst = malloc(sizeof(instanceConf_t)));
++	inst->next = NULL;
++	inst->pszLogPath = NULL;
++
++	if(loadModConf->tail == NULL) {
++		loadModConf->tail = loadModConf->root = inst;
++	} else {
++		loadModConf->tail->next = inst;
++		loadModConf->tail = inst;
++	}
++
++	*pinst = inst;
++finalize_it:
++	RETiRet;
++}
++
++/*
++ * Initialize input parameters by rsyslog.conf
++*/
++BEGINnewInpInst
++	struct cnfparamvals *pvals;
++	instanceConf_t *inst;
++	int i;
++CODESTARTnewInpInst
++	pvals = nvlstGetParams(lst, &inppblk, NULL);
++	if(pvals == NULL) {
++		DBGPRINTF("imwcnlog: error processing input config parameters [input(...)]\n");
++		ABORT_FINALIZE(RS_RET_MISSING_CNFPARAMS);
++	}
++
++	cnfparamsPrint(&inppblk, pvals);
++	CHKiRet(createInstance(&inst));
++
++	for(i = 0 ; i < inppblk.nParams ; ++i) {
++		if(!pvals[i].bUsed)
++			continue;
++		if(!strcmp(inppblk.descr[i].name, "logpath")) {
++			inst->pszLogPath = (uchar*)es_str2cstr(pvals[i].val.d.estr, NULL);
++		} else {
++			DBGPRINTF("imwcnlog: program error, non-handled "
++			  "param '%s'\n", inppblk.descr[i].name);
++		}
++	}
++finalize_it:
++CODE_STD_FINALIZERnewInpInst
++	cnfparamvalsDestruct(pvals, &inppblk);
++ENDnewInpInst
++
++/*
++ * Initialize module parameters
++*/
++BEGINbeginCnfLoad
++CODESTARTbeginCnfLoad
++	loadModConf = pModConf;
++	pModConf->pConf = pConf;
++	/* init legacy config vars */
++	cs.pszWCNLogPath = NULL;
++ENDbeginCnfLoad
++
++/*
++ * Set module parameters by rsyslog.conf
++*/
++BEGINsetModCnf
++CODESTARTsetModCnf
++	bLegacyCnfModGlobalsPermitted = 0;
++finalize_it:
++ENDsetModCnf
++
++/*
++ * End module/input parameters configure end load
++*/
++BEGINendCnfLoad
++CODESTARTendCnfLoad
++	loadModConf = NULL;
++	free(cs.pszWCNLogPath);
++ENDendCnfLoad
++
++/*
++ * Check Conf
++*/
++BEGINcheckCnf
++CODESTARTcheckCnf
++	if(pModConf->root == NULL) {
++		DBGPRINTF("imwcnlog: no files configured to be monitored no input will be gathered\n");
++		iRet = RS_RET_NO_LISTNERS;
++	}
++ENDcheckCnf
++
++BEGINactivateCnfPrePrivDrop
++CODESTARTactivateCnfPrePrivDrop
++ENDactivateCnfPrePrivDrop
++
++BEGINactivateCnf
++CODESTARTactivateCnf
++	runModConf = pModConf;
++ENDactivateCnf
++
++BEGINfreeCnf
++	instanceConf_t *inst, *del;
++CODESTARTfreeCnf
++	for(inst = pModConf->root ; inst != NULL ; ) {
++		free(inst->pszLogPath);
++		del = inst;
++		inst = inst->next;
++		free(del);
++	}
++ENDfreeCnf
++
++BEGINrunInput
++	instanceConf_t *inst;
++CODESTARTrunInput
++	if(runModConf->root == NULL) {
++		DBGPRINTF("imwcnlog: no file monitors configured, input not activated\n");
++		ABORT_FINALIZE(RS_RET_NO_RUN);
++	}
++	inst = runModConf->root;
++	StartWCNMonitor(inst);
++
++	DBGPRINTF("imwcnlog: StartWCNMonitor End\n");
++finalize_it:
++ENDrunInput
++
++BEGINwillRun
++CODESTARTwillRun
++ENDwillRun
++
++BEGINafterRun
++CODESTARTafterRun
++	if(pInputName != NULL)
++		prop.Destruct(&pInputName);
++ENDafterRun
++
++BEGINisCompatibleWithFeature
++CODESTARTisCompatibleWithFeature
++	if(eFeat == sFEATURENonCancelInputTermination)
++		iRet = RS_RET_OK;
++ENDisCompatibleWithFeature
++
++BEGINmodExit
++CODESTARTmodExit
++	if(pInputName != NULL) {
++		prop.Destruct(&pInputName);
++	}
++	/* release objects we used */
++	objRelease(strm, CORE_COMPONENT);
++	objRelease(glbl, CORE_COMPONENT);
++	objRelease(prop, CORE_COMPONENT);
++	m_running = 0;
++ENDmodExit
++
++BEGINqueryEtryPt
++CODESTARTqueryEtryPt
++CODEqueryEtryPt_STD_IMOD_QUERIES
++CODEqueryEtryPt_STD_CONF2_QUERIES
++CODEqueryEtryPt_STD_CONF2_setModCnf_QUERIES
++CODEqueryEtryPt_STD_CONF2_IMOD_QUERIES
++CODEqueryEtryPt_IsCompatibleWithFeature_IF_OMOD_QUERIES
++ENDqueryEtryPt
++
++static rsRetVal
++resetConfigVariables(uchar __attribute__((unused)) *pp, void __attribute__((unused)) *pVal)
++{
++	DEFiRet;
++	free(cs.pszWCNLogPath);
++	cs.pszWCNLogPath = NULL;
++	RETiRet;
++}
++
++BEGINmodInit()
++CODESTARTmodInit
++	*ipIFVersProvided = CURR_MOD_IF_VERSION;
++CODEmodInit_QueryRegCFSLineHdlr
++	CHKiRet(objUse(glbl, CORE_COMPONENT));
++	CHKiRet(objUse(strm, CORE_COMPONENT));
++	CHKiRet(objUse(prop, CORE_COMPONENT));
++
++	CHKiRet(omsdRegCFSLineHdlr((uchar *)"inputwcnlogpath", 0, eCmdHdlrGetWord,
++	  	NULL, &cs.pszWCNLogPath, STD_LOADABLE_MODULE_ID));
++	CHKiRet(omsdRegCFSLineHdlr((uchar *)"resetconfigvariables", 1, eCmdHdlrCustomHandler,
++		resetConfigVariables, NULL, STD_LOADABLE_MODULE_ID));
++ENDmodInit
++
+diff --git a/plugins/imwcn/uevent.c b/plugins/imwcn/uevent.c
+new file mode 100755
+index 0000000..f963195
+--- /dev/null
++++ b/plugins/imwcn/uevent.c
+@@ -0,0 +1,96 @@
++/*
++ * SPDX-FileCopyrightText: 2022 Unisoc (Shanghai) Technologies Co., Ltd.
++ *
++ * SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
++ */
++#undef _GNU_SOURCE
++#define _GNU_SOURCE
++
++#include <errno.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <string.h>
++#include <strings.h>
++#include <sys/socket.h>
++#include <sys/un.h>
++#include <unistd.h>
++#include <linux/netlink.h>
++#include "uevent.h"
++
++int uevent_open_socket(int length, bool passcred) {
++  int enable = passcred;
++  int sock_fd = -1;
++
++  sock_fd = socket(PF_NETLINK, SOCK_DGRAM | SOCK_CLOEXEC,
++                   NETLINK_KOBJECT_UEVENT);
++  if (sock_fd < 0) {
++    return -1;
++  }
++
++  struct sockaddr_nl m_addr;
++  memset(&m_addr, 0, sizeof(m_addr));
++  m_addr.nl_family = AF_NETLINK;
++  m_addr.nl_pid = getpid();
++  m_addr.nl_groups = 0xFFFFFFFF;
++
++  if (setsockopt(sock_fd, SOL_SOCKET, SO_RCVBUF, &length, sizeof(length)) < 0) {
++    close(sock_fd);
++    return -1;
++  }
++
++  setsockopt(sock_fd, SOL_SOCKET, SO_PASSCRED, &enable, sizeof(enable));
++
++  if (bind(sock_fd, (struct sockaddr*) &m_addr, sizeof(m_addr)) < 0) {
++    close(sock_fd);
++    return -1;
++  }
++
++  return sock_fd;
++}
++
++ssize_t uevent_kernel_multicast_recv(int socket, void* buffer, size_t length) {
++  uid_t uid = -1;
++  return uevent_kernel_recv(socket, buffer, length, true, &uid);
++}
++
++ssize_t uevent_kernel_recv(int socket, void* buffer, size_t length, bool flag,
++                           uid_t* uid) {
++  struct iovec m_iov = { buffer, length };
++  struct sockaddr_nl m_addr;
++  char control[CMSG_SPACE(sizeof(struct ucred))];
++  struct msghdr hdr = { .msg_name = &m_addr, .msg_namelen = sizeof(m_addr),
++      .msg_iov = &m_iov, .msg_iovlen = 1, .msg_control = control,
++      .msg_controllen = sizeof(control), .msg_flags = 0, };
++  struct ucred* m_cred;
++
++  *uid = -1;
++  ssize_t recv_num = recvmsg(socket, &hdr, 0);
++  if (recv_num <= 0) {
++    return recv_num;
++  }
++
++  struct cmsghdr* cmsg = CMSG_FIRSTHDR(&hdr);
++  if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
++    bzero(buffer, length);
++    errno = EIO;
++    return -1;
++  }
++
++  m_cred = (struct ucred*) CMSG_DATA(cmsg);
++  *uid = m_cred->uid;
++
++  if (m_addr.nl_pid != 0) {
++    bzero(buffer, length);
++    errno = EIO;
++    return -1;
++  }
++
++  if (flag && m_addr.nl_groups == 0) {
++    bzero(buffer, length);
++    errno = EIO;
++    return -1;
++  }
++
++  return recv_num;
++}
++
+diff --git a/plugins/imwcn/uevent.h b/plugins/imwcn/uevent.h
+new file mode 100755
+index 0000000..2e782e5
+--- /dev/null
++++ b/plugins/imwcn/uevent.h
+@@ -0,0 +1,18 @@
++/*
++ * SPDX-FileCopyrightText: 2022 Unisoc (Shanghai) Technologies Co., Ltd.
++ *
++ * SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
++ */
++
++#ifndef INC_UEVENT_H_
++#define INC_UEVENT_H_
++
++#include <stdbool.h>
++
++int uevent_open_socket(int length, bool passcred);
++ssize_t uevent_kernel_multicast_recv(int socket, void *buffer, size_t length);
++ssize_t uevent_kernel_recv(int socket, void *buffer, size_t length, bool flag,
++                           uid_t *uid);
++
++#endif /* INC_UEVENT_H_ */
++
+-- 
+2.17.1
+

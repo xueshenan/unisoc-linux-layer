@@ -1,0 +1,118 @@
+diff --git a/src/lv_widgets/lv_multimedia.h b/src/lv_widgets/lv_multimedia.h
+new file mode 100644
+index 0000000..9256733
+--- /dev/null
++++ b/src/lv_widgets/lv_multimedia.h
+@@ -0,0 +1,112 @@
++/**
++* @file lv_multimedia.h
++*
++*/
++
++#ifndef LV_MULTIMEDIA_H
++#define LV_MULTIMEDIA_H
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/*********************
++*      INCLUDES
++*********************/
++#include "../lv_conf_internal.h"
++
++#if 1
++#include <sys/time.h>
++#include <stdio.h>
++#include <stdlib.h>
++
++#include "lv_label.h"
++#include "lv_img.h"
++
++#include "../lv_core/lv_obj.h"
++
++#include "../lv_themes/lv_theme.h"
++
++#include "../lv_draw/lv_img_decoder.h"
++#include "../lv_draw/lv_draw.h"
++#include "../lv_draw/lv_img_buf.h"
++
++#include "../lv_misc/lv_fs.h"
++#include "../lv_misc/lv_txt.h"
++#include "../lv_misc/lv_math.h"
++#include "../lv_misc/lv_log.h"
++#include "../lv_misc/lv_debug.h"
++
++/*********************
++*      DEFINES
++*********************/
++
++#define MulTypeRGB32     4032
++#define MulTypeBGR32     4132
++#define MulTypeYUVnv21   1521
++
++
++/**********************
++*      TYPEDEFS
++**********************/
++/*Data of multimedia*/
++typedef struct {
++    lv_img_header_t header;
++    uint32_t data_size;
++    uint8_t * data;
++} lv_cam_dsc_t;
++
++
++/**********************
++* GLOBAL PROTOTYPES
++**********************/
++/**
++* Create an multimedia objects
++* @param par pointer to an object, it will be the parent of the new button
++* @param copy pointer to a multimedia object, if not NULL then the new object will be copied from it
++* @return pointer to the created multimedia
++*/
++lv_obj_t * lv_multimedia_create(lv_obj_t * par, const lv_obj_t * copy);
++
++/**
++* Convert RGBA video data to RGBA format
++* @param sour_data: RGBA  sour_data
++* @param mul_w: The width of an image
++* @param mul_h: The height of an image
++* @param mul_size: Source data size
++* @param type: Source data format
++* @param out_data: the Image BUF position after conversion
++*/
++int lv_show_multimedia(lv_obj_t * mul_demo ,uint8_t * sour_data,uint8_t *DataMul,int mul_w, int mul_h, uint32_t mul_size, int type);
++
++/**
++ * Convert YUV- NV21 video data to RGBA format
++ * @param sour_data: YUVnv21 sour_data
++ * @param Outputmultimedia: RGBA Multimediaera structure
++ * @param type: Source data formatsss
++ */
++int NV212RGBA_type(uint8_t *input, lv_cam_dsc_t *outputcam );
++
++/**
++ * Convert RGBA video data to BGRA format
++ * @param sour_data: RGBA  sour_data
++ * @param Outputmultimedia: RGBA Multimediaera structure
++ * @param type: Source data format
++ */
++void RGBA2BGRA_type(uint8_t * sour_data,lv_cam_dsc_t *outputmultimedia);
++
++
++/**********************
++*      MACROS
++**********************/
++
++/*Use this macro to declare an image in a c file*/
++#define LV_IMG_DECLARE(var_name) extern const lv_img_dsc_t var_name;
++
++#endif /*LV_USE_IMG*/
++
++#ifdef __cplusplus
++} /* extern "C" */
++#endif
++
++#endif /*LV_IMG_H*/

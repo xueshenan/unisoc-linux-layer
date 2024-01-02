@@ -1,0 +1,48 @@
+From b37bca7ddfe7e536d04f28b0b1883a6704ea28eb Mon Sep 17 00:00:00 2001
+From: "kaiqi.chen" <kaiqi.chen@unisoc.com>
+Date: Thu, 20 Oct 2022 12:05:22 +0800
+Subject: [PATCH] Bug #x
+
+[root cause  ]:x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/roles/sysadm.if | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/policy/modules/roles/sysadm.if b/policy/modules/roles/sysadm.if
+index a1b25a1b1..0b8aca840 100755
+--- a/policy/modules/roles/sysadm.if
++++ b/policy/modules/roles/sysadm.if
+@@ -459,7 +459,7 @@ interface(`sysadm_configfs_t_dir',`
+          type configfs_t;
+     ')
+ 
+-    allow $1 configfs_t:dir {write search add_name create setattr mounton};
++    allow $1 configfs_t:dir {write search add_name create setattr mounton remove_name};
+ ')
+ 
+ interface(`sysadm_kernel_t_fd',`
+@@ -483,7 +483,7 @@ interface(`sysadm_configfs_t_lnk_file',`
+          type configfs_t;
+     ')
+ 
+-    allow $1 configfs_t:lnk_file {write open create read getattr};
++    allow $1 configfs_t:lnk_file {write open create read getattr unlink};
+ ')
+ 
+ interface(`sysadm_device_t_blk_file',`
+-- 
+2.17.1
+

@@ -1,0 +1,183 @@
+#!/bin/sh
+#
+# rcS		Call all S??* scripts in /etc/rcS.d in
+#		numerical/alphabetical order.
+#
+# Version:	@(#)/etc/init.d/rcS  2.76  19-Apr-1999  miquels@cistron.nl
+#
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+runlevel=S
+prevlevel=N
+umask 022
+export PATH runlevel prevlevel
+
+dev=`ls /sbin | grep mdev`
+
+#	Make sure proc is mounted
+#
+[ -d "/proc/1" ] || mount /proc
+
+cat /proc/cmdline | grep "sprdboot.mode=cali"
+
+let found=`grep "sprdboot.mode=cali" /proc/cmdline -o | wc -l`
+
+if [ $found -ne 0 ]; then
+
+    ##engpc, modem_control,cp_disk
+    if [ "$dev" == "mdev" ];then
+        /bin/sh /etc/init.d/mdev
+        /bin/sh /etc/init.d/mount_ubifs.sh
+        /bin/sh /etc/init.d/mountall.sh
+        /bin/sh /etc/init.d/mount_sd.sh
+    else
+        /bin/sh /etc/init.d/sysfs.sh
+        /bin/sh /etc/init.d/mount_ubifs.sh
+        /bin/sh /etc/init.d/mountall.sh
+        /bin/sh /etc/init.d/mount_sd.sh
+        /bin/sh /etc/init.d/udev start
+    fi
+    /bin/sh /etc/init.d/modutils.sh
+    /bin/sh /etc/init.d/engpc-init start
+    /bin/sh /etc/init.d/modem_control-init start
+    /bin/sh /etc/default/uni-mode/calibrator-mode.sh
+    exit 0
+
+fi
+
+cat /proc/cmdline | grep "sprdboot.mode=autotest"
+
+let found=`grep "sprdboot.mode=autotest" /proc/cmdline -o | wc -l`
+
+if [ $found -ne 0 ]; then
+
+    ##engpc, modem_control,cp_disk
+    if [ "$dev" == "mdev" ];then
+        /bin/sh /etc/init.d/mdev
+        /bin/sh /etc/init.d/devpts.sh
+        /bin/sh /etc/init.d/mount_ubifs.sh
+        /bin/sh /etc/init.d/mountall.sh
+        /bin/sh /etc/init.d/mount_sd.sh
+    else
+        /bin/sh /etc/init.d/sysfs.sh
+        /bin/sh /etc/init.d/devpts.sh
+        /bin/sh /etc/init.d/mount_ubifs.sh
+    	/bin/sh /etc/init.d/mountall.sh
+        /bin/sh /etc/init.d/mount_sd.sh
+    	/bin/sh /etc/init.d/udev start
+    fi
+    /bin/sh /etc/init.d/modutils.sh
+    /bin/sh /etc/init.d/camera.sh
+    /bin/sh /etc/init.d/mountadb.sh
+    /bin/sh /etc/init.d/bootmisc.sh start
+    /bin/sh /etc/init.d/read-only-rootfs-hook.sh start
+    /bin/sh /etc/init.d/populate-volatile.sh start
+    /bin/sh /etc/init.d/engpc-init start
+    /bin/sh /etc/init.d/modem_control-init start
+    /bin/sh /etc/init.d/channelmanager-init start
+    exit 0
+
+fi
+
+cat /proc/cmdline | grep "sprdboot.mode=factorytest"
+
+let found=`grep "sprdboot.mode=factorytest" /proc/cmdline -o | wc -l`
+
+if [ $found -ne 0 ]; then
+
+    ##factorytest
+    if [ "$dev" == "mdev" ];then
+        /bin/sh /etc/init.d/mdev
+        /bin/sh /etc/init.d/mount_ubifs.sh
+        /bin/sh /etc/init.d/mountall.sh
+        /bin/sh /etc/init.d/mount_sd.sh
+    else
+        /bin/sh /etc/init.d/sysfs.sh
+        /bin/sh /etc/init.d/mount_ubifs.sh
+        /bin/sh /etc/init.d/mountall.sh
+        /bin/sh /etc/init.d/mount_sd.sh
+        /bin/sh /etc/init.d/udev start
+    fi
+    /bin/sh /etc/init.d/modutils.sh
+    /bin/sh /etc/init.d/camera.sh
+    ./usr/bin/audiohaltest &
+    /bin/sh /etc/init.d/adbd-init start
+    /bin/sh /etc/init.d/modem_control-init start
+    /bin/sh /etc/init.d/nativemmi-init start
+    exit 0
+
+fi
+
+cat /proc/cmdline | grep "sprdboot.mode=charger"
+
+let found=`grep "sprdboot.mode=charger" /proc/cmdline -o | wc -l`
+
+if [ $found -ne 0 ]; then
+
+    ##charge
+    if [ "$dev" == "mdev" ];then
+        /bin/sh /etc/init.d/mdev
+        /bin/sh /etc/init.d/mount_emmc.sh
+        /bin/sh /etc/init.d/mountall.sh
+        /bin/sh /etc/init.d/mount_sd.sh
+    else
+        /bin/sh /etc/init.d/sysfs.sh
+        /bin/sh /etc/init.d/mount_emmc.sh
+        /bin/sh /etc/init.d/mountall.sh
+        /bin/sh /etc/init.d/mount_sd.sh
+        /bin/sh /etc/init.d/udev start
+    fi
+    /bin/sh /etc/init.d/modutils.sh
+    /bin/sh /etc/init.d/populate-volatile.sh start
+    /bin/sh /etc/init.d/dbus-1 start
+    /bin/sh /etc/init.d/charge-init start
+    /bin/sh /etc/init.d/thermald-init.sh start
+    /bin/sh /etc/default/uni-mode/power-off-charge-mode.sh
+    exit 0
+
+fi
+
+cat /proc/cmdline | grep "update_recovery=1"
+
+let found=`grep "update_recovery=1" /proc/cmdline -o | wc -l`
+
+if [ $found -ne 0 ]; then
+
+    echo "Enter update recovery!!!"
+    if [ "$dev" == "mdev" ];then
+        /bin/sh /etc/init.d/mdev
+        /bin/sh /etc/init.d/mount_ubifs.sh
+        /bin/sh /etc/init.d/mountall.sh
+        /bin/sh /etc/init.d/mount_sd.sh
+    else
+        /bin/sh /etc/init.d/sysfs.sh
+        /bin/sh /etc/init.d/mount_ubifs.sh
+        /bin/sh /etc/init.d/mountall.sh
+        /bin/sh /etc/init.d/mount_sd.sh
+        /bin/sh /etc/init.d/udev start
+    fi
+    /bin/sh /etc/init.d/modutils.sh
+    /bin/sh /etc/init.d/hostname.sh
+    /bin/sh /etc/init.d/populate-volatile.sh
+    /bin/sh /etc/init.d/udc.sh
+    /bin/sh /etc/init.d/networking start
+    /bin/sh /etc/init.d/ofono start
+    /bin/sh /etc/init.d/adbd-init start
+    exit 0
+fi
+#
+#	Source defaults.
+#
+. /etc/default/rcS
+
+#
+#	Trap CTRL-C &c only in this shell so we can interrupt subprocesses.
+#
+trap ":" INT QUIT TSTP
+
+#
+#	Call all parts in order.
+#
+exec /etc/init.d/rc S
+
+

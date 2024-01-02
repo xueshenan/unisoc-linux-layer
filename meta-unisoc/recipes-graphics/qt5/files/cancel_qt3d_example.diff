@@ -1,0 +1,10 @@
+diff --git a/examples/examples.pro b/examples/examples.pro
+index 037f146..77b7379 100644
+--- a/examples/examples.pro
++++ b/examples/examples.pro
+@@ -5,4 +5,4 @@ TEMPLATE = subdirs
+ 
+ QT_FOR_CONFIG += 3dcore
+ 
+-qtConfig(qt3d-extras): SUBDIRS += qt3d
++#qtConfig(qt3d-extras): SUBDIRS += qt3d

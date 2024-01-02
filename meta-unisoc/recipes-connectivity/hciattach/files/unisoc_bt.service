@@ -1,0 +1,13 @@
+[Unit]
+Description=unisoc bt Service
+After=initscript.service
+
+[Service]
+Type=simple
+Restart=on-failure
+ExecStart=/usr/bin/hciattach_sprd /dev/ttyBT0 sprd
+
+
+[Install]
+WantedBy=multi-user.target
+Alias=unisoc_bt.service

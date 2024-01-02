@@ -1,0 +1,7 @@
+diff --git a/src/extra/extra.mk b/src/extra/extra.mk
+new file mode 100755
+index 00000000..1afcc7b7
+--- /dev/null
++++ b/src/extra/extra.mk
+@@ -0,0 +1 @@
++CSRCS += $(shell find -L $(LVGL_DIR)/$(LVGL_DIR_NAME)/src/extra -name \*.c)

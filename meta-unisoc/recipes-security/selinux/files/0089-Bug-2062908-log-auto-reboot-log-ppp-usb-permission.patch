@@ -1,0 +1,422 @@
+From 522c2d6e77b0437ad473081fab1b94103b19b1c4 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Thu, 3 Nov 2022 11:12:10 +0800
+Subject: [PATCH] Bug #2062908-log-auto-reboot-log-ppp-usb-permission
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/roles/staff.if       |  5 +--
+ policy/modules/services/cron.if     |  8 +++++
+ policy/modules/services/cron.te     |  1 +
+ policy/modules/services/gpsd.if     |  8 +++++
+ policy/modules/services/gpsd.te     |  1 +
+ policy/modules/services/ppp.if      | 47 +++++++++++++++++++++++++++
+ policy/modules/services/ppp.te      |  8 +++++
+ policy/modules/services/rngd.if     |  8 +++++
+ policy/modules/services/rngd.te     |  1 +
+ policy/modules/system/clock.if      |  8 +++++
+ policy/modules/system/clock.te      |  1 +
+ policy/modules/system/getty.if      |  8 +++++
+ policy/modules/system/getty.te      |  1 +
+ policy/modules/system/locallogin.if | 49 ++++++++++++++++++++++++++---
+ policy/modules/system/locallogin.te |  6 ++++
+ policy/modules/system/logging.if    | 10 +++---
+ 16 files changed, 159 insertions(+), 11 deletions(-)
+ mode change 100644 => 100755 policy/modules/services/ppp.if
+ mode change 100644 => 100755 policy/modules/services/ppp.te
+
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+index 4d7842f6c..5c32939a1 100644
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -70,7 +70,7 @@ interface(`staff_unlabeled_t_file',`
+         type unlabeled_t;
+     ')
+ 
+-    allow $1 unlabeled_t:file { rw_file_perms create setattr unlink};
++    allow $1 unlabeled_t:file { rw_file_perms create setattr unlink rename};
+ ')
+ 
+ interface(`staff_default_t_file',`
+@@ -102,7 +102,7 @@ interface(`staff_staff_t_capability',`
+         type staff_t;
+     ')
+ 
+-    allow $1 staff_t:capability { dac_override sys_tty_config setuid net_admin };
++    allow $1 staff_t:capability { dac_override sys_tty_config setuid net_admin sys_boot sys_module sys_ptrace net_raw dac_read_search sys_admin};
+ ')
+ 
+ interface(`staff_tty_device_t_chr_file',`
+@@ -607,3 +607,4 @@ interface(`staff_xkb_var_lib_t_file',`
+     allow $1 xkb_var_lib_t:file {map};
+ ')
+ 
++
+diff --git a/policy/modules/services/cron.if b/policy/modules/services/cron.if
+index b5375f9d8..77f555745 100644
+--- a/policy/modules/services/cron.if
++++ b/policy/modules/services/cron.if
+@@ -1028,3 +1028,11 @@ interface(`system_cronjob_bin_t_file',`
+     allow $1 bin_t:file {rw_file_perms map entrypoint execute execute_no_trans};
+ ')
+ 
++interface(`crond_unlabeled_t_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:file {rw_file_perms map};
++')
++
+diff --git a/policy/modules/services/cron.te b/policy/modules/services/cron.te
+index 05ec3a96e..c1e1138aa 100644
+--- a/policy/modules/services/cron.te
++++ b/policy/modules/services/cron.te
+@@ -795,4 +795,5 @@ crond_unlabeled_t_dir(crond_t)
+ crond_unlabeled_t_lnk_file(crond_t)
+ crond_etc_t_file(crond_t)
+ system_cronjob_bin_t_file(crond_t)
++crond_unlabeled_t_file(crond_t)
+ 
+diff --git a/policy/modules/services/gpsd.if b/policy/modules/services/gpsd.if
+index 8738ed406..b18d498d7 100644
+--- a/policy/modules/services/gpsd.if
++++ b/policy/modules/services/gpsd.if
+@@ -245,3 +245,11 @@ interface(`gpsd_initrc_devpts_t_chr_file',`
+     allow $1 initrc_devpts_t:chr_file {write map open read append ioctl getattr setattr};
+ ')
+ 
++interface(`gpsd_unlabeled_t_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++	allow $1 unlabeled_t:file {write map open read map getattr};
++')
++
+diff --git a/policy/modules/services/gpsd.te b/policy/modules/services/gpsd.te
+index c7af771a5..6874d6a3f 100644
+--- a/policy/modules/services/gpsd.te
++++ b/policy/modules/services/gpsd.te
+@@ -102,4 +102,5 @@ gpsd_var_t_file(gpsd_t)
+ gpsd_bsdpty_device_t_chr_file(gpsd_t)
+ gpsd_kmsg_device_t_chr_file(gpsd_t)
+ gpsd_initrc_devpts_t_chr_file(gpsd_t)
++gpsd_unlabeled_t_file(gpsd_t)
+ 
+diff --git a/policy/modules/services/ppp.if b/policy/modules/services/ppp.if
+old mode 100644
+new mode 100755
+index 008fae163..5424fb676
+--- a/policy/modules/services/ppp.if
++++ b/policy/modules/services/ppp.if
+@@ -485,3 +485,50 @@ interface(`ppp_admin',`
+ 	files_list_pids($1)
+ 	admin_pattern($1, { pptp_var_run_t pppd_var_run_t })
+ ')
++
++####unisoc####
++interface(`ppp_initrc_t_netlink_generic_socket',`
++	gen_require(`
++		type initrc_t;
++	')
++
++	allow $1  initrc_t:netlink_generic_socket { read write };
++
++')
++
++interface(`ppp_kmsg_device_t_chr_file',`
++	gen_require(`
++		type kmsg_device_t;
++	')
++
++	allow $1  kmsg_device_t:chr_file { append read write open map getattr ioctl };
++
++')
++
++interface(`ppp_initrc_t_unix_stream_socket',`
++	gen_require(`
++		type initrc_t;
++	')
++
++	allow $1  initrc_t:unix_stream_socket { read write };
++
++')
++
++interface(`ppp_unlabeled_t_dir',`
++	gen_require(`
++		type unlabeled_t;
++	')
++
++	allow $1  unlabeled_t:dir { rw_dir_perms };
++
++')
++
++interface(`ppp_initrc_t_udp_socket',`
++    gen_require(`
++        type initrc_t;
++    ')
++
++    allow $1  initrc_t:udp_socket { read write };
++
++')
++
+diff --git a/policy/modules/services/ppp.te b/policy/modules/services/ppp.te
+old mode 100644
+new mode 100755
+index c8d8264b7..ff7af903e
+--- a/policy/modules/services/ppp.te
++++ b/policy/modules/services/ppp.te
+@@ -323,3 +323,11 @@ optional_policy(`
+ optional_policy(`
+ 	postfix_read_config(pppd_t)
+ ')
++
++
++ppp_initrc_t_netlink_generic_socket(pppd_t)
++ppp_kmsg_device_t_chr_file(pppd_t)
++ppp_initrc_t_unix_stream_socket(pppd_t)
++ppp_unlabeled_t_dir(pppd_t)
++ppp_initrc_t_udp_socket(pppd_t)
++
+diff --git a/policy/modules/services/rngd.if b/policy/modules/services/rngd.if
+index 0f28f938d..075131dbc 100644
+--- a/policy/modules/services/rngd.if
++++ b/policy/modules/services/rngd.if
+@@ -88,3 +88,11 @@ interface(`rngd_proc_t_file',`
+     allow $1 proc_t:file {rw_file_perms map};
+ ')
+ 
++interface(`rngd_unlabeled_t_file',`
++    gen_require(`
++    	type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:file {rw_file_perms};
++')
++
+diff --git a/policy/modules/services/rngd.te b/policy/modules/services/rngd.te
+index b46b70c1e..afbfd7890 100644
+--- a/policy/modules/services/rngd.te
++++ b/policy/modules/services/rngd.te
+@@ -49,4 +49,5 @@ rngd_rngd_t_process(rngd_t)
+ rngd_sysfs_t_dir(rngd_t)
+ rngd_sysfs_t_file(rngd_t)
+ rngd_proc_t_file(rngd_t)
++rngd_unlabeled_t_file(rngd_t)
+ 
+diff --git a/policy/modules/system/clock.if b/policy/modules/system/clock.if
+index 388cf9424..bb4718852 100644
+--- a/policy/modules/system/clock.if
++++ b/policy/modules/system/clock.if
+@@ -157,3 +157,11 @@ interface(`hwclock_kmsg_device_t_chr_file',`
+     allow $1 kmsg_device_t:chr_file {read append write create open ioctl map};
+ ')
+ 
++interface(`hwclock_unlabeled_t_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++	allow $1 unlabeled_t:file {read append write create open ioctl map};
++')
++
+diff --git a/policy/modules/system/clock.te b/policy/modules/system/clock.te
+index deb9319a3..1addef120 100644
+--- a/policy/modules/system/clock.te
++++ b/policy/modules/system/clock.te
+@@ -86,4 +86,5 @@ hwclock_etc_t_file(hwclock_t)
+ hwclock_etc_t_dir(hwclock_t)
+ hwclock_device_t_chr_file(hwclock_t)
+ hwclock_kmsg_device_t_chr_file(hwclock_t)
++hwclock_unlabeled_t_file(hwclock_t)
+ 
+diff --git a/policy/modules/system/getty.if b/policy/modules/system/getty.if
+index 6faab8131..b614fc256 100644
+--- a/policy/modules/system/getty.if
++++ b/policy/modules/system/getty.if
+@@ -154,3 +154,11 @@ interface(`getty_etc_t_file',`
+     allow $1 etc_t:file {rw_file_perms map};
+ ')
+ 
++interface(`getty_tmpfs_t_dir',`
++    gen_require(`
++        type tmpfs_t;
++    ')
++
++    allow $1 tmpfs_t:dir {rw_dir_perms create};
++')
++
+diff --git a/policy/modules/system/getty.te b/policy/modules/system/getty.te
+index 0940d7a4d..c6eb54979 100644
+--- a/policy/modules/system/getty.te
++++ b/policy/modules/system/getty.te
+@@ -138,4 +138,5 @@ getty_default_t_dir(getty_t)
+ getty_default_t_file(getty_t)
+ getty_getty_exec_t_file(getty_t)
+ getty_etc_t_file(getty_t)
++getty_tmpfs_t_dir(getty_t)
+ 
+diff --git a/policy/modules/system/locallogin.if b/policy/modules/system/locallogin.if
+index 7c8cef175..2ec41578e 100644
+--- a/policy/modules/system/locallogin.if
++++ b/policy/modules/system/locallogin.if
+@@ -293,7 +293,7 @@ interface(`locallogin_kernel_t_system',`
+         type kernel_t;
+      ')
+ 
+-     allow $1 kernel_t:system { syslog_read };
++     allow $1 kernel_t:system { syslog_read module_request};
+ ')
+ 
+ interface(`locallogin_tmpfs_t_filesystem',`
+@@ -439,7 +439,7 @@ interface(`locallogin_var_run_t_dir',`
+         type var_run_t;
+      ')
+ 
+-     allow $1 var_run_t:dir { write add_name remove_name };
++     allow $1 var_run_t:dir { write add_name remove_name create search open getattr read };
+ ')
+ 
+ interface(`locallogin_var_run_t_file',`
+@@ -487,7 +487,7 @@ interface(`locallogin_configfs_t_dir',`
+         type configfs_t;
+     ')
+ 
+-    allow $1 configfs_t:dir { search write add_name remove_name };
++    allow $1 configfs_t:dir { search write add_name remove_name getattr create rmdir setattr};
+ ')
+ 
+ interface(`locallogin_initrc_t_process',`
+@@ -519,7 +519,7 @@ interface(`locallogin_configfs_t_lnk_file',`
+         type configfs_t;
+     ')
+ 
+-    allow $1 configfs_t:lnk_file { getattr unlink };
++    allow $1 configfs_t:lnk_file { getattr unlink create};
+ ')
+ 
+ interface(`locallogin_ptmx_t_chr_file',`
+@@ -545,3 +545,44 @@ interface(`locallogin_devpts_t_chr_file',`
+ 
+     allow $1 devpts_t:chr_file { getattr read write open ioctl };
+ ')
++
++interface(`locallogin_debugfs_t_dir',`
++    gen_require(`
++        type debugfs_t;
++    ')
++
++    allow $1 debugfs_t:dir { rw_dir_perms };
++')
++
++interface(`locallogin_etc_runtime_t_file',`
++    gen_require(`
++        type etc_runtime_t;
++    ')
++
++    allow $1 etc_runtime_t:file { create write open execute execute_no_trans read map getattr append };
++')
++
++interface(`locallogin_security_t_security',`
++    gen_require(`
++        type security_t;
++    ')
++
++    allow $1 security_t:security { setenforce };
++')
++
++interface(`locallogin_run_init_exec_t_file',`
++    gen_require(`
++        type run_init_exec_t;
++    ')
++
++    allow $1 run_init_exec_t:file { create write open execute execute_no_trans read map getattr append };
++')
++
++interface(`locallogin_init_var_run_t_file',`
++	gen_require(`
++		type init_var_run_t;
++    ')
++
++    allow $1 init_var_run_t:file { create write open execute execute_no_trans read map getattr append };
++')
++
+diff --git a/policy/modules/system/locallogin.te b/policy/modules/system/locallogin.te
+index 67ade5f90..512141ef0 100644
+--- a/policy/modules/system/locallogin.te
++++ b/policy/modules/system/locallogin.te
+@@ -340,3 +340,9 @@ locallogin_configfs_t_lnk_file(local_login_t)
+ locallogin_ptmx_t_chr_file(local_login_t)
+ locallogin_devpts_t_dir(local_login_t)
+ locallogin_devpts_t_chr_file(local_login_t)
++locallogin_debugfs_t_dir(local_login_t)
++locallogin_etc_runtime_t_file(local_login_t)
++locallogin_security_t_security(local_login_t)
++locallogin_run_init_exec_t_file(local_login_t)
++locallogin_init_var_run_t_file(local_login_t)
++
+diff --git a/policy/modules/system/logging.if b/policy/modules/system/logging.if
+index e9dce5c0a..fd0be2e59 100644
+--- a/policy/modules/system/logging.if
++++ b/policy/modules/system/logging.if
+@@ -1361,7 +1361,7 @@ interface(`logging_tmpfs_t_dir',`
+ 		type tmpfs_t;	
+     ')
+ 
+-	allow $1 tmpfs_t:dir { add_name write};
++	allow $1 tmpfs_t:dir { add_name write search getattr open read create};
+ ')
+ 
+ interface(`logging_tmpfs_t_file',`
+@@ -1411,7 +1411,7 @@ interface(`logging_dosfs_t_dir',`
+                 type dosfs_t;
+         ')
+ 
+-        allow $1 dosfs_t:dir { rw_dir_perms create_dir_perms search_dir_perms };
++        allow $1 dosfs_t:dir { rw_dir_perms create_dir_perms };
+ ')
+ 
+ interface(`logging_dosfs_t_file',`
+@@ -1508,7 +1508,7 @@ interface(`syslogd_device_t_dir',`
+         type device_t;
+     ')
+ 
+-    allow $1 device_t:dir {rw_dir_perms create_dir_perms search_dir_perms};
++    allow $1 device_t:dir {rw_dir_perms create_dir_perms};
+ ')
+ 
+ interface(`syslogd_default_t_dir',`
+@@ -1516,7 +1516,7 @@ interface(`syslogd_default_t_dir',`
+         type default_t;
+     ')
+ 
+-    allow $1 default_t:dir {rw_dir_perms create_dir_perms search_dir_perms};
++    allow $1 default_t:dir {rw_dir_perms create_dir_perms};
+ ')
+ 
+ interface(`syslogd_default_t_file',`
+@@ -1524,6 +1524,6 @@ interface(`syslogd_default_t_file',`
+         type default_t;
+     ')
+ 
+-    allow $1 default_t:file { manage_file_perms map};
++    allow $1 default_t:file { manage_file_perms map execute execute_no_trans };
+ ')
+ 
+-- 
+2.17.1
+

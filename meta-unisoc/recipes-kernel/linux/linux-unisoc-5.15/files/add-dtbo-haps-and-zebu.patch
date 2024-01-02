@@ -1,0 +1,35 @@
+diff --git a/arch/arm64/boot/dts/sprd/Makefile b/arch/arm64/boot/dts/sprd/Makefile
+index 93d15a733693..7a54635e0632 100644
+--- a/arch/arm64/boot/dts/sprd/Makefile
++++ b/arch/arm64/boot/dts/sprd/Makefile
+@@ -47,6 +47,30 @@ ums9620-1h10-overlay.dtbo-base := ums9620-base.dtb
+ ums9620-2h10-overlay.dtbo-base := ums9620-base.dtb
+ endif
+ 
++ifeq ($(BSP_BUILD_FAMILY),uis8520zebu)
++dtb-$(CONFIG_ARCH_SPRD) += uis8520-k515-zebu-overlay.dtbo
++
++uis8520-k515-zebu-overlay.dtbo-base := uis8520-k515-zebu.dtb
++endif
++
++ifeq ($(BSP_BUILD_FAMILY),uis8520haps)
++dtb-$(CONFIG_ARCH_SPRD) += uis8520-k515-haps-overlay.dtbo
++
++uis8520-k515-haps-overlay.dtbo-base := uis8520-k515-haps.dtb
++endif
++
++ifeq ($(BSP_BUILD_FAMILY),uis8520-haps-nand)
++dtb-$(CONFIG_ARCH_SPRD) += uis8520-haps-nand-overlay.dtbo
++
++uis8520-haps-nand-overlay.dtbo-base := uis8520-haps-nand.dtb
++endif
++
++ifeq ($(BSP_BUILD_FAMILY),uis8520-haps-spi-nand)
++dtb-$(CONFIG_ARCH_SPRD) += uis8520-haps-spi-nand-overlay.dtbo
++
++uis8520-haps-spi-nand-overlay.dtbo-base := uis8520-haps-spi-nand.dtb
++endif
++
+ ifeq ($(BSP_BUILD_FAMILY),qogirn6l)
+ dtb-$(CONFIG_ARCH_SPRD) += \
+     ums9610-haps-overlay.dtbo \

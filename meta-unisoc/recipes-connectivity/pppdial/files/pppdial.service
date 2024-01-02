@@ -1,0 +1,13 @@
+[Unit]
+Description=Pppdial Daemon Service
+After=sprdrild.target
+
+[Service]
+ExecStart=/usr/bin/pppdial
+
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+

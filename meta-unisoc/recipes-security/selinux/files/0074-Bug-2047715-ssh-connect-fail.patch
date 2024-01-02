@@ -1,0 +1,679 @@
+From 3bd1d6b4829328b20a125749181de4a6c817956e Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Thu, 20 Oct 2022 16:01:17 +0800
+Subject: [PATCH] Bug #2047715-ssh-connect-fail
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/admin/alsa.if          |  8 ++++++
+ policy/modules/admin/alsa.te          |  2 ++
+ policy/modules/admin/dmesg.if         |  8 ++++++
+ policy/modules/admin/dmesg.te         |  2 ++
+ policy/modules/admin/netutils.if      | 24 ++++++++++++++++
+ policy/modules/admin/netutils.te      |  4 +++
+ policy/modules/kernel/corecommands.fc |  9 +++++-
+ policy/modules/roles/staff.if         | 32 +++++++++++++++++++++
+ policy/modules/roles/staff.te         |  8 +++++-
+ policy/modules/roles/sysadm.if        |  2 +-
+ policy/modules/roles/sysadm.te        |  2 --
+ policy/modules/services/cron.if       | 18 ++++++++++++
+ policy/modules/services/cron.te       |  5 ++++
+ policy/modules/services/dbus.if       |  9 ++++++
+ policy/modules/services/dbus.te       |  1 +
+ policy/modules/services/rngd.if       | 26 +++++++++++++++++
+ policy/modules/services/rngd.te       |  6 ++++
+ policy/modules/services/ssh.fc        |  6 ++++
+ policy/modules/services/ssh.if        | 25 +++++++++++++++++
+ policy/modules/services/ssh.te        |  4 +++
+ policy/modules/system/getty.if        | 40 +++++++++++++++++++++++++++
+ policy/modules/system/getty.te        |  6 ++++
+ policy/modules/system/init.if         |  9 ++++++
+ policy/modules/system/init.te         |  3 ++
+ policy/modules/system/locallogin.fc   |  3 ++
+ policy/modules/system/logging.if      | 16 +++++++++++
+ policy/modules/system/logging.te      |  7 +++--
+ policy/modules/system/mount.if        |  8 ++++++
+ policy/modules/system/mount.te        |  2 ++
+ policy/modules/system/selinuxutil.if  | 12 ++++++--
+ policy/modules/system/selinuxutil.te  |  2 ++
+ 31 files changed, 299 insertions(+), 10 deletions(-)
+
+diff --git a/policy/modules/admin/alsa.if b/policy/modules/admin/alsa.if
+index 39715a697..4f7b5e9bd 100644
+--- a/policy/modules/admin/alsa.if
++++ b/policy/modules/admin/alsa.if
+@@ -289,3 +289,11 @@ interface(`alsa_var_run_t_file',`
+    allow $1 var_run_t:file {write open read append ioctl create map  getattr lock};
+ ')
+ 
++interface(`alsa_kmsg_device_t_chr_file',`
++    gen_require(`
++        type kmsg_device_t;
++    ')
++
++    allow $1 kmsg_device_t:chr_file {write open read append ioctl map setattr};
++')
++
+diff --git a/policy/modules/admin/alsa.te b/policy/modules/admin/alsa.te
+index 6ba98d48a..455a750eb 100644
+--- a/policy/modules/admin/alsa.te
++++ b/policy/modules/admin/alsa.te
+@@ -110,9 +110,11 @@ optional_policy(`
+ 	hal_write_log(alsa_t)
+ ')
+ 
++###unisoc
+ alsa_device_t_chr_file(alsa_t)
+ alsa_unlabeled_t_dir(alsa_t)
+ alsa_unlabeled_t_lnk_file(alsa_t)
+ alsa_etc_t_file(alsa_t)
+ alsa_var_run_t_file(alsa_t)
++alsa_kmsg_device_t_chr_file(alsa_t)
+ 
+diff --git a/policy/modules/admin/dmesg.if b/policy/modules/admin/dmesg.if
+index fd7fdfaec..aed2e79de 100644
+--- a/policy/modules/admin/dmesg.if
++++ b/policy/modules/admin/dmesg.if
+@@ -64,3 +64,11 @@ interface(`dmesg_initrc_t_unix_stream_socket',`
+      allow $1 initrc_t:unix_stream_socket { read write };
+ ')
+ 
++interface(`dmesg_kmsg_device_t_chr_file',`
++    gen_require(`
++         type kmsg_device_t;
++    ')
++
++    allow $1 kmsg_device_t:chr_file { rw_chr_file_perms };
++')
++
+diff --git a/policy/modules/admin/dmesg.te b/policy/modules/admin/dmesg.te
+index dc7ceccdf..f089de9ae 100644
+--- a/policy/modules/admin/dmesg.te
++++ b/policy/modules/admin/dmesg.te
+@@ -63,3 +63,5 @@ optional_policy(`
+ dmesg_bin_t(dmesg_t)
+ dmesg_ptmx_t_chr_file(dmesg_t)
+ dmesg_initrc_t_unix_stream_socket(dmesg_t)
++dmesg_kmsg_device_t_chr_file(dmesg_t)
++
+diff --git a/policy/modules/admin/netutils.if b/policy/modules/admin/netutils.if
+index fe05c1a7b..812603cb0 100644
+--- a/policy/modules/admin/netutils.if
++++ b/policy/modules/admin/netutils.if
+@@ -363,3 +363,27 @@ interface(`netutils_initrc_t_unix_stream_socket',`
+         allow $1 initrc_t:unix_stream_socket { read write };
+ ')
+ 
++interface(`ping_bin_t_dir',`
++	gen_require(`
++        type bin_t;
++    ')
++
++    allow $1 bin_t:dir { search_dir_perms };
++')
++
++interface(`ping_ping_t_icmp_socket',`
++    gen_require(`
++        type ping_t;
++    ')
++
++    allow $1 ping_t:icmp_socket { create };
++')
++
++interface(`ping_httpd_var_run_t_file',`
++    gen_require(`
++        type httpd_var_run_t;
++    ')
++
++    allow $1 httpd_var_run_t:file { rw_file_perms };
++')
++
+diff --git a/policy/modules/admin/netutils.te b/policy/modules/admin/netutils.te
+index 66b41f5e0..799f0843f 100644
+--- a/policy/modules/admin/netutils.te
++++ b/policy/modules/admin/netutils.te
+@@ -224,3 +224,7 @@ netutils_initrc_devpts_t_chr_file(ping_t)
+ netutils_tty_device_t_chr_file(ping_t)
+ netutils_ptmx_t_chr_file(ping_t)
+ netutils_initrc_t_unix_stream_socket(ping_t)
++ping_bin_t_dir(ping_t)
++ping_ping_t_icmp_socket(ping_t)
++ping_httpd_var_run_t_file(ping_t)
++
+diff --git a/policy/modules/kernel/corecommands.fc b/policy/modules/kernel/corecommands.fc
+index cf3848db9..5a4ef6c3f 100644
+--- a/policy/modules/kernel/corecommands.fc
++++ b/policy/modules/kernel/corecommands.fc
+@@ -141,7 +141,7 @@ ifdef(`distro_gentoo',`
+ /usr/bin/d?ash			--	gen_context(system_u:object_r:shell_exec_t,s0)
+ /usr/bin/bash			--	gen_context(system_u:object_r:shell_exec_t,s0)
+ /usr/bin/bash2			--	gen_context(system_u:object_r:shell_exec_t,s0)
+-/usr/bin/bash.bash			--	gen_context(system_u:object_r:shell_exec_t,s0)
++/usr/bin/bash.bash			--	gen_context(system_u:object_r:bin_t,s0)
+ /usr/bin/fish			--	gen_context(system_u:object_r:shell_exec_t,s0)
+ /usr/bin/git-shell		--	gen_context(system_u:object_r:shell_exec_t,s0)
+ /usr/bin/insmod_ksymoops_clean	--	gen_context(system_u:object_r:bin_t,s0)
+@@ -150,6 +150,10 @@ ifdef(`distro_gentoo',`
+ /usr/bin/mksh			--	gen_context(system_u:object_r:shell_exec_t,s0)
+ /usr/bin/mountpoint		--	gen_context(system_u:object_r:bin_t,s0)
+ /usr/bin/nologin		--	gen_context(system_u:object_r:shell_exec_t,s0)
++###unisoc####
++/usr/bin/mountpoint\.sysvinit	    	gen_context(system_u:object_r:bin_t,s0)
++/usr/bin/mountpoint\.util-linux			gen_context(system_u:object_r:bin_t,s0)
++
+ /usr/bin/sash			--	gen_context(system_u:object_r:shell_exec_t,s0)
+ /usr/bin/sesh			--	gen_context(system_u:object_r:shell_exec_t,s0)
+ /usr/bin/scponly		--	gen_context(system_u:object_r:shell_exec_t,s0)
+@@ -348,6 +352,9 @@ ifdef(`distro_gentoo',`
+ ifdef(`distro_debian',`
+ /usr/lib/gdm3/.*		--	gen_context(system_u:object_r:bin_t,s0)
+ /usr/lib/udisks/.*		--	gen_context(system_u:object_r:bin_t,s0)
++##unisoc####
++/usr/lib/openssh/agent-launch		gen_context(system_u:object_r:bin_t,s0)
++
+ /usr/share/bug/.*		--	gen_context(system_u:object_r:bin_t,s0)
+ ')
+ 
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+index 13954e200..8663db628 100644
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -49,3 +49,35 @@ interface(`staff_role_change_to',`
+ 	allow staff_r $1;
+ ')
+ 
++####unisoc###
++interface(`staff_unlabeled_t_lnk_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++	allow $1 unlabeled_t:lnk_file { rw_lnk_file_perms };
++')
++interface(`staff_kmsg_device_t_chr_file',`
++    gen_require(`
++        type kmsg_device_t;
++    ')
++
++    allow $1 kmsg_device_t:chr_file { rw_chr_file_perms };
++')
++
++interface(`staff_unlabeled_t_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:file { rw_file_perms };
++')
++
++interface(`staff_default_t_file',`
++    gen_require(`
++        type default_t;
++    ')
++
++    allow $1 default_t:file { rw_file_perms execute};
++')
++
+diff --git a/policy/modules/roles/staff.te b/policy/modules/roles/staff.te
+index 5439f4c37..0e5a2277a 100644
+--- a/policy/modules/roles/staff.te
++++ b/policy/modules/roles/staff.te
+@@ -52,7 +52,7 @@ optional_policy(`
+ ')
+ 
+ optional_policy(`
+-	sysadm_role_change(staff_r)
++	sysadm_role_change(staff_r,staff_t)
+ 	userdom_allow_use_user_terminals(staff_t)
+ ')
+ 
+@@ -218,3 +218,9 @@ ifndef(`distro_redhat',`
+ 	')
+ ')
+ 
++###unisoc###
++staff_unlabeled_t_lnk_file(staff_t)
++staff_kmsg_device_t_chr_file(staff_t)
++staff_unlabeled_t_file(staff_t)
++staff_default_t_file(staff_t)
++
+diff --git a/policy/modules/roles/sysadm.if b/policy/modules/roles/sysadm.if
+index a1b25a1b1..b1e167ee2 100755
+--- a/policy/modules/roles/sysadm.if
++++ b/policy/modules/roles/sysadm.if
+@@ -1,4 +1,4 @@
+-g# <summary>General system administration role</summary>
++# <summary>General system administration role</summary>
+ 
+ ########################################
+ ## <summary>
+diff --git a/policy/modules/roles/sysadm.te b/policy/modules/roles/sysadm.te
+index d2007e5c7..9c40505da 100755
+--- a/policy/modules/roles/sysadm.te
++++ b/policy/modules/roles/sysadm.te
+@@ -46,8 +46,6 @@ ubac_fd_exempt(sysadm_t)
+ init_exec(sysadm_t)
+ init_admin(sysadm_t)
+ 
+-selinux_read_policy(sysadm_t)
+-
+ # Add/remove user home directories
+ userdom_manage_user_home_dirs(sysadm_t)
+ userdom_home_filetrans_user_home_dir(sysadm_t)
+diff --git a/policy/modules/services/cron.if b/policy/modules/services/cron.if
+index c5aa91bd9..23f84015b 100644
+--- a/policy/modules/services/cron.if
++++ b/policy/modules/services/cron.if
+@@ -986,3 +986,21 @@ interface(`cron_admin',`
+ 	files_search_spool($1)
+ 	admin_pattern($1, cron_spool_type)
+ ')
++
++###unisoc####
++interface(`crond_kmsg_device_t_chr_file',`
++    gen_require(`
++        type kmsg_device_t;
++    ')
++
++    allow $1 kmsg_device_t:file {rw_chr_file_perms};
++')
++
++interface(`crond_unlabeled_t_dir',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:dir {search_dir_perms};
++')
++
+diff --git a/policy/modules/services/cron.te b/policy/modules/services/cron.te
+index 6634dea88..823d73681 100644
+--- a/policy/modules/services/cron.te
++++ b/policy/modules/services/cron.te
+@@ -788,3 +788,8 @@ tunable_policy(`cron_userdomain_transition',`
+ optional_policy(`
+ 	unconfined_domain(unconfined_cronjob_t)
+ ')
++
++###unisoc###
++crond_kmsg_device_t_chr_file(crond_t)
++crond_unlabeled_t_dir(crond_t)
++
+diff --git a/policy/modules/services/dbus.if b/policy/modules/services/dbus.if
+index d8648bb07..4e9e39de9 100644
+--- a/policy/modules/services/dbus.if
++++ b/policy/modules/services/dbus.if
+@@ -674,3 +674,12 @@ interface(`dbus_init_t_bluetooth_socket',`
+ 
+         allow $1 init_t:bluetooth_socket { read write };
+ ')
++
++interface(`system_dbusd_kmsg_device_t_chr_file',`
++    gen_require(`
++        type kmsg_device_t;
++    ')
++
++    allow $1 kmsg_device_t:chr_file { rw_chr_file_perms };
++')
++
+diff --git a/policy/modules/services/dbus.te b/policy/modules/services/dbus.te
+index d6211dca8..7794118cf 100644
+--- a/policy/modules/services/dbus.te
++++ b/policy/modules/services/dbus.te
+@@ -313,4 +313,5 @@ dbus_initrc_t_bluetooth_socket(system_dbusd_t)
+ dbus_sysadm_t_fd(system_dbusd_t)
+ dbus_sysadm_t_bluetooth_socket(system_dbusd_t)
+ dbus_init_t_bluetooth_socket(system_dbusd_t)
++system_dbusd_kmsg_device_t_chr_file(system_dbusd_t)
+ 
+diff --git a/policy/modules/services/rngd.if b/policy/modules/services/rngd.if
+index 7b26dc322..cf416d2f5 100644
+--- a/policy/modules/services/rngd.if
++++ b/policy/modules/services/rngd.if
+@@ -30,3 +30,29 @@ interface(`rngd_admin',`
+ 	files_search_pids($1)
+ 	admin_pattern($1, rngd_var_run_t)
+ ')
++
++###unisoc####
++interface(`rngd_kmsg_device_t_chr_file',`
++    gen_require(`
++        type kmsg_device_t;
++    ')
++
++    allow $1 kmsg_device_t:chr_file {rw_chr_file_perms};
++')
++
++interface(`rngd_unlabeled_t_dir',`
++    gen_require(`
++    	type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:dir {search_dir_perms};
++')
++
++interface(`rngd_unlabeled_t_lnk_file',`
++    gen_require(`
++	type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:lnk_file {rw_lnk_file_perms};
++')
++
+diff --git a/policy/modules/services/rngd.te b/policy/modules/services/rngd.te
+index 8cf7921dd..7b818a1e0 100644
+--- a/policy/modules/services/rngd.te
++++ b/policy/modules/services/rngd.te
+@@ -40,3 +40,9 @@ files_read_etc_files(rngd_t)
+ logging_send_syslog_msg(rngd_t)
+ 
+ miscfiles_read_localization(rngd_t)
++
++###unisoc###
++rngd_kmsg_device_t_chr_file(rngd_t)
++rngd_unlabeled_t_dir(rngd_t)
++rngd_unlabeled_t_lnk_file(rngd_t)
++
+diff --git a/policy/modules/services/ssh.fc b/policy/modules/services/ssh.fc
+index 1f4530919..ebf89196b 100644
+--- a/policy/modules/services/ssh.fc
++++ b/policy/modules/services/ssh.fc
+@@ -23,3 +23,9 @@ HOME_DIR/\.ssh(/.*)?			gen_context(system_u:object_r:ssh_home_t,s0)
+ /run/sshd(/.*)?			gen_context(system_u:object_r:sshd_var_run_t,s0)
+ /run/sshd\.init\.pid	--	gen_context(system_u:object_r:sshd_var_run_t,s0)
+ /run/sshd\.pid		--	gen_context(system_u:object_r:sshd_var_run_t,s0)
++
++###unisoc###
++ifdef(`distro_debian',`
++/run/user/%{USERID}/openssh_agent	-s	gen_context(system_u:object_r:ssh_agent_tmp_t,s0)
++')
++
+diff --git a/policy/modules/services/ssh.if b/policy/modules/services/ssh.if
+index 545c0f764..fe5f80bad 100644
+--- a/policy/modules/services/ssh.if
++++ b/policy/modules/services/ssh.if
+@@ -843,3 +843,28 @@ interface(`ssh_initrc_t_unix_stream_socket',`
+ 
+ 	allow $1 initrc_t:unix_stream_socket { read write };
+ ')
++
++interface(`sshd_kmsg_device_t_chr_file',`
++	gen_require(`
++        type kmsg_device_t;
++    ')
++
++    allow $1 kmsg_device_t:chr_file { rw_chr_file_perms };
++')
++
++interface(`sshd_keygen_kmsg_device_t_chr_file',`
++    gen_require(`
++        type kmsg_device_t;
++    ')
++
++    allow $1 kmsg_device_t:chr_file { rw_chr_file_perms };
++')
++
++interface(`sshd_bin_t_file',`
++    gen_require(`
++        type bin_t;
++    ')
++
++    allow $1 bin_t:file { rw_file_perms execute};
++')
++
+diff --git a/policy/modules/services/ssh.te b/policy/modules/services/ssh.te
+index 2b164dc4c..5d9130c73 100644
+--- a/policy/modules/services/ssh.te
++++ b/policy/modules/services/ssh.te
+@@ -380,6 +380,7 @@ optional_policy(`
+ 	seutil_sigchld_newrole(ssh_keygen_t)
+ ')
+ 
++##unisoc##
+ ssh_domain_var_run_t_file(sshd_t)
+ ssh_domain_var_run_t_file(ssh_keygen_t)
+ ssh_domain_var_run_t_dir(ssh_keygen_t)
+@@ -394,4 +395,7 @@ ssh_unlabeled_t_dir(sshd_t)
+ ssh_shadow_t_file(sshd_t)
+ 
+ ssh_initrc_t_unix_stream_socket(sshd_t)
++sshd_kmsg_device_t_chr_file(sshd_t)
++sshd_keygen_kmsg_device_t_chr_file(sshd_t)
++sshd_bin_t_file(sshd_t)
+ 
+diff --git a/policy/modules/system/getty.if b/policy/modules/system/getty.if
+index f54e27b54..307d17bc0 100644
+--- a/policy/modules/system/getty.if
++++ b/policy/modules/system/getty.if
+@@ -114,3 +114,43 @@ interface(`getty_unlabeled_t_lnk_file',`
+ 	 allow $1 unlabeled_t:lnk_file {read};
+ ')
+ 
++interface(`getty_kmsg_device_t_chr_file',`
++    gen_require(`
++    type kmsg_device_t;
++    ')
++
++	allow $1 kmsg_device_t:chr_file {rw_chr_file_perms};
++')
++
++interface(`getty_default_t_dir',`
++    gen_require(`
++        type default_t;
++    ')
++
++    allow $1 default_t:dir {search_dir_perms};
++')
++
++interface(`getty_default_t_file',`
++    gen_require(`
++        type default_t;
++    ')
++
++    allow $1 default_t:file {rw_file_perms execute};
++')
++
++interface(`getty_getty_exec_t_file',`
++    gen_require(`
++        type getty_exec_t;
++    ')
++
++    allow $1 getty_exec_t:file {rw_file_perms execute execute_no_trans};
++')
++
++interface(`getty_etc_t_file',`
++    gen_require(`
++        type etc_t;
++    ')
++
++    allow $1 etc_t:file {rw_file_perms};
++')
++
+diff --git a/policy/modules/system/getty.te b/policy/modules/system/getty.te
+index 8a2187d0a..9e5faa071 100644
+--- a/policy/modules/system/getty.te
++++ b/policy/modules/system/getty.te
+@@ -133,3 +133,9 @@ optional_policy(`
+ ####unisoc ####
+ getty_unlabeled_t_dir(getty_t)
+ getty_unlabeled_t_lnk_file(getty_t)
++getty_kmsg_device_t_chr_file(getty_t)
++getty_default_t_dir(getty_t)
++getty_default_t_file(getty_t)
++getty_getty_exec_t_file(getty_t)
++getty_etc_t_file(getty_t)
++
+diff --git a/policy/modules/system/init.if b/policy/modules/system/init.if
+index e60c7df63..76cb8f4ba 100644
+--- a/policy/modules/system/init.if
++++ b/policy/modules/system/init.if
+@@ -3225,3 +3225,12 @@ interface(`init_getrlimit',`
+ 	allow $1 init_t:process getrlimit;
+ ')
+ 
++###Unisoc####
++interface(`initrc_initrc_t_process',`
++    gen_require(`
++        type initrc_t;
++    ')
++
++    allow $1 initrc_t:process {execmem};
++')
++
+diff --git a/policy/modules/system/init.te b/policy/modules/system/init.te
+index ee7c57d39..9fb2e4bd9 100644
+--- a/policy/modules/system/init.te
++++ b/policy/modules/system/init.te
+@@ -1426,3 +1426,6 @@ allow kernel_t init_t:process dyntransition;
+ allow devpts_t device_t:filesystem associate;
+ allow init_t self:capability2 block_suspend;
+ 
++###Unisoc###
++initrc_initrc_t_process(initrc_t)
++
+diff --git a/policy/modules/system/locallogin.fc b/policy/modules/system/locallogin.fc
+index fc8d58507..7bc7bdc05 100644
+--- a/policy/modules/system/locallogin.fc
++++ b/policy/modules/system/locallogin.fc
+@@ -2,4 +2,7 @@
+ /usr/bin/sushell	--	gen_context(system_u:object_r:sulogin_exec_t,s0)
+ 
+ /usr/sbin/sulogin	--	gen_context(system_u:object_r:sulogin_exec_t,s0)
++###unisoc###
++/usr/sbin/sulogin\.util-linux	gen_context(system_u:object_r:sulogin_exec_t,s0)
++
+ /usr/sbin/sushell	--	gen_context(system_u:object_r:sulogin_exec_t,s0)
+diff --git a/policy/modules/system/logging.if b/policy/modules/system/logging.if
+index 4d334bef1..b470a6f54 100644
+--- a/policy/modules/system/logging.if
++++ b/policy/modules/system/logging.if
+@@ -1439,3 +1439,19 @@ interface(`logging_unlabeled_t_file',`
+ 	allow $1 unlabeled_t:file { append getattr open};
+ ')
+ 
++interface(`syslogd_etc_t_file',`
++	gen_require(`
++        type etc_t;
++    ')
++
++    allow $1 etc_t:file {rw_file_perms};
++')
++
++interface(`syslogd_unlabeled_t_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:file {rw_file_perms};
++')
++
+diff --git a/policy/modules/system/logging.te b/policy/modules/system/logging.te
+index 4c2a8a789..2e7340802 100644
+--- a/policy/modules/system/logging.te
++++ b/policy/modules/system/logging.te
+@@ -620,6 +620,8 @@ optional_policy(`
+ 	# log to the xconsole
+ 	xserver_rw_console(syslogd_t)
+ ')
++
++##unisoc##
+ logging_bin_t(syslogd_t)
+ logging_bin_t(klogd_t)
+ logging_tmpfs_t_dir(syslogd_t)
+@@ -638,7 +640,6 @@ logging_dosfs_t_dir(syslogd_t)
+ logging_dosfs_t_file(syslogd_t)
+ logging_device_t_chr_file(klogd_t)
+ logging_device_t_chr_file(syslogd_t)
++syslogd_etc_t_file(syslogd_t)
++syslogd_unlabeled_t_file(syslogd_t)
+ 
+-
+-
+-#end
+diff --git a/policy/modules/system/mount.if b/policy/modules/system/mount.if
+index b5df3bd38..0f7013bc7 100644
+--- a/policy/modules/system/mount.if
++++ b/policy/modules/system/mount.if
+@@ -317,3 +317,11 @@ interface(`mount_kmsg_device_t_chr_file',`
+     allow $1 kmsg_device_t:chr_file {getattr read open ioctl write append create map};
+ ')
+ 
++interface(`mount_unlabeled_t_chr_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:chr_file { rw_chr_file_perms};
++')
++
+diff --git a/policy/modules/system/mount.te b/policy/modules/system/mount.te
+index 41c3015bf..1fedce7c2 100644
+--- a/policy/modules/system/mount.te
++++ b/policy/modules/system/mount.te
+@@ -232,6 +232,7 @@ optional_policy(`
+ 	unconfined_domain(unconfined_mount_t)
+ ')
+ 
++####unisoc######
+ mount_httpd_var_run_t_file(mount_t)
+ mount_var_log_t_file(mount_t)
+ mount_sysadm_t_file(mount_t)
+@@ -244,4 +245,5 @@ mount_unlabeled_t_filesystem(mount_t)
+ mount_initrc_t_netlink_kobject_uevent_socket(mount_t)
+ mount_initrc_t_unix_stream_socket(mount_t)
+ mount_kmsg_device_t_chr_file(mount_t)
++mount_unlabeled_t_chr_file(mount_t)
+ 
+diff --git a/policy/modules/system/selinuxutil.if b/policy/modules/system/selinuxutil.if
+index 1f05c5397..ea327a265 100644
+--- a/policy/modules/system/selinuxutil.if
++++ b/policy/modules/system/selinuxutil.if
+@@ -1182,11 +1182,19 @@ interface(`setfiles_kmsg_device_t_chr_file',`
+       allow $1 kmsg_device_t:chr_file {read write append open map create};
+ ')
+ 
+-
+ interface(`selinuxutil_unlabeled_t_lnk_file',`
+ 	gen_require(`
+                 type unlabeled_t;
+         ')
+ 
+ 	allow $1 unlabeled_t:lnk_file { read };
+-')
+\ No newline at end of file
++')
++
++interface(`setfiles_unlabeled_t_chr_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:chr_file { rw_chr_file_perms };
++')
++
+diff --git a/policy/modules/system/selinuxutil.te b/policy/modules/system/selinuxutil.te
+index 14f644abe..a09538f89 100644
+--- a/policy/modules/system/selinuxutil.te
++++ b/policy/modules/system/selinuxutil.te
+@@ -695,3 +695,5 @@ optional_policy(`
+ setfiles_kmsg_device_t_chr_file(setfiles_t)
+ setfiles_device_t_file(setfiles_t)
+ selinuxutil_unlabeled_t_lnk_file(setfiles_t)
++setfiles_unlabeled_t_chr_file(setfiles_t)
++
+-- 
+2.17.1
+

@@ -1,0 +1,45 @@
+From 488241645c72ae1187ae2a00f3ab4e72b10cfea5 Mon Sep 17 00:00:00 2001
+From: Chengyuan Li <chengyuan.li@unisoc.com>
+Date: Wed, 17 Aug 2022 16:13:58 +0800
+Subject: [PATCH] Bug #1982891 change androidboot to sprdboot in iq and r5p0 in
+ n6pro
+
+[root cause  ]: ok
+[changes     ]:ok
+[side effects]:ok
+[self test   ]:ok
+[download normally]:ok
+[power on/off normally]:ok
+[do common repository/branch inspection]:ok
+[is there dependence]:ok
+[confirm dependent commit]:ok
+[board]:ok
+[test case]:ok
+[reviewers]:
+
+commit_template_version:v1
+[change_type ] bringup --> sprd_chip_support
+[tag_product ] common
+
+Change-Id: I20cfd192ee305bc440786910ebe2b318960fb14f
+---
+ drivers/soc/sprd/domain/sprd_camsys_pw_domain_r5p0.c | 2 +-
+ drivers/soc/sprd/modem/iq/sprd_iq.c                  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/soc/sprd/modem/iq/sprd_iq.c b/drivers/soc/sprd/modem/iq/sprd_iq.c
+index 21b22207e5ef..94372e7d3589 100644
+--- a/drivers/soc/sprd/modem/iq/sprd_iq.c
++++ b/drivers/soc/sprd/modem/iq/sprd_iq.c
+@@ -390,7 +390,7 @@ static int in_iqmode(void)
+ 		return 0;
+ 	}
+ 
+-	mode = strstr(cmdline, "androidboot.mode=iq");
++	mode = strstr(cmdline, "sprdboot.mode=iq");
+ 	if (mode)
+ 		return 1;
+ 	else
+-- 
+2.17.1
+

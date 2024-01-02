@@ -1,0 +1,193 @@
+From ab6cc5da4cbae59ea85de1b0885d498a4d17f26b Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Fri, 30 Sep 2022 14:03:01 +0800
+Subject: [PATCH] Bug #2011601 adb&mount-fail-3
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/roles/sysadm.if       | 14 +++++++-------
+ policy/modules/services/gpsd.if      | 10 +++++++++-
+ policy/modules/services/gpsd.te      |  1 +
+ policy/modules/system/clock.if       |  4 ++--
+ policy/modules/system/hostname.if    |  9 +++++++++
+ policy/modules/system/selinuxutil.if |  4 ++--
+ 6 files changed, 30 insertions(+), 12 deletions(-)
+
+diff --git a/policy/modules/roles/sysadm.if b/policy/modules/roles/sysadm.if
+index 4fb42678e..6b93b6215 100644
+--- a/policy/modules/roles/sysadm.if
++++ b/policy/modules/roles/sysadm.if
+@@ -547,7 +547,7 @@ interface(`sysadm_proc_t_filesystem',`
+         type proc_t;
+     ')
+ 
+-    allow $1 proc_t:filesystem {mount};
++    allow $1 proc_t:filesystem {mount unmount remount};
+ ')
+ 
+ interface(`sysadm_sysfs_t_dir',`
+@@ -563,7 +563,7 @@ interface(`sysadm_debugfs_t_filesystem',`
+         type debugfs_t;
+     ')
+ 
+-    allow $1 debugfs_t:filesystem {mount};
++    allow $1 debugfs_t:filesystem {mount unmount remount};
+ ')
+ 
+ interface(`sysadm_configfs_t_filesystem',`
+@@ -571,7 +571,7 @@ interface(`sysadm_configfs_t_filesystem',`
+         type configfs_t;
+     ')
+ 
+-    allow $1 configfs_t:filesystem {mount};
++    allow $1 configfs_t:filesystem {mount unmount remount};
+ ')
+ 
+ interface(`sysadm_device_t_filesystem',`
+@@ -579,7 +579,7 @@ interface(`sysadm_device_t_filesystem',`
+         type device_t;
+     ')
+ 
+-    allow $1 device_t:filesystem {mount};
++    allow $1 device_t:filesystem {mount unmount remount};
+ ')
+ 
+ interface(`sysadm_device_t_dir',`
+@@ -611,7 +611,7 @@ interface(`sysadm_tmpfs_t_filesystem',`
+         type tmpfs_t;
+     ')
+ 
+-    allow $1 tmpfs_t:filesystem {mount};
++    allow $1 tmpfs_t:filesystem {mount unmount remount};
+ ')
+ 
+ interface(`sysadm_fs_t_filesystem',`
+@@ -627,7 +627,7 @@ interface(`sysadm_devpts_t_filesystem',`
+         type devpts_t;
+     ')
+ 
+-    allow $1 devpts_t:filesystem {mount};
++    allow $1 devpts_t:filesystem {mount unmount remount};
+ ')
+ 
+ interface(`sysadm_unlabeled_t_filesystem',`
+@@ -635,7 +635,7 @@ interface(`sysadm_unlabeled_t_filesystem',`
+         type unlabeled_t;
+     ')
+ 
+-    allow $1 unlabeled_t:filesystem {mount};
++    allow $1 unlabeled_t:filesystem {mount unmount remount};
+ ')
+ 
+ interface(`sysadm_etc_t_dir',`
+diff --git a/policy/modules/services/gpsd.if b/policy/modules/services/gpsd.if
+index 764d0c579..4d73b0272 100644
+--- a/policy/modules/services/gpsd.if
++++ b/policy/modules/services/gpsd.if
+@@ -112,7 +112,7 @@ interface(`gpsd_etc_t_file',`
+         type etc_t;
+     ')
+ 
+-   allow $1 etc_t:file {map open read};
++   allow $1 etc_t:file {map open read write append ioctl};
+ ')
+ 
+ interface(`gpsd_sysadm_t_dbus',`
+@@ -180,3 +180,11 @@ interface(`gpsd_gpsd_t_process',`
+    allow $1 gpsd_t:process {getsession};
+ ')
+ 
++interface(`gpsd_device_t_file',`
++    gen_require(`
++        type device_t;
++    ')
++
++   allow $1 device_t:file {write map open read append ioctl};
++')
++
+diff --git a/policy/modules/services/gpsd.te b/policy/modules/services/gpsd.te
+index ea1c0953f..5035e8305 100644
+--- a/policy/modules/services/gpsd.te
++++ b/policy/modules/services/gpsd.te
+@@ -93,4 +93,5 @@ gpsd_sysadm_t_unix_stream_socket(gpsd_t)
+ gpsd_sysadm_t_unix_dgram_socket(gpsd_t)
+ gpsd_device_t_sock_file(gpsd_t)
+ gpsd_gpsd_t_process(gpsd_t)
++gpsd_device_t_file(gpsd_t)
+ 
+diff --git a/policy/modules/system/clock.if b/policy/modules/system/clock.if
+index 1b09f0b9c..e6faec55a 100644
+--- a/policy/modules/system/clock.if
++++ b/policy/modules/system/clock.if
+@@ -123,7 +123,7 @@ interface(`hwclock_device_t_file',`
+         type device_t;
+     ')
+ 
+-    allow $1 device_t:file {read append};
++    allow $1 device_t:file {read append write create open ioctl map};
+ ')
+ 
+ interface(`hwclock_etc_t_file',`
+@@ -131,7 +131,7 @@ interface(`hwclock_etc_t_file',`
+         type etc_t;
+     ')
+ 
+-    allow $1 etc_t:file {read append write create open};
++    allow $1 etc_t:file {read append write create open ioctl map};
+ ')
+ 
+ interface(`hwclock_etc_t_dir',`
+diff --git a/policy/modules/system/hostname.if b/policy/modules/system/hostname.if
+index 187f04f83..534cc6c62 100644
+--- a/policy/modules/system/hostname.if
++++ b/policy/modules/system/hostname.if
+@@ -63,3 +63,12 @@ interface(`hostname_exec',`
+ 	corecmd_search_bin($1)
+ 	can_exec($1, hostname_exec_t)
+ ')
++
++interface(`hostname_device_t_file',`
++    gen_require(`
++		type device_t;
++    ')
++
++    allow $1 device_t:file {read append write open ioctl map create};
++')
++
+diff --git a/policy/modules/system/selinuxutil.if b/policy/modules/system/selinuxutil.if
+index e0b33f84d..bc33a8be0 100644
+--- a/policy/modules/system/selinuxutil.if
++++ b/policy/modules/system/selinuxutil.if
+@@ -1170,7 +1170,7 @@ interface(`setfiles_device_t_file',`
+         type device_t;
+     ')
+ 
+-     allow $1 device_t:file {read write append};
++     allow $1 device_t:file {read write append open map ioctl create};
+ ')
+ 
+ interface(`setfiles_kmsg_device_t_chr_file',`
+@@ -1178,6 +1178,6 @@ interface(`setfiles_kmsg_device_t_chr_file',`
+          type kmsg_device_t;
+      ')
+ 
+-      allow $1 kmsg_device_t:chr_file {read write append open map};
++      allow $1 kmsg_device_t:chr_file {read write append open map create};
+ ')
+ 
+-- 
+2.17.1
+

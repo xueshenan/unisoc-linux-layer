@@ -1,0 +1,13 @@
+[Unit]
+Description=channelmanager Daemon Service
+After=channelmanager.target
+
+[Service]
+ExecStart=/usr/bin/channelmanager
+
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+

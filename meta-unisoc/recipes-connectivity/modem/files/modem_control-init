@@ -1,0 +1,35 @@
+#!/bin/sh
+
+DESC="Modem_control"
+set -e
+
+do_start() {
+ /usr/bin/modem_control -l /usr/lib/libmodem_utils.so &
+}
+
+do_stop() {
+	start-stop-daemon --stop --name modem_control --quiet
+}
+
+case "$1" in
+  start)
+        do_start
+	echo "Starting $DESC"
+	;;
+  stop)
+	echo "Stopping $DESC"
+	do_stop
+	;;
+  restart|force-reload)
+	echo "Restarting $DESC"
+	do_stop
+	sleep 1
+	do_start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

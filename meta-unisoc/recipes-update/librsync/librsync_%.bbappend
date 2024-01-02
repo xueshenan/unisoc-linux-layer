@@ -1,0 +1,3 @@
+EXTRA_OECMAKE += "-DBUILD_RDIFF=ON"
+DEPENDS += "popt"
+BBCLASSEXTEND += "native"

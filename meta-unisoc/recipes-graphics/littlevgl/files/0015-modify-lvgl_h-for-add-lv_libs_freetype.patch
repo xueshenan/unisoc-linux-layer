@@ -1,0 +1,17 @@
+diff --git a/lvgl.h b/lvgl.h
+index 1dca71a2..9af713d0 100755
+--- a/lvgl.h
++++ b/lvgl.h
+@@ -83,6 +83,12 @@ extern "C" {
+ 
+ #include "src/lv_api_map.h"
+ 
++/*-----------------
++ * EXTRAS
++ *----------------*/
++#include "src/extra/lv_extra.h"
++#include "src/extra/libs/lv_libs.h"
++
+ //#define LV_BUILD_TEST 1
+ 
+ /*********************

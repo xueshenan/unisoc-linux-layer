@@ -1,0 +1,18 @@
+diff --git a/include/configs/ud710_3h10.h b/include/configs/ud710_3h10.h
+index e58a35a..40d7308 100755
+--- a/include/configs/ud710_3h10.h
++++ b/include/configs/ud710_3h10.h
+@@ -258,4 +258,13 @@
+ #ifdef CONFIG_ADIE_SC2730
+ #define ADI_15BIT_MODE
+ #endif
++#define CONFIG_OF_LIBFDT
++#define CONFIG_DEBUG
++#define CONFIG_LOAD_TOS_ALONE 1
++#define CONFIG_LOAD_ATF 1
++#define CONFIG_ATF_BOOT_TOS 1
++#define CONFIG_SML_LDADDR_START 0x94000000
++#define CONFIG_TOS_LDADDR_START 0x94020000
++#define CONFIG_SML_TOS_RUNNING_SIZE 0x2000000
++#define CONFIG_SEC_MEM_SIZE 0x2000000
+ #endif /* __CONFIG_H */

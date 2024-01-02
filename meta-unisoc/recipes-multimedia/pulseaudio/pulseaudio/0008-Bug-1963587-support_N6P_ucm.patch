@@ -1,0 +1,106 @@
+diff --git a/src/modules/alsa/alsa-sink.c b/src/modules/alsa/alsa-sink.c
+index 57da8bc..8a34b7d 100755
+--- a/src/modules/alsa/alsa-sink.c
++++ b/src/modules/alsa/alsa-sink.c
+@@ -1179,6 +1179,11 @@ static int unsuspend(struct userdata *u, bool recovering) {
+         pa_log("Error opening PCM device %s: %s", u->device_name, pa_alsa_strerror(err));
+         goto fail;
+     }
++    
++#ifdef AUDIO_DSP_PLATFORM
++    pa_log("guangtao pa_alsa_set_elem_value ag_iis0_ext_sel_v2");
++    pa_alsa_set_elem_value("hw:0", "name=ag_iis0_ext_sel_v2", "aud_4ad_iis0_da0");
++#endif
+ 
+     if (pa_frame_size(&u->sink->sample_spec) != u->frame_size) {
+         update_size(u, &u->sink->sample_spec);
+@@ -1907,6 +1912,7 @@ static void thread_func(void *userdata) {
+ 
+                 if (u->first) {
+                     pa_log_info("Starting playback.");
++
+                     snd_pcm_start(u->pcm_handle);
+ 
+                     pa_smoother_resume(u->smoother, pa_rtclock_now(), true);
+diff --git a/src/modules/alsa/alsa-source.c b/src/modules/alsa/alsa-source.c
+index adace10..3a20da1 100755
+--- a/src/modules/alsa/alsa-source.c
++++ b/src/modules/alsa/alsa-source.c
+@@ -1051,6 +1051,12 @@ static int unsuspend(struct userdata *u, bool recovering) {
+         pa_log("Error opening PCM device %s: %s", u->device_name, pa_alsa_strerror(err));
+         goto fail;
+     }
++    
++#ifdef AUDIO_DSP_PLATFORM
++    pa_log("guangtao pa_alsa_set_elem_value ag_iis1_ext_sel_v2");
++    pa_alsa_set_elem_value("hw:0", "name=ag_iis1_ext_sel_v2", "aud_4ad_iis0_ad0");
++    pa_alsa_set_elem_value("hw:0", "name=ag_iis2_ext_sel_v2", "aud_4ad_iis1_ad0");
++#endif
+ 
+     if (pa_frame_size(&u->source->sample_spec) != u->frame_size) {
+         update_size(u, &u->source->sample_spec);
+diff --git a/src/modules/alsa/alsa-util.c b/src/modules/alsa/alsa-util.c
+index 72d9dd5..3234c40 100755
+--- a/src/modules/alsa/alsa-util.c
++++ b/src/modules/alsa/alsa-util.c
+@@ -884,6 +884,47 @@ static void alsa_error_handler(const char *file, int line, const char *function,
+ 
+ static pa_atomic_t n_error_handler_installed = PA_ATOMIC_INIT(0);
+ 
++void pa_alsa_set_elem_value(const char *card_name, const char *elem_name, const char *value) {
++    int err;
++    static snd_ctl_t *handle = NULL;
++    snd_ctl_elem_info_t *info;
++    snd_ctl_elem_id_t *id;
++    snd_ctl_elem_value_t *control;
++
++    snd_ctl_elem_info_alloca(&info);
++    snd_ctl_elem_id_alloca(&id);
++    snd_ctl_elem_value_alloca(&control);
++
++    snd_ctl_ascii_elem_id_parse(id, elem_name);
++
++    if ((err = snd_ctl_open(&handle, card_name, 0)) < 0) {
++        pa_log("Control %s open error: %d", card_name, err);
++        return;
++    }
++
++    snd_ctl_elem_info_set_id(info, id);
++    if ((err = snd_ctl_elem_info(handle, info)) < 0) {
++        pa_log("Cannot find the given element from control %s", card_name);
++        return;
++    }
++
++    snd_ctl_elem_value_set_id(control, id);
++    if ((err = snd_ctl_elem_read(handle, control)) < 0) {
++        pa_log("Cannot read the given element from control %s", card_name);
++        return;
++    }
++
++    if ((err = snd_ctl_ascii_value_parse(handle, control, info, value)) < 0) {
++        pa_log("Control parse error");
++        return;
++    }
++
++    if ((err = snd_ctl_elem_write(handle, control)) < 0)  {
++        pa_log("Control element write error");
++        return;
++    }
++}
++
+ void pa_alsa_refcnt_inc(void) {
+     /* This is not really thread safe, but we do our best */
+ 
+diff --git a/src/modules/alsa/alsa-util.h b/src/modules/alsa/alsa-util.h
+index 4ceaa06..5ddfbfa 100755
+--- a/src/modules/alsa/alsa-util.h
++++ b/src/modules/alsa/alsa-util.h
+@@ -109,6 +109,8 @@ snd_pcm_t *pa_alsa_open_by_template(
+ void pa_alsa_dump(pa_log_level_t level, snd_pcm_t *pcm);
+ void pa_alsa_dump_status(snd_pcm_t *pcm);
+ 
++void pa_alsa_set_elem_value(const char *card_name, const char *elem_name, const char *value);
++
+ void pa_alsa_refcnt_inc(void);
+ void pa_alsa_refcnt_dec(void);
+ 

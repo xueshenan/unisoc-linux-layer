@@ -1,0 +1,473 @@
+From 891e10331fbbf2869115794411dbe687819de88c Mon Sep 17 00:00:00 2001
+From: fujia <fujia@bingtangtech.com>
+Date: Thu, 7 Sep 2023 16:28:54 +0800
+Subject: [PATCH] aw9623
+
+---
+ arch/arm/dts/ums9620_2h10.dts                |  17 +
+ board/spreadtrum/ums9620_2h10/ums9620_2h10.c |   3 +
+ configs/ums9620_2h10_defconfig               |   1 +
+ drivers/gpio/Kconfig                         |   6 +
+ drivers/gpio/Makefile                        |   1 +
+ drivers/gpio/aw9523b_gpio.c                  | 310 +++++++++++++++++++
+ include/aw9523b_gpio.h                       |  31 ++
+ include/configs/ums9620_2h10.h               |   1 +
+ 8 files changed, 370 insertions(+)
+ create mode 100755 drivers/gpio/aw9523b_gpio.c
+ create mode 100755 include/aw9523b_gpio.h
+
+diff --git a/arch/arm/dts/ums9620_2h10.dts b/arch/arm/dts/ums9620_2h10.dts
+index abcf452411..cf428b3b8b 100644
+--- a/arch/arm/dts/ums9620_2h10.dts
++++ b/arch/arm/dts/ums9620_2h10.dts
+@@ -157,5 +157,22 @@
+ 		compatible = "sprd,bq2560x-charger";
+ 		sprd,bq2560x-i2c-bus = <6>;
+ 	};
++
++	aw9523b_gpio@58 {
++			compatible = "awinic,aw9523b";
++			slave_addr = <0x58>;
++			sprd,aw9523b-i2c-bus = <5>;
++			sprd,aw9523b-pwren-gpio = <115>;
++			sprd,aw9523b-reset-gpio = <136>; //rst gpio
++	};
++
++	aw9523b_gpio@59 {
++			compatible = "awinic,aw9523b";
++			slave_addr = <0x59>;
++			sprd,aw9523b-i2c-bus = <5>;
++			sprd,aw9523b-pwren-gpio = <115>;
++			sprd,aw9523b-reset-gpio = <183>; //rst gpio
++	};
++
+ };
+ 
+diff --git a/board/spreadtrum/ums9620_2h10/ums9620_2h10.c b/board/spreadtrum/ums9620_2h10/ums9620_2h10.c
+index 1109a33ce2..2a77223057 100755
+--- a/board/spreadtrum/ums9620_2h10/ums9620_2h10.c
++++ b/board/spreadtrum/ums9620_2h10/ums9620_2h10.c
+@@ -29,6 +29,8 @@
+ DECLARE_GLOBAL_DATA_PTR;
+ phys_size_t real_ram_size = 0x40000000;
+ 
++extern void aw9523b_gpio_init(void);
++
+ phys_size_t get_real_ram_size(void)
+ {
+         return real_ram_size;
+@@ -185,6 +187,7 @@ int board_late_init(void)
+ 	debugf("CHG init OK!\n");
+ #endif
+ 	board_keypad_init();
++	aw9523b_gpio_init();
+ 	return 0;
+ }
+ 
+diff --git a/configs/ums9620_2h10_defconfig b/configs/ums9620_2h10_defconfig
+index 1e9b021197..6441966050 100644
+--- a/configs/ums9620_2h10_defconfig
++++ b/configs/ums9620_2h10_defconfig
+@@ -16,5 +16,6 @@ CONFIG_OF_LIBFDT_OVERLAY=y
+ CONFIG_DM=y
+ CONFIG_CLK=y
+ CONFIG_DM_I2C=y
++CONFIG_DM_GPIO=y
+ CONFIG_BQ2560X_CHARGE_IC=y
+ CONFIG_DM_SPRD_EFUSE=y
+diff --git a/drivers/gpio/Kconfig b/drivers/gpio/Kconfig
+index 0c43777cef..9565abc092 100644
+--- a/drivers/gpio/Kconfig
++++ b/drivers/gpio/Kconfig
+@@ -42,3 +42,9 @@ config VYBRID_GPIO
+ 	default n
+ 	help
+ 	  Say yes here to support Vybrid vf610 GPIOs.
++
++config AW9523B_GPIO
++	bool "AW9523_GPIO Support"
++	depends on SPRD_GPIO
++	help
++	  Choose this option to enable support for AW9523_GPIO.
+\ No newline at end of file
+diff --git a/drivers/gpio/Makefile b/drivers/gpio/Makefile
+index 86530835a4..9bf684b003 100755
+--- a/drivers/gpio/Makefile
++++ b/drivers/gpio/Makefile
+@@ -53,6 +53,7 @@ obj-$(CONFIG_SPRD_GPIO_PLUS)	+= gpio_plus.o eic.o
+ ifdef CONFIG_DM
+ ifdef CONFIG_DM_GPIO
+ obj-$(CONFIG_SPRD_GPIO)		+= sprd_gpio.o
++obj-$(CONFIG_AW9523B_GPIO)   += aw9523b_gpio.o
+ obj-$(CONFIG_SPRD_GPIO_PLUS)	+= sprd_gpio_plus.o
+ obj-$(CONFIG_SPRD_EIC)		+= sprd_eic.o
+ ifdef CONFIG_DM_PMIC
+diff --git a/drivers/gpio/aw9523b_gpio.c b/drivers/gpio/aw9523b_gpio.c
+new file mode 100755
+index 0000000000..0f025a27f1
+--- /dev/null
++++ b/drivers/gpio/aw9523b_gpio.c
+@@ -0,0 +1,310 @@
++/*
++ * (C) Copyright 2020 Rockchip Electronics Co., Ltd
++ *
++ * SPDX-License-Identifier:     GPL-2.0+
++ */
++
++#include <common.h>
++#include <dm.h>
++#include <fdtdec.h>
++#include <asm/io.h>
++#include <i2c.h>
++#include <asm/gpio.h>
++#include <errno.h>
++#include <clk.h>
++#include <aw9523b_gpio.h>
++
++static struct aw9523b_gpio *aw9523b_client = NULL;
++struct udevice *aw9523b_gpio_dev;
++
++static int aw9523b_write_reg(int reg, u8 val)
++{
++	dm_i2c_reg_write(aw9523b_gpio_dev, reg, val);
++	return 0;
++}
++
++static int aw9523b_read_reg(int reg, u8 *value)
++{
++	u8 val;
++	int ret;
++
++	ret = dm_i2c_reg_read(aw9523b_gpio_dev, reg);
++	if (ret < 0) {
++		pr_err("%s: reg(0x%x), ret(%d)\n", __func__, reg, ret);
++		return ret;
++	}
++
++	*value = (u8)ret;
++	debugf("######aw9523b readreg reg = %d value = %d/0x%x\n", reg, ret, ret);
++	return 0;
++}
++
++
++static int aw9523b_get_value(struct udevice *dev, int port)
++{
++	int value;
++	u8 val;
++	struct aw9523b_gpio *gpios = dev_get_priv(dev);
++
++	if (port < 0 || port > 15) {
++		printf("<%s> invalid port: %d\n", __func__, port);
++		return -EINVAL;
++	}
++	
++	aw9523b_read_reg(0x02 + port / 8, &val);
++	
++	value = (val >> port) & 1;
++	printf("====>reg %x  value %x\n", 0x02 + port / 8, value);
++	return value;
++}
++
++static int aw9523b_set_value(struct udevice *dev, int port,
++				  int value)
++{
++	int ret;
++	u8 val;
++	struct aw9523b_gpio *gpios = dev_get_priv(dev);
++	
++	printf("==>%s: 111\n", __func__);
++	if (port < 0 || port > 15) {
++		printf("<%s> invalid port: %d\n", __func__, port);
++		return -1;
++	}
++
++	if (value != 0 && value != 1) {
++		printf("<%s> invalid value\n", __func__);
++		return -1;
++	}
++
++	aw9523b_read_reg(0x02 + port / 8, &val);
++
++	// printf("aw9523 reg 0x2: 0x%x\n", val);
++	if (value == 0)
++		val &= ~(1 << (port % 8));
++	else
++		val |= 1 << (port % 8);
++	printf("aw9523 i2c write port:%d reg:0x%x  val:0x%x\n",port, 0x02 + port / 8, val);
++	ret = aw9523b_write_reg(0x02 + port / 8, val);
++	if(ret)
++	{
++		printf("aw9523 i2c write failed: %d\n", ret);
++		return ret;
++	}
++
++	return 0;
++}
++
++int aw9523b_port_get(unsigned int offset)
++{
++	int value;
++	if(aw9523b_client)
++	{
++		value = aw9523b_get_value(aw9523b_client->dev, offset);
++		return value;
++	}
++	return 0;
++}
++
++int aw9523b_port_set(unsigned int offset, int value)
++{
++	if(aw9523b_client)
++	{
++		aw9523b_set_value(aw9523b_client->dev, offset, value);
++	}
++	return 0;
++}
++
++static const struct dm_aw9523b_ops aw9523b_gpio_ops = {
++	.get_value		= aw9523b_port_get,
++	.set_value		= aw9523b_port_set,
++};
++
++static int sprd_dm_aw9523b_i2c_init(void)
++{
++	int ret;
++	
++	ret = dm_i2c_set_bus_speed(dev_get_parent(aw9523b_gpio_dev), I2C_SPEED);
++	if (ret) {
++		pr_err("%s: failed to set i2c5 speed\n", __func__);
++		return ret;
++	}
++
++	return 0;
++}
++
++static int aw9523b_probe(struct udevice *dev)
++{
++	int ret;
++	uint32_t val;
++	struct aw9523b_gpio *aw9523b_gpio = dev_get_priv(dev);
++
++	aw9523b_client = aw9523b_gpio;
++	aw9523b_gpio->dev = dev;
++
++	printf("====>aw9523 gpio probe enter\n");
++
++	ret = dev_read_u32(dev, "sprd,aw9523b-pwren-gpio", &val);
++	if (ret) {
++		printf("Cannot get pwren_gpio GPIO: %d\n", ret);
++		return ret;
++	}
++
++	// ret = gpio_request_by_name(dev, "sprd,aw9523b-pwren-gpio", 0,
++	// 			   &aw9523b_gpio->pwren_gpio, GPIOD_IS_OUT);
++	// if (ret) {
++	// 	printf("Cannot get reset_gpio GPIO: %d\n", ret);
++	// 	return ret;
++	// }
++	aw9523b_gpio->pwren_gpio = val;
++	debugf("pwren_gpio = %d\n", val);
++	// if (dm_gpio_is_valid(&aw9523b_gpio->pwren_gpio))
++	// {
++	// 	dm_gpio_set_value(&aw9523b_gpio->pwren_gpio, 1);
++	// 	mdelay(20);
++	// }
++	sprd_gpio_request(NULL, aw9523b_gpio->pwren_gpio);
++	sprd_gpio_direction_output(NULL, aw9523b_gpio->pwren_gpio, 1);
++
++	ret = dev_read_u32(dev, "sprd,aw9523b-reset-gpio", &val);
++	if (ret) {
++		printf("Cannot get reset_gpio GPIO: %d\n", ret);
++		return ret;
++	}
++	aw9523b_gpio->reset_gpio = val;
++	debugf("reset_gpio = %d\n", val);
++
++	// if (dm_gpio_is_valid(&aw9523b_gpio->reset_gpio))
++	// {
++	// 	dm_gpio_set_value(&aw9523b_gpio->reset_gpio, 1);
++	// 	mdelay(20);
++	// 	dm_gpio_set_value(&aw9523b_gpio->reset_gpio, 0);
++	// 	mdelay(30);
++	// 	dm_gpio_set_value(&aw9523b_gpio->reset_gpio, 1);
++	// 	mdelay(20);
++	// }
++	sprd_gpio_request(NULL, aw9523b_gpio->reset_gpio);
++	sprd_gpio_direction_output(NULL, aw9523b_gpio->reset_gpio, 1);
++	mdelay(20);
++	sprd_gpio_direction_output(NULL, aw9523b_gpio->reset_gpio, 0);
++	mdelay(30);
++	sprd_gpio_direction_output(NULL, aw9523b_gpio->reset_gpio, 1);
++	mdelay(20);
++
++	ret = dev_read_u32(dev, "slave_addr", &aw9523b_gpio->slave_addr);
++	if (ret) {
++		printf("Cannot get slave_addr %d\n", ret);
++		return ret;
++	}
++	debugf("slave_addr = 0x%x\n", aw9523b_gpio->slave_addr);
++	ret = i2c_get_chip_for_busnum(5, aw9523b_gpio->slave_addr, 1, &aw9523b_gpio_dev);
++	if (ret) {
++		pr_err("%s: i2c5 failed to get\n", __func__);
++		return ret;
++	}
++
++	ret = sprd_dm_aw9523b_i2c_init();
++  	if (ret) {
++          	pr_err("%s:failed to init dm i2c ret = %d\n", __func__, ret);
++		return ret;
++    }
++
++	printf("====>%s successful!!\n", __func__);
++
++	aw9523b_read_reg(AW9523B_REG_CHIPID, &val);
++	debugf("chipid = 0x%x\n", val);
++
++	// set P0 port as push-pull mode
++	aw9523b_write_reg(0x11, 0x10);
++	aw9523b_write_reg(0x12, 0xff);
++	aw9523b_write_reg(0x13, 0xff);
++	// P0 and P1 port output mode
++	aw9523b_write_reg(0x04, 0x00);
++	aw9523b_write_reg(0x05, 0x00);
++	// disable interrupt function of P0 and P1 port
++	aw9523b_write_reg(0x06, 0xff);
++	aw9523b_write_reg(0x07, 0xff);
++	// P0 and P1 port output low level
++	aw9523b_write_reg(0x02, 0x00);
++	aw9523b_write_reg(0x03, 0x00);
++
++	printf("====>aw9523 gpio probe successful!!\n");
++	return 0;
++}
++
++static int sprd_dm_aw9523b_init(void)
++{
++	struct udevice *devp;
++	int ret;
++
++	ret = uclass_get_device(UCLASS_GPIO, 0, &devp);
++	if (ret) {
++		pr_err("%s:failed to get device ret = %d\n", __func__, ret);
++		return ret;
++	}
++	return 0;
++}
++void aw9523b_gpio_init(void)
++{
++	int ret;
++	u8 val;
++
++	printf("aw9523b gpio init\n");
++
++	// ret = sprd_dm_aw9523b_init();
++	// if (ret) {
++	// 	pr_err("%s:failed ret = %d\n", __func__, ret);
++	// 	return ret;
++	// }
++
++	struct udevice *aw9523b_dev;
++	const struct dm_aw9523b_ops *ops = NULL;
++
++	ret = uclass_get_device_by_name(UCLASS_GPIO, "aw9523b_gpio@58", &aw9523b_dev);
++	if(ret < 0)
++		printf(">>>>>get device fail\n");
++
++	if(aw9523b_dev)
++		ops = aw9523b_get_ops(aw9523b_dev);
++
++	printf("====>%s enable aw9523 gpio expander port0~15\n",__func__);
++
++	if(ops->set_value)
++	{
++		//enable aw9523 gpio expander port0~15
++		ops->set_value(0, 0);
++		mdelay(20);
++		ops->set_value(1, 0);
++		mdelay(20);
++		ops->set_value(2, 0);
++		mdelay(20);
++		ops->set_value(15, 0);
++
++#if 1
++		//reset yt7601 pcie chip
++		ops->set_value(7, 0);
++		mdelay(50);
++		ops->set_value(7, 1);
++		mdelay(50);
++		ops->set_value(7, 0);
++
++		mdelay(100);
++
++		ops->set_value(7, 1);
++
++#endif		
++	}
++}
++static const struct udevice_id aw9523b_of_match[] = {
++	{ .compatible = "awinic,aw9523b" },
++	{}
++};
++
++U_BOOT_DRIVER(gpio_aw9523) = {
++	.name = "aw9523b-gpio",
++	.id = UCLASS_GPIO,
++	.of_match = aw9523b_of_match,
++	.ops	= &aw9523b_gpio_ops,
++	.probe = aw9523b_probe,
++	.priv_auto_alloc_size = sizeof(struct aw9523b_gpio),
++};
++
+diff --git a/include/aw9523b_gpio.h b/include/aw9523b_gpio.h
+new file mode 100755
+index 0000000000..b710d68c22
+--- /dev/null
++++ b/include/aw9523b_gpio.h
+@@ -0,0 +1,31 @@
++
++#ifndef __AW9523B_GPIO_H_
++#define __AW9523B_GPIO_H_
++
++struct dm_aw9523b_ops {
++	int (*get_value)(unsigned int offset);
++	int (*set_value)(unsigned int offset, int value);
++};
++
++struct aw9523b_gpio {
++	struct udevice *dev;
++	int reset_gpio;
++	int pwren_gpio;
++	int slave_addr;
++};
++
++#define aw9523b_get_ops(dev)   ((struct dm_aw9523b_ops *)(dev)->driver->ops)
++
++/* aw9523 register */
++#define AW9523B_REG_CHIPID 0x10
++#define AW9523B_LED_MODE_P0 0x12
++#define AW9523B_LED_MODE_P1 0x13
++#define AW9523B_LED_MODE 0x00
++#define AW9523B_CHIPID 0x23
++#define AW9523B_REG_MAX 0x7F
++#define AW9523B_REG_BRIGHTNESS_BASE 0x20
++
++#define I2C_SPEED			100000
++#define SLAVE_ADDR 0x59
++
++#endif /* __AW9523B_GPIO_H_ */
+\ No newline at end of file
+diff --git a/include/configs/ums9620_2h10.h b/include/configs/ums9620_2h10.h
+index 7d9846a1f3..2e7b10ccb3 100644
+--- a/include/configs/ums9620_2h10.h
++++ b/include/configs/ums9620_2h10.h
+@@ -117,6 +117,7 @@
+ #define CONFIG_COMMON_CLK
+ #define CONFIG_SPRD_CLK
+ #define CONFIG_SPRD_CLK_UMS9620
++#define CONFIG_AW9523B_GPIO
+ 
+ /* Command line configuration */
+ #define CONFIG_MENU
+-- 
+2.25.1
+

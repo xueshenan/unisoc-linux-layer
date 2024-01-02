@@ -1,0 +1,43 @@
+From ac1818e2756eb8c737b924c8d7647b81712955d5 Mon Sep 17 00:00:00 2001
+From: "gaofeng.zhu" <gaofeng.zhu@unisoc.com>
+Date: Thu, 4 Aug 2022 10:46:19 +0800
+Subject: [PATCH] Bug #1706102-overflow-of-audio-length
+
+[root cause  ]: porting 1706102-overflow-of-audio-length patch
+[changes     ]: porting
+[side effects]: No
+[self test   ]: Yes
+[download normally]: Yes
+[power on/off normally]: Yes
+[do common repository/branch inspection]: No
+[is there dependence]: No
+[confirm dependent commit]: No
+[board]:9863a-1h10
+[test case]:Yes
+[reviewers]:peitao.tian
+
+commit_template_version:v1
+---
+ gst/wavenc/gstwavenc.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/gst/wavenc/gstwavenc.c b/gst/wavenc/gstwavenc.c
+index bd6935e..c7967e8 100755
+--- a/gst/wavenc/gstwavenc.c
++++ b/gst/wavenc/gstwavenc.c
+@@ -965,6 +965,12 @@ gst_wavenc_event (GstPad * pad, GstObject * parent, GstEvent * event)
+       }
+ 
+       /* write header with correct length values */
++      if (!wavenc->use_rf64) {
++        if (wavenc->audio_length > (0xFFFFFFFF - get_header_len(wavenc))) {
++          GST_ERROR_OBJECT (wavenc, "we have reached the longest file length!!");
++          wavenc->audio_length = 0xFFFFFFFF - get_header_len(wavenc);
++        }
++      }
+       gst_wavenc_push_header (wavenc);
+ 
+       /* we're done with this file */
+-- 
+2.17.1
+

@@ -1,0 +1,9 @@
+[Unit]
+Description=teerpc Service
+
+[Service]
+ExecStart=/usr/bin/teerpc
+
+[Install]
+WantedBy=multi-user.target
+Alias=teerpc.service

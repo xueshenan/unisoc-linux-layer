@@ -1,0 +1,67 @@
+diff --git a/lib/mgmt.h b/lib/mgmt.h
+index 798a05e..1b80095 100644
+--- a/lib/mgmt.h
++++ b/lib/mgmt.h
+@@ -548,0 +549,10 @@ struct mgmt_cp_set_appearance {
++#define MGMT_OP_SET_VND_PLAY		0x0044
++struct mgmt_cp_set_vnd_play {
++	uint8_t	instance;
++	uint32_t	flags;
++} __packed;
++#define MGMT_OP_SET_VND_PLAY_SIZE	5
++struct mgmt_rp_set_vnd_play {
++	uint8_t	instance;
++} __packed;
++
+diff --git a/profiles/audio/transport.c b/profiles/audio/transport.c
+index b9d357e..1592c50 100644
+--- a/profiles/audio/transport.c
++++ b/profiles/audio/transport.c
+@@ -116,0 +117,2 @@ static GSList *transports = NULL;
++extern void bt_vendor_send_acl_priority(uint32_t setting);
++
+@@ -458,0 +461,3 @@ static DBusMessage *acquire(DBusConnection *conn, DBusMessage *msg,
++    DBG("");
++	bt_vendor_send_acl_priority(1);
++
+@@ -518,0 +524,3 @@ static DBusMessage *release(DBusConnection *conn, DBusMessage *msg,
++    DBG("");
++	bt_vendor_send_acl_priority(0);
++
+diff --git a/src/adapter.c b/src/adapter.c
+index 0a25ae2..475fb92 100644
+--- a/src/adapter.c
++++ b/src/adapter.c
+@@ -319,0 +320,32 @@ uint16_t btd_adapter_get_index(struct btd_adapter *adapter)
++static void bt_vendor_send_acl_priority_complete(uint8_t status, uint16_t length,
++					const void *param, void *user_data)
++{
++    DBG("");
++
++    return;
++}
++
++void bt_vendor_send_acl_priority(uint32_t setting)
++{
++    struct mgmt_cp_set_vnd_play cp;
++    struct btd_adapter *adapter;
++
++    DBG("%d",setting);
++
++    adapter = btd_adapter_lookup(0);
++    if (NULL != adapter)
++    {
++        cp.flags = setting;//play:1 / stop:0
++
++        if (!mgmt_send(adapter->mgmt, MGMT_OP_SET_VND_PLAY,
++				adapter->dev_id, sizeof(cp), &cp,
++				bt_vendor_send_acl_priority_complete, NULL, NULL))
++	{
++            error("Unable to send bt_vendor_send_acl_priority cmd");
++            return;
++        }
++    }
++
++    return;
++}
++

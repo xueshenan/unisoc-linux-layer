@@ -1,0 +1,69 @@
+From b9cbd08c6a8b87bbde5d71dfde69eb837f8e69ca Mon Sep 17 00:00:00 2001
+From: "qingyuan.zhang" <qingyuan.zhang@unisoc.com>
+Date: Fri, 4 Nov 2022 17:24:02 +0800
+Subject: [PATCH] Bug #2064171
+
+[root cause  ]:x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:9863
+[test case]:no
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/roles/staff.if | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+ mode change 100644 => 100755 policy/modules/roles/staff.if
+
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+old mode 100644
+new mode 100755
+index add00e7e4..cc0e0dd14
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -94,7 +94,7 @@ interface(`staff_sysfs_t_file',`
+         type sysfs_t;
+     ')
+ 
+-    allow $1 sysfs_t:file { rw_file_perms };
++    allow $1 sysfs_t:file { rw_file_perms create };
+ ')
+ 
+ interface(`staff_staff_t_capability',`
+@@ -126,7 +126,7 @@ interface(`staff_initrc_t_process',`
+         type initrc_t;
+     ')
+ 
+-    allow $1 initrc_t:process { signal sigkill };
++    allow $1 initrc_t:process { signal sigkill signull };
+ ')
+ 
+ interface(`staff_devlog_t_sock_file',`
+@@ -150,7 +150,7 @@ interface(`staff_tmpfs_t_file',`
+         type tmpfs_t;
+     ')
+ 
+-    allow $1 tmpfs_t:file {rw_file_perms};
++    allow $1 tmpfs_t:file {rw_file_perms map};
+ ')
+ 
+ interface(`staff_pulseaudio_var_run_t_sock_file',`
+@@ -262,7 +262,7 @@ interface(`staff_sysfs_t_dir',`
+     gen_require(`
+         type sysfs_t;
+     ')
+-    allow $1 sysfs_t:dir { write };
++    allow $1 sysfs_t:dir { write add_name };
+ ')
+ 
+ interface(`staff_dri_device_t_chr_file',`
+-- 
+2.17.1
+

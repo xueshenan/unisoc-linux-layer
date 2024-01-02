@@ -1,0 +1,175 @@
+From 51b646f84f6fbd736f0fbe7d8455a1f716550106 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Fri, 4 Nov 2022 18:06:27 +0800
+Subject: [PATCH] Bug #2065366 udisk-mkdir-rmdir-permission
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/services/cron.if     |  8 ++++
+ policy/modules/services/cron.te     |  3 +-
+ policy/modules/system/locallogin.if | 57 ++++++++++++++++++++++++++++-
+ policy/modules/system/locallogin.te |  7 ++++
+ policy/modules/system/mount.if      |  8 ++++
+ policy/modules/system/mount.te      |  1 +
+ 6 files changed, 82 insertions(+), 2 deletions(-)
+
+diff --git a/policy/modules/services/cron.if b/policy/modules/services/cron.if
+index 77f555745..a3b8063ee 100644
+--- a/policy/modules/services/cron.if
++++ b/policy/modules/services/cron.if
+@@ -1036,3 +1036,11 @@ interface(`crond_unlabeled_t_file',`
+     allow $1 unlabeled_t:file {rw_file_perms map};
+ ')
+ 
++interface(`system_cronjob_default_t_file',`
++    gen_require(`
++        type default_t;
++    ')
++
++    allow $1 default_t:file {rw_file_perms map entrypoint execute execute_no_trans};
++')
++
+diff --git a/policy/modules/services/cron.te b/policy/modules/services/cron.te
+index c1e1138aa..95f004bd4 100644
+--- a/policy/modules/services/cron.te
++++ b/policy/modules/services/cron.te
+@@ -794,6 +794,7 @@ crond_kmsg_device_t_chr_file(crond_t)
+ crond_unlabeled_t_dir(crond_t)
+ crond_unlabeled_t_lnk_file(crond_t)
+ crond_etc_t_file(crond_t)
+-system_cronjob_bin_t_file(crond_t)
++system_cronjob_bin_t_file(system_cronjob_t)
+ crond_unlabeled_t_file(crond_t)
++system_cronjob_default_t_file(system_cronjob_t)
+ 
+diff --git a/policy/modules/system/locallogin.if b/policy/modules/system/locallogin.if
+index 2d4b14e4a..d7b37fd26 100644
+--- a/policy/modules/system/locallogin.if
++++ b/policy/modules/system/locallogin.if
+@@ -359,7 +359,7 @@ interface(`locallogin_dosfs_t_dir',`
+         type dosfs_t;
+      ')
+ 
+-     allow $1 dosfs_t:dir { getattr read write open search add_name remove_name };
++     allow $1 dosfs_t:dir { getattr read write open search add_name remove_name create rmdir};
+ ')
+ 
+ interface(`locallogin_dosfs_t_file',`
+@@ -586,4 +586,59 @@ interface(`locallogin_init_var_run_t_file',`
+     allow $1 init_var_run_t:file { create write open execute execute_no_trans read map getattr append };
+ ')
+ 
++interface(`locallogin_sysctl_kernel_t_file',`
++    gen_require(`
++        type sysctl_kernel_t;
++    ')
++
++    allow $1 sysctl_kernel_t:file { create write open read map getattr append };
++')
++
++interface(`locallogin_fs_t_filesystem',`
++    gen_require(`
++		type fs_t;
++    ')
++
++    allow $1 fs_t:filesystem { getattr remount unmount mount};
++')
++
++interface(`locallogin_configfs_t_filesystem',`
++    gen_require(`
++        type configfs_t;
++	')
++
++    allow $1 configfs_t:filesystem { getattr remount unmount mount};
++')
++
++interface(`locallogin_unlabeled_t_filesystem',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:filesystem { getattr remount unmount mount};
++')
++
++interface(`locallogin_dosfs_t_filesystem',`
++    gen_require(`
++        type dosfs_t;
++    ')
++
++    allow $1 dosfs_t:filesystem { getattr remount unmount mount};
++')
++
++interface(`locallogin_mount_exec_t_file',`
++    gen_require(`
++        type mount_exec_t;
++    ')
++
++	allow $1 mount_exec_t:file { create write open read map getattr append execute execute_no_trans };
++')
++
++interface(`locallogin_mount_runtime_t_dir',`
++    gen_require(`
++        type mount_runtime_t;
++    ')
++
++    allow $1 mount_runtime_t:dir { create rw_dir_perms };
++')
+ 
+diff --git a/policy/modules/system/locallogin.te b/policy/modules/system/locallogin.te
+index 512141ef0..53c10c24b 100644
+--- a/policy/modules/system/locallogin.te
++++ b/policy/modules/system/locallogin.te
+@@ -345,4 +345,11 @@ locallogin_etc_runtime_t_file(local_login_t)
+ locallogin_security_t_security(local_login_t)
+ locallogin_run_init_exec_t_file(local_login_t)
+ locallogin_init_var_run_t_file(local_login_t)
++locallogin_sysctl_kernel_t_file(local_login_t)
++locallogin_fs_t_filesystem(local_login_t)
++locallogin_configfs_t_filesystem(local_login_t)
++locallogin_unlabeled_t_filesystem(local_login_t)
++locallogin_dosfs_t_filesystem(local_login_t)
++locallogin_mount_exec_t_file(local_login_t)
++locallogin_mount_runtime_t_dir(local_login_t)
+ 
+diff --git a/policy/modules/system/mount.if b/policy/modules/system/mount.if
+index c440646f7..0fe033839 100644
+--- a/policy/modules/system/mount.if
++++ b/policy/modules/system/mount.if
+@@ -341,3 +341,11 @@ interface(`mount_initrc_var_run_t_file',`
+     allow $1 initrc_var_run_t:file { rw_file_perms map };
+ ')
+ 
++interface(`mount_dosfs_t_filesystem',`
++    gen_require(`
++        type dosfs_t;
++    ')
++
++    allow $1 dosfs_t:filesystem { unmount remount getattr mount };
++')
++
+diff --git a/policy/modules/system/mount.te b/policy/modules/system/mount.te
+index cec5a1ebc..9d1f443d4 100644
+--- a/policy/modules/system/mount.te
++++ b/policy/modules/system/mount.te
+@@ -248,4 +248,5 @@ mount_kmsg_device_t_chr_file(mount_t)
+ mount_unlabeled_t_chr_file(mount_t)
+ mount_initrc_t_file(mount_t)
+ mount_initrc_var_run_t_file(mount_t)
++mount_dosfs_t_filesystem(mount_t)
+ 
+-- 
+2.17.1
+

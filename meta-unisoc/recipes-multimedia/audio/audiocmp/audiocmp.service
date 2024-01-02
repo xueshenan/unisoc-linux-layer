@@ -1,0 +1,12 @@
+[Unit]
+Description=Audio call message process service audiocmp
+After=ofono.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/audiocmp
+StandardError=journal
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target

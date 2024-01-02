@@ -1,0 +1,55 @@
+diff --git a/src/extra/lv_extra.c b/src/extra/lv_extra.c
+new file mode 100755
+index 00000000..0e165e75
+--- /dev/null
++++ b/src/extra/lv_extra.c
+@@ -0,0 +1,49 @@
++/**
++ * @file lv_extra.c
++ *
++ */
++
++/*********************
++ *      INCLUDES
++ *********************/
++#include "../lvgl.h"
++
++/*********************
++ *      DEFINES
++ *********************/
++
++/**********************
++ *      TYPEDEFS
++ **********************/
++
++/**********************
++ *  STATIC PROTOTYPES
++ **********************/
++
++/**********************
++ *  STATIC VARIABLES
++ **********************/
++
++/**********************
++ *      MACROS
++ **********************/
++
++/**********************
++ *   GLOBAL FUNCTIONS
++ **********************/
++
++void lv_extra_init(void)
++{
++#if LV_USE_FREETYPE
++    /*Init freetype library*/
++#  if LV_USE_FT_CACHE_MANAGER >= 0
++    lv_freetype_init(LV_FREETYPE_CACHE_FT_FACES, LV_FREETYPE_CACHE_FT_SIZES, LV_FREETYPE_CACHE_SIZE);
++#  else
++    lv_freetype_init(0, 0, 0);
++#  endif
++#endif
++}
++
++/**********************
++ *   STATIC FUNCTIONS
++ **********************/

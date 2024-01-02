@@ -1,0 +1,140 @@
+diff --git a/common/loader/calibration_detect.c b/common/loader/calibration_detect.c
+index 461d352..cc550e4 100644
+--- a/common/loader/calibration_detect.c
++++ b/common/loader/calibration_detect.c
+@@ -475,6 +475,18 @@ int prepare_reply_buf(uint8_t* buf, int status)
+     return total_len;
+ }
+
++#ifdef CONFIG_TARGET_SL8563_CPE_1C
++int usb_connected(void)
++{
++#define SPRD_DDIE_EIC_EXTINT6	6
++	sprd_eic_request(SPRD_DDIE_EIC_EXTINT6);
++	udelay(3000);
++	debugf("eica extint6 status %x\n", sprd_eic_get(SPRD_DDIE_EIC_EXTINT6));
++
++	return !!sprd_eic_get(SPRD_DDIE_EIC_EXTINT6);
++}
++#endif
++
+ int pctool_mode_detect(void)
+ {
+
+@@ -484,6 +496,8 @@ int pctool_mode_detect(void)
+ 
+ 	debugf(" uart cooperating with pc tool\n");
+     //if(get_mode_from_gpio() && (get_poweron_src() == POWERON_JIG))
++
++#ifndef CONFIG_TARGET_SL8563_CPE_1C
+ 	if(get_mode_from_gpio())
+ 		return pctool_mode_detect_uart();
+ 
+@@ -496,7 +510,11 @@ int pctool_mode_detect(void)
+ 	}else{
+ 		return -1;
+ 	}
+-
++#else
++	if (!usb_connected()) {
++		return -1;
++	}
++#endif
+ 	ret = cali_usb_prepare();
+ 	if (!ret)
+ 		return -1;
+diff --git a/common/loader/recv_mode_yocto.c b/common/loader/recv_mode_yocto.c
+index 38ea562..d9c9f55 100644
+--- a/common/loader/recv_mode_yocto.c
++++ b/common/loader/recv_mode_yocto.c
+@@ -510,6 +510,16 @@ int get_mode_from_file(void)
+         libuboot_env_store(ctx);
+         reboot_devices(0);
+         ret = CMD_UNKNOW_REBOOT_MODE;
++#ifdef CONFIG_TARGET_SL8563_CPE_1C
++//Added by Fibocom yangzp for boot to calibration mode 2020-03-19
++    } else if (!strncmp("boot-cali", mode, 9)){
++        debugf("%s: in misc indicate boot to Calibration MODE\n", __FUNCTION__);
++        ret =  CMD_CALIBRATION_MODE;
++    } else if (!strncmp("boot-dump", mode, 9)){
++        debugf("%s: in misc indicate boot to dump MODE\n", __FUNCTION__);
++        ret = CMD_UNKNOW_REBOOT_MODE;
++//End of for boot mode
++#endif
+     }
+ 
+     free(mode);
+diff --git a/common/loader/sysdump.c b/common/loader/sysdump.c
+index 3a298f1..eabdd73 100644
+--- a/common/loader/sysdump.c
++++ b/common/loader/sysdump.c
+@@ -1971,6 +1971,9 @@ FINISH_write_mmc:
+ 		debugf("\nwriting done.\nPress any key to continue...");
+ 		sysdump_lcd_printf("\nWriting done.\nPress any key (Exp power key) to continue...");
+ 		led_sysdump_complete();
++		#ifdef CONFIG_TARGET_SL8563_CPE_1C
++		auto_test_flag = 1;     // Add for FG621 no key.   Nick@fibocom.com
++		#endif
+ 		if(!auto_test_flag)
+ 			wait_for_keypress();
+ FINISH:
+diff --git a/drivers/misc/check_reboot.c b/drivers/misc/check_reboot.c
+index 15e96f3..72c9bde 100644
+--- a/drivers/misc/check_reboot.c
++++ b/drivers/misc/check_reboot.c
+@@ -105,8 +105,16 @@ unsigned check_reboot_mode(void)
+ 		debugf("no hw watchdog rst int pending\n");
+ 		if(rst_mode == HWRST_STATUS_NORMAL2)
+ 			return CMD_UNKNOW_REBOOT_MODE;
+-		else if(is_7s_reset_for_systemdump())
++		else if(is_7s_reset_for_systemdump()){
++			#ifdef CONFIG_TARGET_SL8563_CPE_1C
++			//Fix reset to sysdump issue by yangzp@fibocom.com 2020-04-03
++		        debugf("Fibo: _7s_reset_for_systemdump \n");
++			return CMD_NORMAL_MODE;
++			//return CMD_UNKNOW_REBOOT_MODE;
++                	//End of Fix reset to sysdump issue.
++			#endif
+ 			return CMD_UNKNOW_REBOOT_MODE;
++		}
+ 		else if(is_7s_reset())
+ 			return CMD_NORMAL_MODE;
+ 		else if(hw_rst_mode & SW_EXT_RSTN_STATUS)
+diff --git a/drivers/usb/gadget/serial.c b/drivers/usb/gadget/serial.c
+index 0c1eb1e..ece5026 100644
+--- a/drivers/usb/gadget/serial.c
++++ b/drivers/usb/gadget/serial.c
+@@ -63,13 +63,19 @@
+ * DO NOT REUSE THESE IDs with a protocol-incompatible driver!!  Ever!!
+ * Instead:  allocate your own, using normal USB-IF procedures.
+ */
++//Changed by yangzp for Fibocom DL Diag VID/PID 20200322
++#if 1
+ //#define GS_VENDOR_ID			0x0525	/* NetChip */
+ #define GS_VENDOR_ID			0x1782/* SPREADTRUM*/
+ //#define GS_PRODUCT_ID			0xa4a6	/* Linux-USB Serial Gadget */
+ #define GS_PRODUCT_ID			0x4d00/* Linux-USB Serial Gadget */
++#else
++#define GS_VENDOR_ID                    0x2CB7/* Fibocom*/
++#define GS_PRODUCT_ID                   0x0A07/* Linux-USB Serial Gadget */
++#endif
++//End of Changed by yangzp for Fibocom DL Diag VID/PID 20200322
+ #define GS_CDC_PRODUCT_ID		0xa4a7	/* ... as CDC-ACM */
+ #define GS_CDC_OBEX_PRODUCT_ID		0xa4a9	/* ... as CDC-OBEX */
+-
+ /* string IDs are assigned dynamically */
+ 
+ #define STRING_MANUFACTURER_IDX		0
+@@ -191,8 +197,12 @@ static int __init gs_bind(struct usb_composite_dev *cdev)
+ 		init_utsname()->sysname, init_utsname()->release,
+ 		gadget->name);
+ 	#else
++	#ifdef CONFIG_TARGET_SL8563_CPE_1C
++	sprintf(manufacturer, "%s with %s", "Fibocom", gadget->name);
++	#else
+ 	sprintf(manufacturer, "%s with %s", "spreadtrum", gadget->name);
+ 	#endif
++	#endif
+ 	status = usb_string_id(cdev);
+ 	if (status < 0)
+ 		goto fail;

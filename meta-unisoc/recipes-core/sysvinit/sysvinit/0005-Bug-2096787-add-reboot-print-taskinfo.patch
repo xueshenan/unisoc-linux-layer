@@ -1,0 +1,73 @@
+From af79c5bb5415947dba4c461b05a0f0e485514976 Mon Sep 17 00:00:00 2001
+From: "zhenghai.yang" <zhenghai.yang@unisoc.com>
+Date: Tue, 6 Dec 2022 19:09:33 +0800
+Subject: [PATCH] Bug #2096787 add reboot print taskinfo
+
+[root cause  ]: add reboot print taskinfo
+[changes     ]: add reboot print taskinfo
+[side effects]: yes
+[self test   ]: yes
+[download normally]: yes
+[power on/off normally]: yes
+[do common repository/branch inspection]:no
+[is there dependence]:no
+[confirm dependent commit]:no
+[board]:9863
+[test case]:reboot
+[reviewers]:etham.li
+
+commit_template_version:v1
+---
+ src/halt.c     | 6 ++++++
+ src/shutdown.c | 5 +++++
+ 2 files changed, 11 insertions(+)
+ mode change 100644 => 100755 src/halt.c
+ mode change 100644 => 100755 src/shutdown.c
+
+diff --git a/src/halt.c b/src/halt.c
+old mode 100644
+new mode 100755
+index a469147..581b653
+--- a/src/halt.c
++++ b/src/halt.c
+@@ -56,6 +56,7 @@
+ #include <signal.h>
+ #include <stdio.h>
+ #include <getopt.h>
++#include <syslog.h>
+ #include "reboot.h"
+ #include "runlevellog.h"
+ 
+@@ -196,6 +197,11 @@ int main(int argc, char **argv)
+ 	int c;
+ 	char *tm = NULL;
+ 
++	openlog("halt", LOG_PID, LOG_USER);
++	syslog(LOG_NOTICE, "cmd form comm pid:%d, ppid:%d", getpid(), getppid());
++	system("ps -ef | logger");
++	closelog();
++
+ 	/*
+ 	 *	Find out who we are
+ 	 */
+diff --git a/src/shutdown.c b/src/shutdown.c
+old mode 100644
+new mode 100755
+index 40b7faf..6cdd618
+--- a/src/shutdown.c
++++ b/src/shutdown.c
+@@ -543,6 +543,11 @@ int main(int argc, char **argv)
+             abort();
+ 	}
+ 
++	openlog("shutdown", LOG_PID, LOG_USER);
++	syslog(LOG_NOTICE, "cmd form comm pid:%d, ppid:%d", getpid(), getppid());
++	system("ps -ef | logger");
++	closelog();
++
+ 	if (getuid() != 0) {
+   		fprintf(stderr, "shutdown: you must be root to do that!\n");
+ 		usage();
+-- 
+2.7.4
+

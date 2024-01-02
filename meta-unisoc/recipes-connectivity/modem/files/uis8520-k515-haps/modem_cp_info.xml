@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<modem_info>
+	<product val="qogirn6pro"/>
+	<modem_name val="cp"/>
+	<partion_cnt val="8"/>
+	<ioctl_path val="/dev/modem"/>
+	<sub1_ioctl val="/dev/phycp"/>
+	<src_path val="/dev/mmcblk0p_"/>
+	<modem_range base="0x88000000" size="0x1d000000"/>
+	<all_range base="0x87800000" size="0x1d800000"/>
+	<!--dst_path val="/proc/cptl/"/-->
+	<!-- special: bit0 sec,  bit1 nv, bit2 boot iram, bit3 cmdline;
+	     miniap: bit4 spl,  bit5 sml, bit6 uboot, bit7 boot;
+	     modem: bit8 modem head, bit9 modem, bit10 mode dsp, bit11 other modem
+	     pmsys:  bit12 pm, bit13 pm cali
+	     audio:  bit16 adsp
+	     chsys:  bit20 ch, bit21 ch cali
+	     bit 31 clear -->
+	<partion_item>
+		<partition00 base="0x91800000" size="0x0f00000"  name="modem"          src_file="nr_modem"      dst_file="modem"     flag="0x00000201"/>
+		<partition01 base="0x96000000" size="0x1000000"  name="phy"            src_file="nr_phy"        dst_file="phy"       flag="0x00000401"/>
+		<partition02 base="0x8A855000" size="0x00D80000" name="fixnv"          src_file="nr_fixnv"      dst_file="fixnv"     flag="0x00000802"/>
+		<partition03 base="0x8B5D5000" size="0x00E00000" name="runnv"          src_file="nr_runtimenv"  dst_file="runnv"     flag="0x00000802"/>
+		<partition04 base="0x89A02400" size="0x00010000" name="cpcmdline"      src_file="cmdline"       dst_file="cpcmdline" flag="0x00000808"/>
+		<partition05 base="0x65003400" size="0x0001000"  name="modem_bootcode" src_file="NULL"          dst_file="boot_code" flag="0x00000104"/>
+		<partition06 base="0x65004400" size="0x0001000"  name="phy_bootcode"   src_file="NULL"          dst_file="boot_code" flag="0x00000104"/>
+		<partition07 base="0x88000000" size="0x00100000" name="deltanv"        src_file="nr_deltanv"    dst_file="deltanv"   flag="0x00000200"/>
+	</partion_item>
+</modem_info>

@@ -1,0 +1,39 @@
+From 35be8bf7c79b850f37eeef4576be34ecff8cde92 Mon Sep 17 00:00:00 2001
+From: Xu Xiang <xu.xiang1@unisoc.com>
+Date: Tue, 22 Nov 2022 16:24:13 +0800
+Subject: [PATCH] Bug #2066633 sprd_vsp has no map selinux permission
+
+[root cause  ]: sprd_vsp has no map Selinux permission
+[changes     ]: add map Selinux permission
+[side effects]: no
+[self test   ]: yes
+[download normally]: yes
+[power on/off normally]: yes
+[do common repository/branch inspection]: no
+[is there dependence]: no
+[confirm dependent commit]: no
+[board]:s9863a
+[test case]:video
+[reviewers]:leon.li
+
+commit_template_version:v1
+---
+ policy/modules/roles/staff.if | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+index b3c4b8c45..46affee7b 100755
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -142,7 +142,7 @@ interface(`staff_device_t_chr_file',`
+         type device_t;
+     ')
+ 
+-    allow $1 device_t:chr_file {rw_chr_file_perms};
++    allow $1 device_t:chr_file {rw_chr_file_perms map};
+ ')
+ 
+ interface(`staff_tmpfs_t_file',`
+-- 
+2.17.1
+

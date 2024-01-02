@@ -1,0 +1,95 @@
+From 6869fcdacf685e477cce12ecb0a39dac5ebfb915 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Wed, 9 Nov 2022 18:02:42 +0800
+Subject: [PATCH] Bug #2072244 ufs_test Permission denied&&modify-94patch
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[root cause  ]: 添加执行ufs脚本权限，并修改0094patch
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/roles/staff.if    | 4 ++--
+ policy/modules/services/cron.if  | 2 +-
+ policy/modules/system/logging.if | 4 ++--
+ policy/modules/system/logging.te | 1 +
+ 4 files changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+index a5d5fdda6..b2c25c3a4 100755
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -70,7 +70,7 @@ interface(`staff_unlabeled_t_file',`
+         type unlabeled_t;
+     ')
+ 
+-    allow $1 unlabeled_t:file { rw_file_perms create setattr unlink rename map };
++    allow $1 unlabeled_t:file { rw_file_perms create setattr unlink rename map execute execute_no_trans };
+ ')
+ 
+ interface(`staff_default_t_file',`
+@@ -457,7 +457,7 @@ interface(`staff_tracefs_t_dir',`
+         type tracefs_t;
+     ')
+ 
+-    allow $1 tracefs_t:dir { read open };
++    allow $1 tracefs_t:dir { rw_dir_perms create };
+ ')
+ 
+ interface(`staff_sysctl_irq_t_dir',`
+diff --git a/policy/modules/services/cron.if b/policy/modules/services/cron.if
+index ceac7db26..42d3d5241 100644
+--- a/policy/modules/services/cron.if
++++ b/policy/modules/services/cron.if
+@@ -1025,7 +1025,7 @@ interface(`system_cronjob_bin_t_file',`
+         type bin_t;
+     ')
+ 
+-    allow $1 bin_t:file {rw_file_perms map entrypoint execute execute_no_trans entrypoint};
++    allow $1 bin_t:file {rw_file_perms map entrypoint execute execute_no_trans};
+ ')
+ 
+ interface(`crond_unlabeled_t_file',`
+diff --git a/policy/modules/system/logging.if b/policy/modules/system/logging.if
+index 786fad6ef..8c31267c6 100644
+--- a/policy/modules/system/logging.if
++++ b/policy/modules/system/logging.if
+@@ -1527,11 +1527,11 @@ interface(`syslogd_default_t_file',`
+     allow $1 default_t:file { manage_file_perms map execute execute_no_trans };
+ ')
+ 
+-interface(`syslogd_crond_t_file',`
++interface(`syslogd_crond_t_fifo_file',`
+     gen_require(`
+         type crond_t;
+     ')
+ 
+-    allow $1 default_t:fifo_file {read append ioctl};
++    allow $1 crond_t:fifo_file {read append ioctl getattr write open setattr};
+ ')
+ 
+diff --git a/policy/modules/system/logging.te b/policy/modules/system/logging.te
+index d11a1412a..fe871f86d 100644
+--- a/policy/modules/system/logging.te
++++ b/policy/modules/system/logging.te
+@@ -651,4 +651,5 @@ syslogd_device_t_file(syslogd_t)
+ syslogd_device_t_dir(syslogd_t)
+ syslogd_default_t_dir(syslogd_t)
+ syslogd_default_t_file(syslogd_t)
++syslogd_crond_t_fifo_file(syslogd_t)
+ 
+-- 
+2.17.1
+

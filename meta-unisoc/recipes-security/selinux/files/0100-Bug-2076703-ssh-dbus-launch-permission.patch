@@ -1,0 +1,61 @@
+From 640af0537493c5ab62df782b53318d682878237f Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Tue, 15 Nov 2022 10:45:33 +0800
+Subject: [PATCH] Bug #2076703 ssh-dbus-launch-permission
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/roles/staff.if | 4 ++--
+ policy/modules/roles/staff.te | 1 +
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+index ffb9eaffe..057aca6ad 100755
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -102,7 +102,7 @@ interface(`staff_staff_t_capability',`
+         type staff_t;
+     ')
+ 
+-    allow $1 staff_t:capability { dac_override sys_tty_config setuid net_admin sys_boot sys_module sys_ptrace net_raw dac_read_search sys_admin};
++    allow $1 staff_t:capability { dac_override sys_tty_config setuid net_admin sys_boot sys_module sys_ptrace net_raw dac_read_search sys_admin sys_resource };
+ ')
+ 
+ interface(`staff_tty_device_t_chr_file',`
+@@ -573,7 +573,7 @@ interface(`staff_var_run_t_dir',`
+         type var_run_t;
+     ')
+ 
+-    allow $1 var_run_t:dir { write add_name remove_name };
++    allow $1 var_run_t:dir { rw_dir_perms create };
+ ')
+ 
+ interface(`staff_var_run_t_file',`
+diff --git a/policy/modules/roles/staff.te b/policy/modules/roles/staff.te
+index d176bb77c..b4ac2f6fb 100644
+--- a/policy/modules/roles/staff.te
++++ b/policy/modules/roles/staff.te
+@@ -283,6 +283,7 @@ staff_bluetooth_t_unix_stream_socket(staff_t)
+ staff_modules_dep_t_file(staff_t)
+ staff_modules_object_t_file(staff_t)
+ staff_modules_object_t_system(staff_t)
++staff_var_run_t_dir(staff_t)
+ staff_var_run_t_file(staff_t)
+ staff_var_run_t_sock_file(staff_t)
+ staff_var_lock_t_file(staff_t)
+-- 
+2.17.1
+

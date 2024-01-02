@@ -1,0 +1,12 @@
+diff --git a/libweston/compositor.c b/libweston/compositor.c
+index f164734..1571193 100644
+--- a/libweston/compositor.c
++++ b/libweston/compositor.c
+@@ -4219,6 +4219,7 @@ weston_compositor_offscreen(struct weston_compositor *compositor)
+ 	case WESTON_COMPOSITOR_SLEEPING:
+ 	default:
+ 		compositor->state = WESTON_COMPOSITOR_OFFSCREEN;
++		wl_signal_emit(&compositor->idle_signal, compositor);
+ 		wl_event_source_timer_update(compositor->idle_source, 0);
+ 	}
+ }

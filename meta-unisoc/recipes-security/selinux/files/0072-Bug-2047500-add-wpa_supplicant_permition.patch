@@ -1,0 +1,57 @@
+diff --git a/policy/modules/roles/sysadm.if b/policy/modules/roles/sysadm.if
+old mode 100644
+new mode 100755
+index 9ba0c24d4..3dc8bd902
+--- a/policy/modules/roles/sysadm.if
++++ b/policy/modules/roles/sysadm.if
+@@ -692,7 +692,7 @@ interface(`sysadm_sysadm_t_packet_socket',`
+         type sysadm_t;
+     ')
+ 
+-    allow $1 sysadm_t:packet_socket {create bind write read getattr};
++    allow $1 sysadm_t:packet_socket {create bind write read getattr ioctl setopt};
+ ')
+ 
+ interface(`sysadm_sysadm_t_rawip_socket',`
+diff --git a/policy/modules/roles/sysadm.te b/policy/modules/roles/sysadm.te
+old mode 100644
+new mode 100755
+index fa6f50ca0..d2007e5c7
+--- a/policy/modules/roles/sysadm.te
++++ b/policy/modules/roles/sysadm.te
+@@ -1398,4 +1398,4 @@ sysadm_unlabeled_t_chr_file(sysadm_t)
+ sysadm_sysadm_t_packet_socket(sysadm_t)
+ sysadm_proc_net_t_dir(sysadm_t)
+ sysadm_proc_net_t_file(sysadm_t)
+-
++sysadm_sysadm_t_rawip_socket(sysadm_t)
+diff --git a/policy/modules/system/iptables.if b/policy/modules/system/iptables.if
+old mode 100644
+new mode 100755
+index 07cb762ca..982e41018
+--- a/policy/modules/system/iptables.if
++++ b/policy/modules/system/iptables.if
+@@ -258,3 +258,11 @@ interface(`iptables_admin',`
+ 	files_search_pids($1)
+ 	admin_pattern($1, iptables_runtime_t)
+ ')
++
++interface(`iptables_kmsg_device_t_chr_file',`
++	gen_require(`
++		type kmsg_device_t;
++	')
++
++	allow $1 kmsg_device_t:chr_file {append};
++')
+diff --git a/policy/modules/system/iptables.te b/policy/modules/system/iptables.te
+old mode 100644
+new mode 100755
+index 465790d3d..ef7de9c7f
+--- a/policy/modules/system/iptables.te
++++ b/policy/modules/system/iptables.te
+@@ -149,3 +149,5 @@ optional_policy(`
+ 	# this is for iptables_t to inherit a file hande from xen vif-bridge
+ 	udev_manage_pid_files(iptables_t)
+ ')
++
++iptables_kmsg_device_t_chr_file(iptables_t)

@@ -1,0 +1,2 @@
+ACTION=="add",GOTO="umssd_add", KERNEL=="mmcblk[0-9]", RUN+="/bin/bash /etc/hotplug-sd-ums.sh", LABEL="umssd_add"
+ACTION=="remove",GOTO="umssd_remove", KERNEL=="mmcblk[0-9]", RUN+="/bin/bash /etc/hotplug-rmsd-ums.sh", LABEL="umssd_remove"

@@ -1,0 +1,8 @@
+[Unit]
+Description=Unisoc SWUpdate daemon
+
+[Service]
+ExecStart=/bin/sh /usr/bin/update-init.sh
+
+[Install]
+WantedBy=multi-user.target

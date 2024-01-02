@@ -1,0 +1,191 @@
+From df6dec3765f4a0422914a69dc90b3c58c79e573c Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Tue, 11 Oct 2022 20:21:22 +0800
+Subject: [PATCH] Bug #2011601 transplant-1.0-refpolicy-13
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/services/ssh.if      | 69 +++++++++++++++++++++++++++++
+ policy/modules/services/ssh.te      | 18 ++++++--
+ policy/modules/services/watchdog.if | 38 ++++++++++++++++
+ policy/modules/services/watchdog.te |  5 +++
+ 4 files changed, 127 insertions(+), 3 deletions(-)
+
+diff --git a/policy/modules/services/ssh.if b/policy/modules/services/ssh.if
+index e9a281226..545c0f764 100644
+--- a/policy/modules/services/ssh.if
++++ b/policy/modules/services/ssh.if
+@@ -774,3 +774,72 @@ interface(`ssh_delete_tmp',`
+ 	files_search_tmp($1)
+ 	delete_files_pattern($1, sshd_tmp_t, sshd_tmp_t)
+ ')
++
++
++#############unisoc##########################
++interface(`ssh_domain_var_run_t_file',`
++    gen_require(`
++        type var_run_t;
++    ')
++
++    allow $1 var_run_t:file { getattr create write open read};
++')
++
++
++interface(`ssh_domain_var_run_t_dir',`
++    gen_require(`
++        type var_run_t;
++    ')
++
++    allow $1 var_run_t:dir { add_name write};
++')
++
++
++
++interface(`domain_etc_t_file',`
++    gen_require(`
++        type etc_t;
++    ')
++
++    allow $1 etc_t:file { map };
++')
++
++interface(`ssh_unlabeled_t_lnk_file',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:lnk_file { read };
++')
++
++interface(`ssh_unlabeled_t_file',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:file { read open getattr };
++')
++
++interface(`ssh_unlabeled_t_dir',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:dir { rw_dir_perms };
++')
++
++interface(`ssh_shadow_t_file',`
++        gen_require(`
++                type shadow_t;
++        ')
++
++       allow $1 shadow_t:file { map };
++')
++
++interface(`ssh_initrc_t_unix_stream_socket',`
++	gen_require(`
++		type initrc_t;
++	')
++
++	allow $1 initrc_t:unix_stream_socket { read write };
++')
+diff --git a/policy/modules/services/ssh.te b/policy/modules/services/ssh.te
+index c55c6a424..2b164dc4c 100644
+--- a/policy/modules/services/ssh.te
++++ b/policy/modules/services/ssh.te
+@@ -380,6 +380,18 @@ optional_policy(`
+ 	seutil_sigchld_newrole(ssh_keygen_t)
+ ')
+ 
+-optional_policy(`
+-	udev_read_db(ssh_keygen_t)
+-')
++ssh_domain_var_run_t_file(sshd_t)
++ssh_domain_var_run_t_file(ssh_keygen_t)
++ssh_domain_var_run_t_dir(ssh_keygen_t)
++domain_etc_t_file(sshd_t)
++domain_etc_t_file(ssh_keygen_t)
++ssh_unlabeled_t_lnk_file(ssh_keygen_t)
++ssh_unlabeled_t_lnk_file(sshd_t)
++ssh_unlabeled_t_file(sshd_t)
++ssh_unlabeled_t_dir(ssh_keygen_t)
++ssh_unlabeled_t_dir(sshd_t)
++
++ssh_shadow_t_file(sshd_t)
++
++ssh_initrc_t_unix_stream_socket(sshd_t)
++
+diff --git a/policy/modules/services/watchdog.if b/policy/modules/services/watchdog.if
+index b0fe9221e..94de45ae5 100644
+--- a/policy/modules/services/watchdog.if
++++ b/policy/modules/services/watchdog.if
+@@ -34,3 +34,41 @@ interface(`watchdog_admin',`
+ 	files_search_pids($1)
+ 	admin_pattern($1, watchdog_var_run_t)
+ ')
++
++###############unisoc#########################
++
++interface(`watchdog_var_log_t',`
++	gen_require(`
++		type var_log_t;
++	')
++
++	allow $1 var_log_t:dir { create };
++')
++
++
++interface(`watchdog_unlabeled_t_lnk_file',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:lnk_file { read };
++')
++
++interface(`watchdog_unlabeled_t_file',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:file { rw_file_perms };
++')
++
++interface(`watchdog_unlabeled_t_dir',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:dir { search_dir_perms };
++')
++
++
++
+diff --git a/policy/modules/services/watchdog.te b/policy/modules/services/watchdog.te
+index fb383ca8e..22af2aaae 100644
+--- a/policy/modules/services/watchdog.te
++++ b/policy/modules/services/watchdog.te
+@@ -100,3 +100,8 @@ optional_policy(`
+ optional_policy(`
+ 	udev_read_db(watchdog_t)
+ ')
++
++watchdog_var_log_t(watchdog_t)
++watchdog_unlabeled_t_file(watchdog_t)
++watchdog_unlabeled_t_dir(watchdog_t)
++watchdog_unlabeled_t_lnk_file(watchdog_t)
+-- 
+2.17.1
+

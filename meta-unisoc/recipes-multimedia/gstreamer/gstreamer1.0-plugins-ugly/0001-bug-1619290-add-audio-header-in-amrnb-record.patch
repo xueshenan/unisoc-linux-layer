@@ -1,0 +1,127 @@
+diff --git a/ext/amrnb/amrnbenc.c b/ext/amrnb/amrnbenc.c
+index 2f72b9f..bb5ae9b 100755
+--- a/ext/amrnb/amrnbenc.c
++++ b/ext/amrnb/amrnbenc.c
+@@ -99,6 +99,63 @@ static GstFlowReturn gst_amrnbenc_handle_frame (GstAudioEncoder * enc,
+ #define gst_amrnbenc_parent_class parent_class
+ G_DEFINE_TYPE (GstAmrnbEnc, gst_amrnbenc, GST_TYPE_AUDIO_ENCODER);
+ 
++static void
++gst_amrnbenc_set_push_header (GstAmrnbEnc *amrnbenc, gboolean value) {
++  amrnbenc->need_push_header = value;
++  return;
++}
++
++static gboolean
++gst_amrnbenc_is_push_header (GstAmrnbEnc *amrnbenc) {
++  return amrnbenc->header == NULL ? FALSE : amrnbenc->need_push_header;
++}
++
++static void
++gst_amrnbenc_init_header (GstAmrnbEnc *amrnbenc) {
++  GstBuffer *outbuf;
++  GstMapInfo map;
++  guint8 *header;
++
++  GST_DEBUG_OBJECT (amrnbenc, "amrnbenc init header");
++
++  outbuf = gst_buffer_new_and_alloc (sizeof("#!AMR\n") - 1);
++  if (outbuf == NULL) {
++    GST_WARNING_OBJECT (amrnbenc, "amrnbenc buffer malloc failed");
++    gst_amrnbenc_set_push_header (amrnbenc, FALSE);
++    return;
++  }
++
++  GST_BUFFER_FLAG_SET (outbuf, GST_BUFFER_FLAG_HEADER);
++  gst_buffer_map (outbuf, &map, GST_MAP_WRITE);
++
++  header = map.data;
++  /* should not copy '\0' */
++  memset (header, 0, sizeof("#!AMR\n") - 1);
++  memcpy (header, "#!AMR\n", sizeof("#!AMR\n") - 1);
++
++  gst_buffer_unmap (outbuf, &map);
++
++  amrnbenc->header = g_list_append (amrnbenc->header, outbuf);
++  if (amrnbenc->header == NULL) {
++    GST_WARNING_OBJECT (amrnbenc, "amrnbenc init header failed");
++    gst_amrnbenc_set_push_header (amrnbenc, FALSE);
++  } else
++    gst_amrnbenc_set_push_header (amrnbenc, TRUE);
++
++  return;
++}
++
++static void
++gst_amrnbenc_release_header (GstAmrnbEnc *amrnbenc) {
++  GST_DEBUG_OBJECT (amrnbenc, "amrnbenc release header");
++
++  if (amrnbenc->header != NULL)
++    g_list_remove (amrnbenc->header, amrnbenc->header->data);
++
++  amrnbenc->need_push_header = FALSE;
++  return;
++}
++
+ static void
+ gst_amrnbenc_set_property (GObject * object, guint prop_id,
+     const GValue * value, GParamSpec * pspec)
+@@ -182,6 +239,8 @@ gst_amrnbenc_start (GstAudioEncoder * enc)
+   if (!(amrnbenc->handle = Encoder_Interface_init (0)))
+     return FALSE;
+ 
++  gst_amrnbenc_init_header (amrnbenc);
++
+   return TRUE;
+ }
+ 
+@@ -194,6 +253,10 @@ gst_amrnbenc_stop (GstAudioEncoder * enc)
+ 
+   Encoder_Interface_exit (amrnbenc->handle);
+ 
++  /* it seems that gstreamer will release these memories automatically, and an error
++   * will be reported if it actively releases them*/
++  //gst_amrnbenc_release_header (amrnbenc);
++
+   return TRUE;
+ }
+ 
+@@ -205,6 +268,8 @@ gst_amrnbenc_set_format (GstAudioEncoder * enc, GstAudioInfo * info)
+ 
+   amrnbenc = GST_AMRNBENC (enc);
+ 
++  GST_DEBUG_OBJECT (amrnbenc, "set_format");
++
+   /* parameters already parsed for us */
+   amrnbenc->rate = GST_AUDIO_INFO_RATE (info);
+   amrnbenc->channels = GST_AUDIO_INFO_CHANNELS (info);
+@@ -279,6 +344,15 @@ gst_amrnbenc_handle_frame (GstAudioEncoder * enc, GstBuffer * buffer)
+   GST_LOG_OBJECT (amrnbenc, "output data size %" G_GSIZE_FORMAT, out_size);
+ 
+   if (out_size) {
++    if (gst_amrnbenc_is_push_header (amrnbenc)) {
++
++      GST_LOG_OBJECT (amrnbenc, "push headers");
++
++      gst_audio_encoder_set_headers(GST_AUDIO_ENCODER (enc), amrnbenc->header);
++
++      gst_amrnbenc_set_push_header (amrnbenc, FALSE);
++    }
++
+     ret = gst_audio_encoder_finish_frame (enc, out, 160);
+   } else {
+     /* should not happen (without dtx or so at least) */
+diff --git a/ext/amrnb/amrnbenc.h b/ext/amrnb/amrnbenc.h
+index 9546a44..0b1d990 100755
+--- a/ext/amrnb/amrnbenc.h
++++ b/ext/amrnb/amrnbenc.h
+@@ -53,6 +53,9 @@ struct _GstAmrnbEnc {
+ 
+   /* property */
+   enum Mode bandmode;
++ 
++  GList *header;
++  gboolean need_push_header;
+ };
+ 
+ struct _GstAmrnbEncClass {

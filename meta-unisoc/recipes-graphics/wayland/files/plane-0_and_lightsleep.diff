@@ -1,0 +1,99 @@
+diff --git a/libweston/backend-drm/drm.c b/libweston/backend-drm/drm.c
+index e0b1cbd..85f180b 100644
+--- a/libweston/backend-drm/drm.c
++++ b/libweston/backend-drm/drm.c
+@@ -949,7 +949,8 @@ create_sprites(struct drm_backend *b)
+ 		return;
+ 	}
+ 
+-	for (i = 0; i < kplane_res->count_planes; i++) {
++//	for (i = 0; i < kplane_res->count_planes; i++) {
++	for (i = 0; i < 1; i++) {
+ 		kplane = drmModeGetPlane(b->drm.fd, kplane_res->planes[i]);
+ 		if (!kplane)
+ 			continue;
+@@ -1068,12 +1069,31 @@ drm_set_dpms(struct weston_output *output_base, enum dpms_enum level)
+ 	struct drm_pending_state *pending_state = b->repaint_data;
+ 	struct drm_output_state *state;
+ 	int ret;
++	struct drm_property_info *dpms_prop;
++	struct drm_head *head;
+ 
+ 	assert(!output->virtual);
+ 
+ 	if (output->state_cur->dpms == level)
+ 		return;
+ 
++	wl_list_for_each(head, &output->base.head_list, base.output_link) {
++		dpms_prop = &head->props_conn[WDRM_CONNECTOR_DPMS];
++		if (dpms_prop->prop_id == 0)
++			continue;
++
++		ret = drmModeConnectorSetProperty(b->drm.fd,
++						  head->connector_id,
++						  dpms_prop->prop_id,
++						  level);
++		if (ret) {
++			weston_log("DRM: DPMS: failed property set for %s\n",
++				   head->base.name);
++		}
++	}
++
++	output->state_cur->dpms = level;
++
+ 	/* If we're being called during the repaint loop, then this is
+ 	 * simple: discard any previously-generated state, and create a new
+ 	 * state where we disable everything. When we come to flush, this
+@@ -1115,9 +1135,9 @@ drm_set_dpms(struct weston_output *output_base, enum dpms_enum level)
+ 
+ 	pending_state = drm_pending_state_alloc(b);
+ 	drm_output_get_disable_state(pending_state, output);
+-	ret = drm_pending_state_apply_sync(pending_state);
++/*	ret = drm_pending_state_apply_sync(pending_state);
+ 	if (ret != 0)
+-		weston_log("drm_set_dpms: couldn't disable output?\n");
++		weston_log("drm_set_dpms: couldn't disable output?\n");*/
+ }
+ 
+ static const char * const connector_type_names[] = {
+@@ -2418,6 +2438,11 @@ session_notify(struct wl_listener *listener, void *data)
+ 	struct drm_backend *b = to_drm_backend(compositor);
+ 	struct drm_plane *plane;
+ 	struct drm_output *output;
++	drmVBlank vbl = {
++		.request.type = DRM_VBLANK_RELATIVE,
++		.request.sequence = 0,
++		.request.signal = 0,
++	};
+ 
+ 	if (compositor->session_active) {
+ 		weston_log("activating session\n");
+@@ -2425,12 +2450,14 @@ session_notify(struct wl_listener *listener, void *data)
+ 		weston_compositor_damage_all(compositor);
+ 		b->state_invalid = true;
+ 		udev_input_enable(&b->input);
++		drmWaitVBlank(b->drm.fd, &vbl);
+ 	} else {
+ 		weston_log("deactivating session\n");
+ 		udev_input_disable(&b->input);
+ 
+-		weston_compositor_offscreen(compositor);
++//		weston_compositor_offscreen(compositor);
+ 
++		weston_compositor_sleep(compositor);
+ 		/* If we have a repaint scheduled (either from a
+ 		 * pending pageflip or the idle handler), make sure we
+ 		 * cancel that so we don't try to pageflip when we're
+diff --git a/libweston/launcher-direct.c b/libweston/launcher-direct.c
+index 9fa329b..dbeba7b 100644
+--- a/libweston/launcher-direct.c
++++ b/libweston/launcher-direct.c
+@@ -106,7 +106,7 @@ vt_handler(int signal_number, void *data)
+ 	if (compositor->session_active) {
+ 		compositor->session_active = false;
+ 		wl_signal_emit(&compositor->session_signal, compositor);
+-		drmDropMaster(launcher->drm_fd);
++//		drmDropMaster(launcher->drm_fd);
+ 		ioctl(launcher->tty, VT_RELDISP, 1);
+ 	} else {
+ 		ioctl(launcher->tty, VT_RELDISP, VT_ACKACQ);

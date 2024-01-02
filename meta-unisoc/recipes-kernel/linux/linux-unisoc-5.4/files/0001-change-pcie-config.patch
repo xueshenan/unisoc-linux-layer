@@ -1,0 +1,1494 @@
+From 9c18ee4c96e887b5f2d259d167edbf04a3acdc1c Mon Sep 17 00:00:00 2001
+From: fujia <fujia@bingtangtech.com>
+Date: Thu, 17 Aug 2023 11:46:34 +0800
+Subject: [PATCH] change pcie config
+
+---
+ drivers/pci/controller/dwc/Makefile         |   2 +-
+ drivers/pci/controller/dwc/pcie-sprd-misc.c | 339 +++++++++
+ drivers/pci/controller/dwc/pcie-sprd.c      | 776 +++++++++++++++++---
+ drivers/pci/controller/dwc/pcie-sprd.h      | 146 ++++
+ include/linux/pcie-rc-sprd.h                |  49 ++
+ 5 files changed, 1189 insertions(+), 123 deletions(-)
+ create mode 100755 drivers/pci/controller/dwc/pcie-sprd-misc.c
+ create mode 100755 drivers/pci/controller/dwc/pcie-sprd.h
+ create mode 100755 include/linux/pcie-rc-sprd.h
+
+diff --git a/drivers/pci/controller/dwc/Makefile b/drivers/pci/controller/dwc/Makefile
+index 0663e56fdd46..bcf51dabaf51 100644
+--- a/drivers/pci/controller/dwc/Makefile
++++ b/drivers/pci/controller/dwc/Makefile
+@@ -18,7 +18,7 @@ obj-$(CONFIG_PCIE_HISI_STB) += pcie-histb.o
+ obj-$(CONFIG_PCI_MESON) += pci-meson.o
+ obj-$(CONFIG_PCIE_TEGRA194) += pcie-tegra194.o
+ obj-$(CONFIG_PCIE_UNIPHIER) += pcie-uniphier.o
+-obj-$(CONFIG_PCIE_SPRD) += pcie-sprd.o
++obj-$(CONFIG_PCIE_SPRD) += pcie-sprd-misc.o pcie-sprd.o
+ 
+ # The following drivers are for devices that use the generic ACPI
+ # pci_root.c driver but don't support standard ECAM config access.
+diff --git a/drivers/pci/controller/dwc/pcie-sprd-misc.c b/drivers/pci/controller/dwc/pcie-sprd-misc.c
+new file mode 100755
+index 000000000000..9135aac3cd87
+--- /dev/null
++++ b/drivers/pci/controller/dwc/pcie-sprd-misc.c
+@@ -0,0 +1,339 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * PCIe host controller driver for Unisoc SoCs
++ *
++ * Copyright (C) 2020 Unisoc Inc.
++ * http://www.unisoc.com
++ */
++
++#include <linux/clk.h>
++#include <linux/delay.h>
++#include <linux/interrupt.h>
++#include <linux/mfd/syscon.h>
++#include <linux/msi.h>
++#include <linux/module.h>
++#include <linux/of_device.h>
++#include <linux/pcie-rc-sprd.h>
++#include <linux/platform_device.h>
++
++#include "pcie-designware.h"
++#include "pcie-sprd.h"
++
++#define NUM_OF_ARGS 5
++
++static void sprd_pcie_fix_class(struct pci_dev *dev)
++{
++	struct pcie_port *pp = dev->bus->sysdata;
++
++	if (dev->class != PCI_CLASS_NOT_DEFINED)
++		return;
++
++	if (dev->bus->number == pp->root_bus_nr)
++		dev->class = 0x0604 << 8;
++	else
++		dev->class = 0x080d << 8;
++
++	dev_info(&dev->dev,
++		 "The class of device %04x:%04x is changed to: 0x%06x\n",
++		 dev->device, dev->vendor, dev->class);
++}
++DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_SYNOPSYS, 0xabcd, sprd_pcie_fix_class);
++
++static void sprd_pcie_fix_header(struct pci_dev *dev)
++{
++	u32 val;
++	struct pci_dev *bridge;
++	struct pcie_port *pp;
++	struct dw_pcie *pci;
++
++	/*
++	 * Only the RC which connects with marlin3 EP needs to modify
++	 * port T_POWER_ON register.
++	 */
++	if ((dev->vendor == PCI_VENDOR_ID_MARLIN3) &&
++	    (dev->device == PCI_DEVICE_ID_MARLIN3)) {
++		bridge = dev->bus->self;
++		pp = bridge->bus->sysdata;
++		pci = to_dw_pcie_from_pp(pp);
++
++		val = dw_pcie_readl_dbi(pci, SPRD_PCIE_GEN2_L1SS_CAP);
++		val &= ~(PCIE_T_POWER_ON_SCALE_MASK |
++			 PCIE_T_POWER_ON_VALUE_MASK);
++		val |= (PCIE_T_POWER_ON_SCALE | PCIE_T_POWER_ON_VALUE);
++		dw_pcie_writel_dbi(pci, SPRD_PCIE_GEN2_L1SS_CAP, val);
++	}
++}
++DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_MARLIN3, PCI_DEVICE_ID_MARLIN3,
++			 sprd_pcie_fix_header);
++
++int sprd_pcie_syscon_setting(struct platform_device *pdev, char *env)
++{
++	struct device_node *np = pdev->dev.of_node;
++	int i, count, err, j;
++	u32 type, delay, reg, mask, val, tmp_val;
++	struct of_phandle_args out_args;
++	struct regmap *iomap;
++
++	if (!of_find_property(np, env, NULL)) {
++		dev_info(&pdev->dev,
++			 "there isn't property %s in dts\n", env);
++		return 0;
++	}
++
++	/* one handle and NUM_OF_ARGS args */
++	count = of_property_count_elems_of_size(np, env,
++		(NUM_OF_ARGS + 1) * sizeof(u32));
++	dev_info(&pdev->dev, "property (%s) reg count is %d :\n", env, count);
++
++	for (i = 0; i < count; i++) {
++		err = of_parse_phandle_with_fixed_args(np, env, NUM_OF_ARGS,
++				i, &out_args);
++		if (err < 0)
++			return err;
++
++		type = out_args.args[0];
++		delay = out_args.args[1];
++		reg = out_args.args[2];
++		mask = out_args.args[3];
++		val = out_args.args[4];
++
++		iomap = syscon_node_to_regmap(out_args.np);
++		switch (type) {
++		case 0:
++			regmap_update_bits(iomap, reg, mask, val);
++			break;
++
++		case 1:
++			regmap_read(iomap, reg, &tmp_val);
++			tmp_val &= (~mask);
++			tmp_val |= (val & mask);
++			regmap_write(iomap, reg, tmp_val);
++			break;
++
++		case 2:
++			j = 0;
++			do {
++				regmap_read(iomap, reg, &tmp_val);
++				/*
++				 * Sometimes PCIe/IPA SYS power on very slowly,
++				 * it may need 100ms.
++				 */
++				if (j++ > 2000)
++					return -ETIMEDOUT;
++				usleep_range(50, 100);
++			} while ((tmp_val & mask) != val);
++			break;
++		}
++		if (delay)
++			usleep_range(delay, delay + 10);
++
++		regmap_read(iomap, reg, &tmp_val);
++		dev_info(&pdev->dev,
++			"%2d:reg[0x%8x] mask[0x%8x] val[0x%8x] result[0x%8x]\n",
++			i, reg, mask, val, tmp_val);
++	}
++
++	return i;
++}
++EXPORT_SYMBOL(sprd_pcie_syscon_setting);
++
++int sprd_pcie_enter_pcipm_l2(struct dw_pcie *pci)
++{
++	u32 reg;
++	int retries;
++
++	reg = dw_pcie_readl_dbi(pci, SPRD_PCIE_PE0_PM_CTRL);
++	reg |= SPRD_PCIE_APP_CLK_PM_EN;
++	dw_pcie_writel_dbi(pci, SPRD_PCIE_PE0_PM_CTRL, reg);
++
++	reg = dw_pcie_readl_dbi(pci, SPRD_PCIE_PE0_TX_MSG_REG);
++	reg |= SPRD_PCIE_PME_TURN_OFF_REQ;
++	dw_pcie_writel_dbi(pci, SPRD_PCIE_PE0_TX_MSG_REG, reg);
++
++	for (retries = 0; retries < ENTER_L2_MAX_RETRIES; retries++) {
++		reg = dw_pcie_readl_dbi(pci, PCIE_PORT_DEBUG0);
++		if ((reg & PORT_LOGIC_LTSSM_STATE_MASK) == LTSSM_STATE_L2_IDLE) {
++			dev_info(pci->dev,
++				 "enter L2, LTSSM state: 0x%x\n", reg);
++			return 0;
++		}
++		/* TODO: now we can't sure the delay time */
++		usleep_range(1000, 2000);
++	}
++	dev_err(pci->dev,
++		"can't enter L2, [0x%x]: 0x%x, [0x%x]: 0x%x, [0x%x]: 0x%x\n",
++		SPRD_PCIE_PE0_PM_CTRL,
++		dw_pcie_readl_dbi(pci, SPRD_PCIE_PE0_PM_CTRL),
++		SPRD_PCIE_PE0_PM_STS,
++		dw_pcie_readl_dbi(pci, SPRD_PCIE_PE0_PM_STS),
++		PCIE_PORT_DEBUG0,
++		dw_pcie_readl_dbi(pci, PCIE_PORT_DEBUG0));
++
++	return -ETIMEDOUT;
++}
++EXPORT_SYMBOL(sprd_pcie_enter_pcipm_l2);
++
++/*
++ * WORKAROUND:
++ * Clear unhandled msi irqs before pcie power off.
++ * if an endpoint asserts a msi irq and then free the irq before
++ * it is handled, the irq line may be always active.
++ */
++void sprd_pcie_clear_unhandled_msi(struct dw_pcie *pci)
++{
++	u32 val, i;
++
++	for (i = 0; i < MAX_MSI_CTRLS; i++) {
++		val = dw_pcie_readl_dbi(pci, PCIE_MSI_INTR0_STATUS + i * 12);
++		if (val) {
++			dev_warn(pci->dev,
++				 "clear unhandled 0x%x in MSI INTR%d",
++				 val, i);
++			dw_pcie_writel_dbi(pci,
++					   PCIE_MSI_INTR0_ENABLE + i * 12, val);
++		}
++	}
++}
++EXPORT_SYMBOL(sprd_pcie_clear_unhandled_msi);
++
++void sprd_pcie_save_msi_ctrls(struct dw_pcie *pci)
++{
++	int i;
++	struct platform_device *pdev = to_platform_device(pci->dev);
++	struct sprd_pcie *ctrl = platform_get_drvdata(pdev);
++
++	for (i = 0; i < MAX_MSI_CTRLS; i++) {
++		ctrl->save_msi_ctrls[i][0] =
++			dw_pcie_readl_dbi(pci, PCIE_MSI_INTR0_ENABLE + i * 12);
++		ctrl->save_msi_ctrls[i][1] =
++			dw_pcie_readl_dbi(pci, PCIE_MSI_INTR0_MASK + i * 12);
++		ctrl->save_msi_ctrls[i][2] =
++			dw_pcie_readl_dbi(pci, PCIE_MSI_INTR0_STATUS + i * 12);
++	}
++}
++
++void sprd_pcie_save_dwc_reg(struct dw_pcie *pci)
++{
++	sprd_pcie_save_msi_ctrls(pci);
++}
++EXPORT_SYMBOL(sprd_pcie_save_dwc_reg);
++
++void sprd_pcie_restore_msi_ctrls(struct dw_pcie *pci)
++{
++	int i;
++	u64 msi_target;
++	struct pcie_port *pp = &pci->pp;
++	struct platform_device *pdev = to_platform_device(pci->dev);
++	struct sprd_pcie *ctrl = platform_get_drvdata(pdev);
++
++	msi_target = (u64)pp->msi_data;
++	dw_pcie_writel_dbi(pci, PCIE_MSI_ADDR_LO,
++			   (u32)(msi_target & 0xffffffff));
++	dw_pcie_writel_dbi(pci, PCIE_MSI_ADDR_HI,
++			   (u32)(msi_target >> 32 & 0xfffffff));
++
++	for (i = 0; i < MAX_MSI_CTRLS; i++) {
++		dw_pcie_writel_dbi(pci, PCIE_MSI_INTR0_ENABLE + i * 12,
++				   ctrl->save_msi_ctrls[i][0]);
++		dw_pcie_writel_dbi(pci, PCIE_MSI_INTR0_MASK + i * 12,
++				   ctrl->save_msi_ctrls[i][1]);
++		dw_pcie_writel_dbi(pci, PCIE_MSI_INTR0_STATUS + i * 12,
++				   ctrl->save_msi_ctrls[i][2]);
++	}
++}
++
++void sprd_pcie_restore_dwc_reg(struct dw_pcie *pci)
++{
++	sprd_pcie_restore_msi_ctrls(pci);
++}
++EXPORT_SYMBOL(sprd_pcie_restore_dwc_reg);
++
++/*
++ *  Orca pci asic design for normal interrupt mode is not compatible with
++ *  kernel PCIE framework, the 0-3 msi irqs are handled directly by hardware.
++ *  This workaround is used to disable the corresponding bits of these four irqs
++ *  on the msi reqister so that AP GIC will not receive these interrupts.
++ */
++void sprd_pcie_teardown_msi_irq(unsigned int irq)
++{
++	unsigned int msi_ctrls, bit, val;
++	struct irq_data *data = irq_get_irq_data(irq);
++	struct msi_desc *msi = irq_data_get_msi_desc(data);
++	struct pcie_port *pp = (struct pcie_port *)msi_desc_to_pci_sysdata(msi);
++	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
++
++	msi_ctrls = (data->hwirq / 32) * 12;
++	bit = data->hwirq % 32;
++	val = dw_pcie_readl_dbi(pci, PCIE_MSI_INTR0_ENABLE + msi_ctrls);
++	val &= ~(1 << bit);
++	dw_pcie_writel_dbi(pci,  PCIE_MSI_INTR0_ENABLE + msi_ctrls, val);
++}
++EXPORT_SYMBOL(sprd_pcie_teardown_msi_irq);
++
++#ifdef CONFIG_SPRD_PCIE_AER
++void sprd_pcie_alloc_irq_vectors(struct pci_dev *dev, int *irqs, int services)
++{
++	struct pcie_port *pp = dev->bus->sysdata;
++	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
++	struct platform_device *pdev = to_platform_device(pci->dev);
++	struct sprd_pcie *ctrl = platform_get_drvdata(pdev);
++
++	/*
++	 * Unisoc PCIe RC only supports the following port service type
++	 * (please see pcieport_if.h):
++	 * -1. Power Management Event (PME)
++	 * -2. Advanced Error Reporting (AER)
++	 *  However, only AER irq is used right now.
++	 */
++	irqs[1] = ctrl->aer_irq;
++}
++EXPORT_SYMBOL(sprd_pcie_alloc_irq_vectors);
++#endif
++
++void sprd_pcie_dump_rc_regs(struct platform_device *pdev)
++{
++	struct sprd_pcie *ctrl = platform_get_drvdata(pdev);
++	struct dw_pcie *pci = ctrl->pci;
++	u32 index, offset;
++
++	dev_err(&pdev->dev,
++		  "LTSSM [0xe64]: 0x%x, [0x728]: 0x%x, [0xe04]: 0x%x\n",
++		  dw_pcie_readl_dbi(pci, SPRD_PCIE_PE0_PM_STS),
++		  dw_pcie_readl_dbi(pci, PCIE_PORT_DEBUG0),
++		  dw_pcie_readl_dbi(pci, PCIE_SS_REG_BASE+APB_CLKFREQ_TIMEOUT));
++
++	print_hex_dump(KERN_ERR, "PCIe RC reg: ", DUMP_PREFIX_ADDRESS,
++		       16, 4, pci->dbi_base, 0xc0, 0);
++	print_hex_dump(KERN_ERR, "PCIe RC reg: ", DUMP_PREFIX_ADDRESS,
++		       16, 4, pci->dbi_base + 0x100, 0x80, 0);
++	print_hex_dump(KERN_ERR, "PCIe RC reg: ", DUMP_PREFIX_ADDRESS,
++		       16, 4, pci->dbi_base + PCIE_MSI_ADDR_LO, 0x20, 0);
++	for (index = 0; index <= 2; index++) {
++		offset = PCIE_GET_ATU_OUTB_UNR_REG_OFFSET(index);
++		print_hex_dump(KERN_ERR, "PCIe RC reg: ", DUMP_PREFIX_ADDRESS,
++			       16, 4, pci->dbi_base + offset, 0x20, 0);
++	}
++}
++EXPORT_SYMBOL(sprd_pcie_dump_rc_regs);
++
++/* Check pci vendor id before modify its own config registers */
++int sprd_pcie_check_vendor_id(struct dw_pcie *pci)
++{
++	u16 val;
++	int retries;
++
++	for (retries = 0; retries < 100; retries++) {
++		val = dw_pcie_readw_dbi(pci, PCI_VENDOR_ID);
++		if (val == PCI_VENDOR_ID_SYNOPSYS)
++			return 0;
++		usleep_range(50, 100);
++	}
++
++	dev_err(pci->dev, "the vendor id is:0x%8x, retries:%d", val, retries);
++
++	return -ETIMEDOUT;
++}
++EXPORT_SYMBOL(sprd_pcie_check_vendor_id);
++
++MODULE_DESCRIPTION("Spreadtrum PCIe host controller driver");
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/pci/controller/dwc/pcie-sprd.c b/drivers/pci/controller/dwc/pcie-sprd.c
+index ad3aa4ccbe9e..dc081a2c50f6 100644
+--- a/drivers/pci/controller/dwc/pcie-sprd.c
++++ b/drivers/pci/controller/dwc/pcie-sprd.c
+@@ -1,198 +1,621 @@
+ // SPDX-License-Identifier: GPL-2.0
+ /*
+- * PCIe host controller driver for Spreadtrum SoCs
++ * PCIe host controller driver for Unisoc SoCs
+  *
+- * Copyright (C) 2020 Spreadtrum corporation. http://www.unisoc.com
+- *
+- * Author: Billows Wu <Billows.Wu@unisoc.com>
++ * Copyright (C) 2020 Unisoc Inc.
++ * http://www.unisoc.com
+  */
+ 
+-#include <linux/delay.h>
++#include <linux/clk.h>
+ #include <linux/gpio/consumer.h>
+ #include <linux/interrupt.h>
+ #include <linux/mfd/syscon.h>
+ #include <linux/module.h>
+ #include <linux/of_device.h>
+ #include <linux/of_irq.h>
++#include <linux/pcie-rc-sprd.h>
+ #include <linux/platform_device.h>
+-#include <linux/pm_runtime.h>
+ #include <linux/property.h>
++#include <linux/pm_runtime.h>
++#include <linux/suspend.h>
+ #include <linux/regmap.h>
+ 
+ #include "pcie-designware.h"
++#include "pcie-sprd.h"
+ 
+-#define NUM_OF_ARGS 5
++#define REINIT_RETRIES  200
++#define REINIT_WAIT_MIN  19000
++#define REINIT_WAIT_MAX  20000
+ 
+-struct sprd_pcie {
+-	struct dw_pcie *pci;
+-};
++static void sprd_pcie_buserr_enable(struct dw_pcie *pci)
++{
++	u32 val;
+ 
+-struct sprd_pcie_of_data {
+-	enum dw_pcie_device_mode mode;
+-};
++	val = dw_pcie_readl_dbi(pci, PCIE_SS_REG_BASE + APB_CLKFREQ_TIMEOUT);
++	val |= APB_CLKFREQ | BUSERR_EN;
++	dw_pcie_writel_dbi(pci, PCIE_SS_REG_BASE + APB_CLKFREQ_TIMEOUT, val);
++}
+ 
+-static int sprd_pcie_establish_link(struct dw_pcie *pci)
++/*
++ * 1. First configure your own configuration space register, and then establish
++ * the link to avoid the register exception caused by PCI instability during
++ * the link process.
++ * 2. Clear the ltssm_en bit before power down the pci to avoid establishing
++ * the link immediately after the next power up.
++ */
++static void sprd_pcie_ltssm_enable(struct dw_pcie *pci, bool enable)
+ {
+-	return 0;
++	u32 val;
++
++	val = dw_pcie_readl_dbi(pci, PCIE_SS_REG_BASE + PE0_GEN_CTRL_3);
++	if (enable)
++		dw_pcie_writel_dbi(pci, PCIE_SS_REG_BASE + PE0_GEN_CTRL_3,
++				   val | LTSSM_EN);
++	else
++		dw_pcie_writel_dbi(pci, PCIE_SS_REG_BASE + PE0_GEN_CTRL_3,
++				   val &  ~LTSSM_EN);
+ }
+ 
+-static const struct dw_pcie_ops sprd_pcie_ops = {
+-	.start_link = sprd_pcie_establish_link,
+-};
++#ifdef CONFIG_SPRD_IPA_INTC
++static void sprd_pcie_fix_interrupt_line(struct pci_dev *dev)
++{
++	struct pcie_port *pp = dev->bus->sysdata;
++	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
++	struct platform_device *pdev = to_platform_device(pci->dev);
++	struct sprd_pcie *ctrl = platform_get_drvdata(pdev);
++
++	if (dev->hdr_type == PCI_HEADER_TYPE_NORMAL) {
++		pci_write_config_byte(dev, PCI_INTERRUPT_LINE,
++				      ctrl->interrupt_line);
++		dev_info(&dev->dev,
++			 "The pci legacy interrupt pin is set to: %lu\n",
++			 (unsigned long)ctrl->interrupt_line);
++	}
++}
++DECLARE_PCI_FIXUP_EARLY(PCI_ANY_ID, PCI_ANY_ID, sprd_pcie_fix_interrupt_line);
++#endif
+ 
+-int sprd_pcie_syscon_setting(struct platform_device *pdev, char *env)
++static void sprd_pcie_assert_reset(struct pcie_port *pp)
+ {
+-	struct device_node *np = pdev->dev.of_node;
+-	int i, count, err;
+-	u32 type, delay, reg, mask, val, tmp_val;
+-	struct of_phandle_args out_args;
+-	struct regmap *iomap;
+-	struct device *dev = &pdev->dev;
++	/* TODO */
++}
++
++static int sprd_pcie_host_init(struct pcie_port *pp)
++{
++	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
++	int ret;
++
++	sprd_pcie_assert_reset(pp);
++
++	sprd_pcie_buserr_enable(pci);
+ 
+-	if (!of_find_property(np, env, NULL)) {
+-		dev_info(dev, "There isn't property %s in dts\n", env);
++	if (!device_property_read_bool(pci->dev, "ep-poweron-late")) {
++		ret = sprd_pcie_check_vendor_id(pci);
++		if (ret)
++			return ret;
++	}
++
++	dw_pcie_setup_rc(pp);
++
++	sprd_pcie_ltssm_enable(pci, true);
++	if (IS_ENABLED(CONFIG_PCI_MSI))
++		dw_pcie_msi_init(pp);
++
++	if (device_property_read_bool(pci->dev, "ep-poweron-late")) {
++		dev_info(pci->dev,
++			 "The ep doesn't power on, no need to wait link\n");
+ 		return 0;
+ 	}
+ 
+-	count = of_property_count_elems_of_size(np, env,
+-				(NUM_OF_ARGS + 1) * sizeof(u32));
+-	dev_info(dev, "Property (%s) reg count is %d :\n", env, count);
++	if (dw_pcie_wait_for_link(pci))
++		dev_warn(pci->dev,
++			 "pcie ep may has not been powered yet, ignore it\n");
+ 
+-	for (i = 0; i < count; i++) {
+-		err = of_parse_phandle_with_fixed_args(np, env, NUM_OF_ARGS,
+-						       i, &out_args);
+-		if (err < 0)
+-			return err;
++	return 0;
++}
+ 
+-		type = out_args.args[0];
+-		delay = out_args.args[1];
+-		reg = out_args.args[2];
+-		mask = out_args.args[3];
+-		val = out_args.args[4];
++static const struct dw_pcie_host_ops sprd_pcie_host_ops = {
++	.host_init = sprd_pcie_host_init,
++};
+ 
+-		iomap = syscon_node_to_regmap(out_args.np);
++int sprd_pcie_register_event(struct sprd_pcie_register_event *reg)
++{
++	struct sprd_pcie *ctrl = platform_get_drvdata(reg->pdev);
+ 
+-		switch (type) {
+-		case 0:
+-			regmap_update_bits(iomap, reg, mask, val);
+-			break;
++	if (!ctrl) {
++		pr_err("sprd_pcie: cannot find RC for pci endpoint device.\n");
++		return -ENODEV;
++	}
+ 
+-		case 1:
+-			regmap_read(iomap, reg, &tmp_val);
+-			tmp_val &= (~mask);
+-			tmp_val |= (val & mask);
+-			regmap_write(iomap, reg, tmp_val);
+-			break;
+-		default:
+-			break;
+-		}
++	ctrl->event_reg = reg;
++	pr_info("sprd_pcie: event is registered for RC\n");
+ 
+-		if (delay)
+-			usleep_range(delay, delay + 10);
++	return 0;
++}
++EXPORT_SYMBOL(sprd_pcie_register_event);
++
++int sprd_pcie_deregister_event(struct sprd_pcie_register_event *reg)
++{
++	struct sprd_pcie *ctrl = platform_get_drvdata(reg->pdev);
+ 
+-		regmap_read(iomap, reg, &tmp_val);
+-		dev_dbg(&pdev->dev,
+-			"%2d:reg[0x%8x] mask[0x%8x] val[0x%8x] result[0x%8x]\n",
+-			i, reg, mask, val, tmp_val);
++	if (!ctrl) {
++		pr_err("sprd_pcie: cannot find RC for pci endpoint device.\n");
++		return -ENODEV;
+ 	}
+ 
+-	return i;
++	ctrl->event_reg = NULL;
++	pr_info("sprd_pcie:event is deregistered for RC\n");
++
++	return 0;
++}
++EXPORT_SYMBOL(sprd_pcie_deregister_event);
++
++static void sprd_pcie_notify_client(struct sprd_pcie *ctrl,
++					enum sprd_pcie_event event)
++{
++	struct dw_pcie *pci = ctrl->pci;
++
++	if (ctrl->event_reg && ctrl->event_reg->callback &&
++		(ctrl->event_reg->events & event))
++		ctrl->event_reg->callback(event, ctrl->event_reg->data);
++	else
++		dev_err(pci->dev,
++			"client of RC doesn't have registration for event %d\n",
++			event);
+ }
+ 
+-static void sprd_pcie_perst_assert(struct platform_device *pdev)
++/*
++ * WAKE# (low active)from endpoint to wake up AP.
++ *
++ * When AP is in deep state, an endpoint can wakeup AP by pulling the wake
++ * signal to low. After AP is activated, the endpoint must pull the wake signal
++ * to high.
++ */
++static irqreturn_t sprd_pcie_wakeup_irq(int irq, void *data)
+ {
+-	sprd_pcie_syscon_setting(pdev, "sprd,pcie-perst-assert");
++	struct sprd_pcie *ctrl = data;
++	struct dw_pcie *pci = ctrl->pci;
++
++	pm_wakeup_hard_event(pci->dev);
++
++	return IRQ_WAKE_THREAD;
+ }
+ 
+-static void sprd_pcie_perst_deassert(struct platform_device *pdev)
++static irqreturn_t sprd_pcie_wakeup_thread_irq(int irq, void *data)
+ {
+-	sprd_pcie_syscon_setting(pdev, "sprd,pcie-perst-deassert");
++	struct sprd_pcie *ctrl = data;
++	struct dw_pcie *pci = ctrl->pci;
++	int value = gpiod_get_value(ctrl->gpiod_wakeup);
++
++	ctrl->wake_down_irq_cnt++;
++	dev_info(pci->dev, "wake# value:%d, wake down count:%d, %s\n",
++		 value, ctrl->wake_down_irq_cnt,
++		 ctrl->is_powered ? "RC has been powered" : "");
++
++	if (!ctrl->is_powered)
++		sprd_pcie_notify_client(ctrl, SPRD_PCIE_EVENT_WAKEUP);
++
++	return IRQ_HANDLED;
+ }
+ 
+-static int sprd_pcie_host_shutdown(struct platform_device *pdev)
++static int sprd_add_pcie_port(struct dw_pcie *pci, struct platform_device *pdev)
+ {
+-	int ret;
++	struct sprd_pcie *ctrl;
++	struct pcie_port *pp;
+ 	struct device *dev = &pdev->dev;
++	struct fwnode_handle *child;
++	int ret;
++	unsigned int irq;
++	struct resource *res;
+ 
+-	ret = sprd_pcie_syscon_setting(pdev, "sprd,pcie-shutdown-syscons");
++	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dbi");
++	pci->dbi_base = devm_ioremap(dev, res->start, resource_size(res));
++	if (!pci->dbi_base)
++		return -ENOMEM;
++
++	pci->atu_base = pci->dbi_base + SPRD_PCIE_DBI_ATU_OFFSET;
++	pp = &pci->pp;
++	pp->ops = &sprd_pcie_host_ops;
++
++	ctrl = platform_get_drvdata(to_platform_device(pci->dev));
++
++	device_for_each_child_node(dev, child) {
++		if (fwnode_property_read_string(child, "label",
++						&ctrl->label)) {
++			dev_err(dev, "without interrupt property\n");
++			fwnode_handle_put(child);
++			return -EINVAL;
++		}
++		if (!strcmp(ctrl->label, "msi_int")) {
++			irq = irq_of_parse_and_map(to_of_node(child), 0);
++			if (!irq) {
++				dev_err(dev, "cannot get msi irq\n");
++				return -EINVAL;
++			}
++
++			pp->msi_irq = (int)irq;
++		}
++
++#ifdef CONFIG_SPRD_PCIE_AER
++		if (!strcmp(ctrl->label, "aer_int")) {
++			irq = irq_of_parse_and_map(to_of_node(child), 0);
++			if (!irq) {
++				dev_err(dev, "cannot get aer irq\n");
++				return -EINVAL;
++			}
++
++			ctrl->aer_irq = irq;
++			dev_info(dev,
++				 "sprd itself defines aer irq is %d\n", irq);
++		}
++#endif
++
++#ifdef CONFIG_SPRD_IPA_INTC
++		if (!strcmp(ctrl->label, "ipa_int")) {
++			irq = irq_of_parse_and_map(to_of_node(child), 0);
++			if (!irq) {
++				dev_err(dev, "cannot get legacy irq\n");
++				return -EINVAL;
++			}
++			ctrl->interrupt_line = irq;
++		}
++#endif
++	}
++
++	ctrl->gpiod_wakeup =
++		devm_gpiod_get_index(dev, "pcie-wakeup", 0, GPIOD_IN);
++	if (IS_ERR(ctrl->gpiod_wakeup)) {
++		dev_warn(dev, "Please set pcie-wakeup gpio in DTS\n");
++		goto no_wakeup;
++	}
++
++	ctrl->wakeup_irq = gpiod_to_irq(ctrl->gpiod_wakeup);
++	if (ctrl->wakeup_irq < 0) {
++		dev_warn(dev, "cannot get wakeup irq\n");
++		goto no_wakeup;
++	}
++
++	snprintf(ctrl->wakeup_label, ctrl->label_len,
++		 "%s wakeup", dev_name(dev));
++	ret = devm_request_threaded_irq(dev, ctrl->wakeup_irq,
++					sprd_pcie_wakeup_irq,
++					sprd_pcie_wakeup_thread_irq,
++					IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND,
++					ctrl->wakeup_label, ctrl);
+ 	if (ret < 0)
+-		dev_err(dev,
+-			"Failed to set pcie shutdown syscons, return %d\n",
+-			ret);
++		dev_warn(dev, "cannot request wakeup irq\n");
++
++	enable_irq_wake(ctrl->wakeup_irq);
++	device_init_wakeup(dev, true);
++
++no_wakeup:
++
++	return dw_pcie_host_init(&pci->pp);
++}
++
++static const struct of_device_id sprd_pcie_of_match[] = {
++	{
++		.compatible = "sprd,pcie",
++	},
++	{},
++};
++
++static int sprd_pcie_host_uninit(struct platform_device *pdev)
++{
++	int ret;
++	struct sprd_pcie *ctrl = platform_get_drvdata(pdev);
++	struct dw_pcie *pci = ctrl->pci;
+ 
+-	sprd_pcie_perst_assert(pdev);
++	sprd_pcie_clear_unhandled_msi(pci);
++	sprd_pcie_save_dwc_reg(pci);
+ 
+-	ret = pm_runtime_put(&pdev->dev);
++	if (ctrl->is_suspended) {
++		ret = sprd_pcie_enter_pcipm_l2(pci);
++		if (ret < 0)
++			dev_info(&pdev->dev, "NOTE: RC can't enter l2\n");
++	}
++
++	sprd_pcie_ltssm_enable(pci, false);
++	ret = sprd_pcie_syscon_setting(pdev, "sprd,pcie-suspend-syscons");
+ 	if (ret < 0)
+ 		dev_warn(&pdev->dev,
+-			 "Failed to put runtime,return %d\n", ret);
++			"set pcie uninit syscons fail, return %d\n", ret);
++
++	if (!ctrl->is_suspended) {
++		ctrl->is_powered = 0;
++		ret = pm_runtime_put_sync(&pdev->dev);
++		if (ret < 0)
++			dev_warn(&pdev->dev,
++				 "pm runtime put fail: %d, usage_count:%d\n",
++				 ret,
++				 atomic_read(&pdev->dev.power.usage_count));
++	}
+ 
+ 	return ret;
+ }
+ 
+-static int sprd_pcie_host_init(struct pcie_port *pp)
++static struct pci_bus *to_root_bus_from_pdev(struct platform_device *pdev)
+ {
+-	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+-	struct platform_device *pdev = to_platform_device(pci->dev);
++	struct sprd_pcie *ctrl = platform_get_drvdata(pdev);
++	struct dw_pcie *pci = ctrl->pci;
++	struct pcie_port *pp = &pci->pp;
+ 
+-	sprd_pcie_perst_deassert(pdev);
++	return pp->root_bus;
++}
+ 
+-	dw_pcie_setup_rc(pp);
++static void sprd_pcie_rescan_bus(struct pci_bus *bus)
++{
++	struct pci_bus *child;
+ 
+-	if (IS_ENABLED(CONFIG_PCI_MSI))
+-		dw_pcie_msi_init(pp);
++	pci_scan_child_bus(bus);
+ 
+-	if (dw_pcie_wait_for_link(pci)) {
+-		dev_warn(pci->dev,
+-			 "pcie ep may has not been powered on yet\n");
+-		sprd_pcie_host_shutdown(pdev);
++	pci_assign_unassigned_bus_resources(bus);
++
++	list_for_each_entry(child, &bus->children, node)
++		pcie_bus_configure_settings(child);
++
++	pci_lock_rescan_remove();
++	pci_bus_add_devices(bus);
++	pci_unlock_rescan_remove();
++}
++
++static void sprd_pcie_remove_bus(struct pci_bus *bus)
++{
++	struct pci_dev *pci_dev;
++
++	list_for_each_entry(pci_dev, &bus->devices, bus_list) {
++		struct pci_bus *child_bus = pci_dev->subordinate;
++
++		pci_lock_rescan_remove();
++		pci_stop_and_remove_bus_device(pci_dev);
++		pci_unlock_rescan_remove();
++
++		if (child_bus) {
++			dev_info(&bus->dev,
++				"all pcie devices have been removed\n");
++			return;
++		}
+ 	}
++}
+ 
+-	return 0;
++static int sprd_pcie_host_shutdown(struct platform_device *pdev)
++{
++	int ret;
++	struct sprd_pcie *ctrl = platform_get_drvdata(pdev);
++	struct dw_pcie *pci = ctrl->pci;
++	struct pci_bus *root_bus;
++
++	root_bus = to_root_bus_from_pdev(pdev);
++
++	/*
++	 * Before disabled pcie controller, it's better to remove pcie devices.
++	 * pci_sysfs_init is called by late_initcall(fn). When it is called,
++	 * pcie controller may be disabled and its EB is 0. In this case,
++	 * it will cause kernel panic if a pcie device reads its owner
++	 * configuration spaces.
++	 */
++	sprd_pcie_remove_bus(root_bus);
++	sprd_pcie_save_dwc_reg(pci);
++	sprd_pcie_ltssm_enable(pci, false);
++	ret = sprd_pcie_syscon_setting(pdev, "sprd,pcie-shutdown-syscons");
++	if (ret < 0)
++		dev_err(&pdev->dev,
++			"set pcie shutdown syscons fail, return %d\n", ret);
++
++	ret = pm_runtime_put_sync(&pdev->dev);
++	if (ret < 0)
++		dev_warn(&pdev->dev,
++			"pm runtime put fail,ret:%d, usage_count:%d\n", ret,
++			 atomic_read(&pdev->dev.power.usage_count));
++
++	return ret;
+ }
+ 
+-static const struct dw_pcie_host_ops sprd_pcie_host_ops = {
+-	.host_init = sprd_pcie_host_init,
++static const struct dw_pcie_ops dw_pcie_ops = {
+ };
+ 
+-static int sprd_add_pcie_port(struct platform_device *pdev)
++static int sprd_pcie_host_reinit(struct platform_device *pdev)
+ {
+-	struct resource *res;
+-	struct device *dev = &pdev->dev;
++	int ret, err;
+ 	struct sprd_pcie *ctrl = platform_get_drvdata(pdev);
+ 	struct dw_pcie *pci = ctrl->pci;
+ 	struct pcie_port *pp = &pci->pp;
+ 
+-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dbi");
+-	if (!res)
+-		return -EINVAL;
++	if (!ctrl->is_suspended) {
++		ret = pm_runtime_get_sync(&pdev->dev);
++		if (ret) {
++			dev_err(&pdev->dev,
++				"ret = %d dd = %d is = %d rs = %d uc = %d\n",
++				ret, pdev->dev.power.disable_depth,
++				pdev->dev.power.is_suspended,
++				pdev->dev.power.runtime_status,
++				atomic_read(&pdev->dev.power.usage_count));
++			goto err_get_sync;
++		}
++	}
+ 
+-	pci->dbi_base = devm_ioremap(dev, res->start, resource_size(res));
+-	if (!pci->dbi_base)
+-		return -ENOMEM;
++	ret = sprd_pcie_syscon_setting(pdev, "sprd,pcie-resume-syscons");
++	if (ret < 0) {
++		dev_err(&pdev->dev,
++			"set pcie reinit syscons fail, return %d\n", ret);
++		goto power_off;
++	}
+ 
+-	pp->ops = &sprd_pcie_host_ops;
++	sprd_pcie_buserr_enable(pci);
+ 
+-	if (IS_ENABLED(CONFIG_PCI_MSI)) {
+-		pp->msi_irq = platform_get_irq_byname(pdev, "msi");
+-		if (pp->msi_irq < 0) {
+-			dev_err(dev, "Failed to get msi, return %d\n",
+-				pp->msi_irq);
+-			return pp->msi_irq;
++	ret = sprd_pcie_check_vendor_id(pci);
++	if (ret)
++		goto power_off;
++
++	dw_pcie_setup_rc(pp);
++
++	sprd_pcie_ltssm_enable(pci, true);
++	ret = dw_pcie_wait_for_link(pci);
++	if (ret < 0) {
++		dev_err(&pdev->dev, "reinit fail,command register[0x%x]:0x%x\n",
++			PCI_COMMAND, dw_pcie_readl_dbi(pci, PCI_COMMAND));
++		goto power_off;
++	}
++
++	sprd_pcie_restore_dwc_reg(pci);
++	ret = sprd_pcie_syscon_setting(pdev, "sprd,pcie-aspml1p2-syscons");
++	if (ret < 0)
++		dev_err(&pdev->dev, "get pcie aspml1.2 syscons fail\n");
++
++	return 0;
++
++power_off:
++	sprd_pcie_syscon_setting(pdev, "sprd,pcie-suspend-syscons");
++err_get_sync:
++	if (!ctrl->is_suspended) {
++		err = pm_runtime_put_sync(&pdev->dev);
++		dev_err(&pdev->dev,
++				"err = %d dd = %d is = %d rs = %d uc = %d\n",
++				err, pdev->dev.power.disable_depth,
++				pdev->dev.power.is_suspended,
++				pdev->dev.power.runtime_status,
++				atomic_read(&pdev->dev.power.usage_count));
++	}
++	return ret;
++}
++
++int sprd_pcie_configure_device(struct platform_device *pdev)
++{
++	int ret;
++	int retries = 0;
++	struct pci_bus *root_bus;
++	struct sprd_pcie *ctrl = platform_get_drvdata(pdev);
++
++	dev_info(&pdev->dev, "%s++\n", __func__);
++	/*
++	 * If sprd_pcie_probe() return before mallocing memory for struct
++	 * sprd_pcie, no one can access any memory of this struct.
++	 */
++	if (!ctrl) {
++		dev_err(&pdev->dev, "pcie RC host controller is NULL\n");
++		return -EINVAL;
++	}
++	mutex_lock(&ctrl->sprd_pcie_mutex);
++	/* In order to avoid someone rescanning PCIe once more */
++	if (ctrl->is_powered) {
++		dev_info(&pdev->dev, "PCIe has alreadly scanned\n");
++		mutex_unlock(&ctrl->sprd_pcie_mutex);
++		return 0;
++	}
++
++	ctrl->retries = 0;
++	while (ctrl->reinit_disable && ctrl->retries++ < REINIT_RETRIES)
++		usleep_range(REINIT_WAIT_MIN, REINIT_WAIT_MAX);
++	if (ctrl->retries >= REINIT_RETRIES)
++		dev_warn(&pdev->dev, "system in sleep, cannot reinit\n");
++
++	for (retries = 0; retries < 3; retries++) {
++		ret = sprd_pcie_host_reinit(pdev);
++		if (!ret)
++			break;
++		usleep_range(150000, 200000);
++		if (retries == 2) {
++			dev_err(&pdev->dev, "pcie reinit failed three times\n");
++			mutex_unlock(&ctrl->sprd_pcie_mutex);
++			return ret;
+ 		}
+ 	}
+ 
+-	return dw_pcie_host_init(pp);
++	root_bus = to_root_bus_from_pdev(pdev);
++	sprd_pcie_rescan_bus(root_bus);
++	ctrl->is_powered = 1;
++	mutex_unlock(&ctrl->sprd_pcie_mutex);
++
++	return 0;
++}
++EXPORT_SYMBOL(sprd_pcie_configure_device);
++
++int sprd_pcie_unconfigure_device(struct platform_device *pdev)
++{
++	int ret;
++	struct pci_bus *root_bus;
++	struct sprd_pcie *ctrl = platform_get_drvdata(pdev);
++
++	dev_info(&pdev->dev, "%s++\n", __func__);
++	mutex_lock(&ctrl->sprd_pcie_mutex);
++	/* In order to avoid someone removing PCIe before establishing link */
++	if (!ctrl->is_powered) {
++		dev_err(&pdev->dev, "PCIe hasn't been scanned yet!\n");
++		mutex_unlock(&ctrl->sprd_pcie_mutex);
++		return -ENODEV;
++	}
++
++	root_bus = to_root_bus_from_pdev(pdev);
++	sprd_pcie_remove_bus(root_bus);
++
++	ret = sprd_pcie_host_uninit(pdev);
++	if (ret < 0)
++		dev_err(&pdev->dev,
++			 "please ignore pcie unconfigure failure\n");
++	mutex_unlock(&ctrl->sprd_pcie_mutex);
++
++	return 0;
++}
++EXPORT_SYMBOL(sprd_pcie_unconfigure_device);
++
++#ifdef CONFIG_PM_SLEEP
++static int sprd_pcie_pm_notify(struct notifier_block *notify_block,
++			unsigned long mode, void *unused)
++{
++	struct sprd_pcie *ctrl = container_of(
++		notify_block, struct sprd_pcie, pm_notify);
++	unsigned long flags;
++
++	switch (mode) {
++	case PM_HIBERNATION_PREPARE:
++	case PM_SUSPEND_PREPARE:
++	case PM_RESTORE_PREPARE:
++		spin_lock_irqsave(&ctrl->lock, flags);
++		ctrl->reinit_disable = 1;
++		spin_unlock_irqrestore(&ctrl->lock, flags);
++		break;
++
++	case PM_POST_SUSPEND:
++	case PM_POST_HIBERNATION:
++	case PM_POST_RESTORE:
++		spin_lock_irqsave(&ctrl->lock, flags);
++		ctrl->reinit_disable = 0;
++		spin_unlock_irqrestore(&ctrl->lock, flags);
++		break;
++	default:
++		break;
++	}
++
++	return 0;
+ }
+ 
++void sprd_pcie_register_pm_notifier(struct sprd_pcie *ctrl)
++{
++	ctrl->pm_notify.notifier_call = sprd_pcie_pm_notify;
++	register_pm_notifier(&ctrl->pm_notify);
++}
++
++void sprd_pcie_unregister_pm_notifier(struct sprd_pcie *ctrl)
++{
++	unregister_pm_notifier(&ctrl->pm_notify);
++}
++#endif
++
+ static int sprd_pcie_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+ 	struct dw_pcie *pci;
+ 	struct sprd_pcie *ctrl;
+ 	int ret;
++	size_t len = strlen(dev_name(dev)) + 10;
+ 
+-	ctrl = devm_kzalloc(dev, sizeof(*ctrl), GFP_KERNEL);
++	if (device_property_read_bool(dev, "no-pcie")) {
++		dev_info(dev, "no pcie device\n");
++		sprd_pcie_syscon_setting(pdev, "sprd,pcie-shutdown-syscons");
++		return 0;
++	}
++
++	ctrl = devm_kzalloc(dev, sizeof(*ctrl) + len, GFP_KERNEL);
+ 	if (!ctrl)
+ 		return -ENOMEM;
+ 
+@@ -201,52 +624,161 @@ static int sprd_pcie_probe(struct platform_device *pdev)
+ 		return -ENOMEM;
+ 
+ 	pci->dev = dev;
+-	pci->ops = &sprd_pcie_ops;
++	pci->ops = &dw_pcie_ops;
+ 	ctrl->pci = pci;
++	ctrl->label_len = len;
+ 
+ 	platform_set_drvdata(pdev, ctrl);
+ 
+ 	pm_runtime_enable(dev);
+ 	ret = pm_runtime_get_sync(dev);
+-	if (ret < 0) {
+-		dev_err(dev, "Fialed to get runtime sync, return %d\n", ret);
++	if (ret) {
++		dev_err(dev,
++			"pm_runtime_get_sync failed, ret:%d\n", ret);
+ 		goto err_get_sync;
+ 	}
+ 
+ 	ret = sprd_pcie_syscon_setting(pdev, "sprd,pcie-startup-syscons");
+ 	if (ret < 0) {
+-		dev_err(dev, "Failed to get pcie syscons, return %d\n", ret);
+-		goto err_power_off;
++		dev_err(dev, "get pcie syscons fail, return %d\n", ret);
++		goto power_off;
+ 	}
+ 
+-	ret = sprd_add_pcie_port(pdev);
+-	if (ret)
+-		dev_warn(dev, "Failed to initialize RC controller\n");
++	ret = sprd_pcie_syscon_setting(pdev, "sprd,pcie-aspml1p2-syscons");
++	if (ret < 0)
++		dev_warn(&pdev->dev, "get pcie aspml1.2 syscons fail\n");
++
++	ret = sprd_add_pcie_port(pci, pdev);
++	if (ret) {
++		dev_err(dev, "cannot initialize rc host\n");
++		goto power_off;
++	}
++
++	mutex_init(&ctrl->sprd_pcie_mutex);
++
++	ctrl->is_powered = 1;
++
++	if (dw_pcie_wait_for_link(pci)) {
++		dev_info(dev,
++			 "the EP has not been ready yet, power off the RC\n");
++		sprd_pcie_host_shutdown(pdev);
++		ctrl->is_powered = 0;
++	}
++
++	sprd_pcie_register_pm_notifier(ctrl);
++	ctrl->reinit_disable = 0;
+ 
+ 	return 0;
+ 
+-err_power_off:
++power_off:
+ 	sprd_pcie_syscon_setting(pdev, "sprd,pcie-shutdown-syscons");
+-
+ err_get_sync:
+-	pm_runtime_put(&pdev->dev);
++	ret = pm_runtime_put_sync(&pdev->dev);
++	if (ret < 0)
++		dev_warn(&pdev->dev,
++			 "pm runtime put fail: %d, usage_count:%d\n",
++			 ret, atomic_read(&pdev->dev.power.usage_count));
+ 	pm_runtime_disable(dev);
+ 
+ 	return ret;
+ }
+ 
+-static const struct of_device_id sprd_pcie_of_match[] = {
+-	{
+-		.compatible = "sprd,pcie",
+-	},
+-	{},
++static int sprd_pcie_remove(struct platform_device *pdev)
++{
++	struct sprd_pcie *ctrl = platform_get_drvdata(pdev);
++
++	sprd_pcie_unregister_pm_notifier(ctrl);
++	pm_runtime_disable(&pdev->dev);
++
++	return 0;
++}
++
++/* While pcie gen3 is working, AP can't suspend */
++static int sprd_pcie_pm_prepare(struct device *dev)
++{
++	struct sprd_pcie *ctrl;
++
++	if (device_property_read_bool(dev, "no-pcie")) {
++		dev_info(dev, "no pcie device, do nothing in pcie prepare\n");
++		return 0;
++	}
++
++	ctrl = dev_get_drvdata(dev);
++
++	if (ctrl->is_powered &&
++	    device_property_read_bool(dev, "no-suspend")) {
++		dev_info(dev, "can't suspend now, pcie is running\n");
++		return -EBUSY;
++	}
++
++	return 0;
++}
++
++static int sprd_pcie_suspend_noirq(struct device *dev)
++{
++	int ret;
++	struct platform_device *pdev;
++	struct sprd_pcie *ctrl;
++
++	if (device_property_read_bool(dev, "no-pcie")) {
++		dev_info(dev, "no pcie device, do nothing in pcie suspend\n");
++		return 0;
++	}
++
++	pdev = to_platform_device(dev);
++	ctrl = platform_get_drvdata(pdev);
++
++	if (!ctrl->is_powered)
++		return 0;
++
++	ctrl->is_suspended = 1;
++	ret = sprd_pcie_host_uninit(pdev);
++	if (ret < 0)
++		dev_err(dev, "suspend noirq warning\n");
++
++	return 0;
++}
++
++static int sprd_pcie_resume_noirq(struct device *dev)
++{
++	int ret;
++	struct platform_device *pdev;
++	struct sprd_pcie *ctrl;
++
++	if (device_property_read_bool(dev, "no-pcie")) {
++		dev_info(dev, "no pcie device, do nothing in pcie resume\n");
++		return 0;
++	}
++
++	pdev = to_platform_device(dev);
++	ctrl = platform_get_drvdata(pdev);
++
++	if (!ctrl->is_powered)
++		return 0;
++
++	ret = sprd_pcie_host_reinit(pdev);
++	if (ret < 0)
++		dev_err(dev, "resume noirq warning\n");
++
++	ctrl->is_suspended = 0;
++
++	return 0;
++}
++
++static const struct dev_pm_ops sprd_pcie_pm_ops = {
++	.prepare = sprd_pcie_pm_prepare,
++	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(sprd_pcie_suspend_noirq,
++				      sprd_pcie_resume_noirq)
+ };
+ 
+ static struct platform_driver sprd_pcie_driver = {
+ 	.probe = sprd_pcie_probe,
++	.remove = sprd_pcie_remove,
+ 	.driver = {
+ 		.name = "sprd-pcie",
++		.suppress_bind_attrs = true,
+ 		.of_match_table = sprd_pcie_of_match,
++		.pm	= &sprd_pcie_pm_ops,
+ 	},
+ };
+ 
+diff --git a/drivers/pci/controller/dwc/pcie-sprd.h b/drivers/pci/controller/dwc/pcie-sprd.h
+new file mode 100755
+index 000000000000..e22c39374191
+--- /dev/null
++++ b/drivers/pci/controller/dwc/pcie-sprd.h
+@@ -0,0 +1,146 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * PCIe host controller driver for Unisoc SoCs
++ *
++ * Copyright (C) 2020 Unisoc Inc.
++ * http://www.unisoc.com
++ */
++
++#include <linux/mutex.h>
++#include <linux/notifier.h>
++#include <linux/regmap.h>
++#include <linux/pcie-rc-sprd.h>
++#include <linux/spinlock_types.h>
++
++#include "pcie-designware.h"
++
++#define LTSSM_STATE_L0			0x11
++#define LTSSM_STATE_L0S			0x12
++#define LTSSM_STATE_L1_IDLE		0x14
++#define LTSSM_STATE_L2_IDLE		0x15
++
++/*
++ * TODO: The following register only for roc1 PCIe gen2 (pcie0),
++ * but it's a common PCIe capability.
++ * Different PCIe host controller has different offset address.
++ */
++#define SPRD_PCIE_GEN2_L1SS_CAP		0x154
++#define  PCIE_T_POWER_ON_SCALE_MASK	(0x3 << 16)
++#define  PCIE_T_POWER_ON_SCALE		(0x1 << 16)
++#define  PCIE_T_POWER_ON_VALUE_MASK	(0x1f << 19)
++#define  PCIE_T_POWER_ON_VALUE		(0xf << 19)
++
++/*
++ * Shadow registers (e.g. BAR mask registers) can be accessed
++ * through this register.
++ * If you write 0 to (Base address + 0x8000 + 0x10), then BAR0
++ * can be set to 0.
++ */
++#define PCIE_DBI_CS2 0x8000
++
++/* Although this is synopsys defined register, only spreadtrum pcie need it. */
++#define PCIE_SS_REG_BASE		0xE00
++#define PE0_GEN_CTRL_3			0x58
++#define  LTSSM_EN			(0x1 << 0)
++#define  L1_AUXCLK_EN			(0x1 << 8)
++#define APB_CLKFREQ_TIMEOUT		0x4
++#define  BUSERR_EN			(0x1 << 12)
++#define  APB_CLKFREQ			0x19a
++
++#define SPRD_PCIE_PE0_PM_CTRL			0xe60
++#define SPRD_PCIE_APP_CLK_PM_EN			(0x1 << 21)
++
++#define SPRD_PCIE_PE0_PM_STS			0xe64
++#define SPRD_PCIE_PM_CURRENT_STATE_MASK		(0x7 << 8)
++#define SPRD_PCIE_L0s				(0x1 << 8)
++#define SPRD_PCIE_L1				(0x2 << 8)
++#define SPRD_PCIE_L2				(0x3 << 8)
++#define SPRD_PCIE_L3				(0x4 << 8)
++
++#define SPRD_PCIE_PE0_TX_MSG_REG		0xe80
++#define SPRD_PCIE_PME_TURN_OFF_REQ		(0x1 << 19)
++
++#define SPRD_PCIE_DBI_ATU_OFFSET	0x18000
++
++#define ENTER_L2_MAX_RETRIES	10
++
++#define PCI_DEVICE_ID_SPRD_RC	0xabcd
++#define PCI_DEVICE_ID_MARLIN3	0x2355
++#define PCI_VENDOR_ID_MARLIN3	0x1db3
++
++#define PCI_BAR_NUM	6
++#define PCI_BAR_EN	1
++
++#define SPRD_PCIE_RST_CTRL			0xe4c
++#define SPRD_SOFT_WAKE				(0x1 << 4)
++
++struct sprd_pcie {
++	const char *label;
++	struct dw_pcie *pci;
++	struct clk *pcie_eb;
++	struct mutex sprd_pcie_mutex;
++	spinlock_t lock;
++
++#ifdef CONFIG_SPRD_IPA_INTC
++	/* These irq lines are connected to ipa level2 interrupt controller */
++	u32 interrupt_line;
++	u32 pme_irq;
++#endif
++
++	/* These irq lines are connected to GIC */
++	u32 aer_irq;
++
++	/* this irq cames from EIC to GIC */
++	int wakeup_irq;
++	u32 wake_down_irq_cnt;
++	u32 wake_down_cnt;
++	struct gpio_desc *gpiod_wakeup;
++
++	int perst_irq;
++	struct gpio_desc *gpiod_perst;
++
++	/* Save sysnopsys-specific PCIe configuration registers  */
++	u32 save_msi_ctrls[MAX_MSI_CTRLS][3];
++
++	/* keep track of pcie rc state */
++	unsigned int is_powered:1;
++	unsigned int is_suspended:1;
++	struct regulator *vpower;
++	unsigned int is_wakedown:1;
++
++	/* when pci enter suspend cannot reinit the pci */
++	unsigned int reinit_disable:1;
++	int retries;
++#ifdef CONFIG_PM_SLEEP
++	struct notifier_block	pm_notify;
++#endif
++
++	struct sprd_pcie_register_event *event_reg;
++
++	wait_queue_head_t action_wait;
++	struct task_struct *action_thread;
++	struct list_head action_list;
++
++	struct timer_list timer;
++
++	size_t label_len; /* pcie controller device length + 10 */
++	char wakeup_label[0];
++};
++
++struct sprd_pcie_of_data {
++	enum dw_pcie_device_mode mode;
++};
++
++int sprd_pcie_syscon_setting(struct platform_device *pdev, char *evn);
++void sprd_pcie_clear_unhandled_msi(struct dw_pcie *pci);
++void sprd_pcie_save_dwc_reg(struct dw_pcie *pci);
++void sprd_pcie_restore_dwc_reg(struct dw_pcie *pci);
++int sprd_pcie_enter_pcipm_l2(struct dw_pcie *pci);
++int sprd_pcie_check_vendor_id(struct dw_pcie *pci);
++#ifdef CONFIG_PM_SLEEP
++void sprd_pcie_register_pm_notifier(struct sprd_pcie *ctrl);
++void sprd_pcie_unregister_pm_notifier(struct sprd_pcie *ctrl);
++#else
++static inline void sprd_pcie_register_pm_notifier(struct sprd_pcie *ctrl) { }
++static inline void sprd_pcie_unregister_pm_notifier(struct sprd_pcie *ctrl) { }
++#endif
+diff --git a/include/linux/pcie-rc-sprd.h b/include/linux/pcie-rc-sprd.h
+new file mode 100755
+index 000000000000..8e1b3b59ab0a
+--- /dev/null
++++ b/include/linux/pcie-rc-sprd.h
+@@ -0,0 +1,49 @@
++#ifndef _PCIE_RC_SPRD_H
++#define _PCIE_RC_SPRD_H
++
++#include  <linux/platform_device.h>
++
++enum sprd_pcie_event {
++	SPRD_PCIE_EVENT_INVALID = 0,
++	SPRD_PCIE_EVENT_LINKDOWN = 0x1,
++	SPRD_PCIE_EVENT_LINKUP = 0x2,
++	SPRD_PCIE_EVENT_WAKEUP = 0x4,
++};
++
++struct sprd_pcie_register_event {
++	u32 events;
++	struct platform_device *pdev;
++	void (*callback)(enum sprd_pcie_event event, void *data);
++	void *data;
++};
++
++/*
++ * SPRD PCIe root complex (e.g. UD710 SoC) can't support PCI hotplug
++ * capability. Therefore, the standard hotplug driver can't be used.
++ *
++ * Whenever one endpoint is plugged or powered on, the EP driver must
++ * call sprd_pcie_configure_device() in order to add EP device to system
++ * and probe EP driver. If one endpoint is unplugged or powered off,
++ * the EP driver must call sprd_pcie_unconfigure_device() in order to
++ * remove all PCI devices on PCI bus.
++ *
++ * return 0 on success, otherwise return a negative number.
++ */
++
++extern int sprd_pcie_configure_device(struct platform_device *pdev);
++extern int sprd_pcie_unconfigure_device(struct platform_device *pdev);
++extern void sprd_pcie_teardown_msi_irq(unsigned int irq);
++extern void sprd_pcie_dump_rc_regs(struct platform_device *pdev);
++extern int sprd_pcie_register_event(struct sprd_pcie_register_event *reg);
++extern int sprd_pcie_deregister_event(struct sprd_pcie_register_event *reg);
++
++#ifdef CONFIG_SPRD_PCIE_AER
++void sprd_pcie_alloc_irq_vectors(struct pci_dev *dev, int *irqs, int services);
++#else
++static inline void sprd_pcie_alloc_irq_vectors(struct pci_dev *dev, int *irqs,
++					       int services)
++{
++}
++#endif
++
++#endif
+-- 
+2.25.1
+

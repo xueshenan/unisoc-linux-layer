@@ -1,0 +1,109 @@
+diff --git a/src/adapter.c b/src/adapter.c
+index da1fb14..90542ac 100644
+--- a/src/adapter.c
++++ b/src/adapter.c
+@@ -350,39 +350,46 @@ void bt_vendor_send_acl_priority(uint32_t setting)
+     return;
+ }
+ 
+-#define OPP_TRANSFER_START 1
+-#define OPP_TRANSFER_END 0
+-#define OPP_SEND 1
++#define TRANSFER_START 1
++#define TRANSFER_END 0
++#define SEND 1
+ 
+-static void bt_vendor_send_opp_transfer_complete(uint8_t status, uint16_t length,
++static void bt_vendor_set_transfer_complete(uint8_t status, uint16_t length,
+ 					const void *param, void *user_data)
+ {
+-	DBG("");
++	struct btd_adapter *adapter = user_data;
++
++	if (status != MGMT_STATUS_SUCCESS) {
++		btd_error(adapter->dev_id,
++				"Failed to set device class: %s (0x%02x)",
++						mgmt_errstr(status), status);
++		return;
++	}
+ 
+ }
+ 
+-void bt_vendor_send_opp_transfer(uint32_t setting, uint32_t op, const bdaddr_t *bdaddr)
++void bt_vendor_set_transfer(uint32_t setting, uint32_t op, const bdaddr_t *bdaddr)
+ {
+-    struct mgmt_cp_set_opp_transfer cp;
++	struct mgmt_cp_set_opp_transfer cp;
+ 	struct btd_adapter *adapter;
+ 
+-    DBG("setting = %d, op = %d", setting, op);
++	DBG("setting = %d, op = %d", setting, op);
+ 
+ 	adapter = btd_adapter_lookup(0);
+-    if (NULL != adapter) {
+-        cp.flags = setting;  // 0x0 stop; 0x1 start;
++	if (NULL != adapter) {
++		cp.flags = setting;  // 0x0 stop; 0x1 start;
+ 		cp.op = op;  // 0x1 Opp send; 0x2 Opp recv;
+-		bacpy(&cp.bdaddr, bdaddr);  // devices addr 
++		bacpy(&cp.bdaddr, bdaddr);  // devices addr;
+ 
+-        if (!mgmt_send(adapter->mgmt, MGMT_OP_SET_OPP_TRANSFER,
++		if (!mgmt_send(adapter->mgmt, MGMT_OP_SET_OPP_TRANSFER,
+ 				adapter->dev_id, sizeof(cp), &cp,
+-				bt_vendor_send_opp_transfer_complete, NULL, NULL)) {
+-            error("Unable to send bt_vendor_send_opp_transfer cmd");
+-            return;
+-        }
+-    }
++				bt_vendor_set_transfer_complete, NULL, NULL)) {
++			error("Unable to send bt_vendor_send_opp_transfer cmd");
++			return;
++		}
++	}
+ 
+-    return;
++	return;
+ }
+ 
+ struct btd_adapter *btd_adapter_get_default(void)
+@@ -7899,10 +7906,14 @@ static void dev_disconnected(struct btd_adapter *adapter,
+ 		disconnect_notify(device, reason);
+ 	}
+ 
+-	struct btd_service *service = NULL;
+-	service = btd_device_get_service(device, OBEX_OPP_UUID);
+-	if (service != NULL) {
+-		bt_vendor_send_opp_transfer(OPP_TRANSFER_END, OPP_SEND, &addr->bdaddr);
++	struct btd_service *opp_service = NULL;
++	opp_service = btd_device_get_service(device, OBEX_OPP_UUID);
++
++	struct btd_service *spp_service = NULL;
++	spp_service = btd_device_get_service(device, SPP_UUID);
++
++	if (opp_service != NULL || spp_service != NULL) {
++		bt_vendor_set_transfer(TRANSFER_END, SEND, &addr->bdaddr);
+ 	}
+ 
+ 	bonding_attempt_complete(adapter, &addr->bdaddr, addr->type,
+@@ -8846,12 +8857,16 @@ static void connected_callback(uint16_t index, uint16_t length,
+ 	if (eir_data.msd_list)
+ 		adapter_msd_notify(adapter, device, eir_data.msd_list);
+ 
+-	struct btd_service *service = NULL;
+-	service = btd_device_get_service(device, OBEX_OPP_UUID);
++	struct btd_service *opp_service = NULL;
++	opp_service = btd_device_get_service(device, OBEX_OPP_UUID);
+ 
+-	if (service != NULL) {
+-		bt_vendor_send_opp_transfer(OPP_TRANSFER_START, OPP_SEND, &ev->addr.bdaddr);
++	struct btd_service *spp_service = NULL;
++	spp_service = btd_device_get_service(device, SPP_UUID);
++
++	if (opp_service != NULL || spp_service != NULL) {
++		bt_vendor_set_transfer(TRANSFER_START, SEND, &ev->addr.bdaddr);
+ 	}
++
+ 	eir_data_free(&eir_data);
+ }
+ 

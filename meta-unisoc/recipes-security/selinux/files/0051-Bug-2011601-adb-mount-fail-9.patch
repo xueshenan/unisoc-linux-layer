@@ -1,0 +1,155 @@
+From 10997bb4d2939c98c556aedc79395b7bbfbcbc20 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Sun, 9 Oct 2022 10:42:57 +0800
+Subject: [PATCH] Bug #2011601-login-fail-permission-9
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/kernel/kernel.if   |  8 ++++++++
+ policy/modules/kernel/kernel.te   |  1 +
+ policy/modules/services/gpsd.if   | 10 +++++++++-
+ policy/modules/services/gpsd.te   |  1 +
+ policy/modules/system/modutils.if | 16 ++++++++++++++++
+ policy/modules/system/modutils.te |  2 ++
+ policy/modules/system/mount.if    |  8 ++++++++
+ policy/modules/system/mount.te    |  1 +
+ 8 files changed, 46 insertions(+), 1 deletion(-)
+
+diff --git a/policy/modules/kernel/kernel.if b/policy/modules/kernel/kernel.if
+index 3fbd574a9..4d1042e66 100644
+--- a/policy/modules/kernel/kernel.if
++++ b/policy/modules/kernel/kernel.if
+@@ -3592,3 +3592,11 @@ interface(`kernel_kernel_t_capability2',`
+     allow $1 kernel_t:capability2 {block_suspend};
+ ')
+ 
++interface(`kernel_kernel_t_process',`
++    gen_require(`
++        type kernel_t;
++    ')
++
++    allow $1 kernel_t:process {execmem};
++')
++
+diff --git a/policy/modules/kernel/kernel.te b/policy/modules/kernel/kernel.te
+index dde6aab41..98c58de82 100644
+--- a/policy/modules/kernel/kernel.te
++++ b/policy/modules/kernel/kernel.te
+@@ -517,4 +517,5 @@ allow kern_unconfined unlabeled_t:packet { send recv relabelto flow_in flow_out
+ allow kern_unconfined unlabeled_t:process { fork signal_perms ptrace getsched setsched getsession getpgid setpgid getcap setcap share getattr setexec setfscreate noatsecure siginh setrlimit rlimitinh setcurrent setkeycreate setsockcreate getrlimit };
+ 
+ kernel_kernel_t_capability2(kernel_t)
++kernel_kernel_t_process(kernel_t)
+ 
+diff --git a/policy/modules/services/gpsd.if b/policy/modules/services/gpsd.if
+index 05b27c307..3528ba3da 100644
+--- a/policy/modules/services/gpsd.if
++++ b/policy/modules/services/gpsd.if
+@@ -185,7 +185,7 @@ interface(`gpsd_device_t_file',`
+         type device_t;
+     ')
+ 
+-   allow $1 device_t:file {write map open read append ioctl getattr};
++   allow $1 device_t:file { write map open read append ioctl getattr };
+ ')
+ 
+ interface(`gpsd_var_t_dir',`
+@@ -220,3 +220,11 @@ interface(`gpsd_var_t_file',`
+    allow $1 var_t:file {write map open read create getattr append};
+ ')
+ 
++interface(`gpsd_bsdpty_device_t_chr_file',`
++    gen_require(`
++        type bsdpty_device_t;
++    ')
++
++   allow $1 bsdpty_device_t:chr_file {write map open read append ioctl setattr};
++')
++
+diff --git a/policy/modules/services/gpsd.te b/policy/modules/services/gpsd.te
+index 61baacacb..4667417b0 100644
+--- a/policy/modules/services/gpsd.te
++++ b/policy/modules/services/gpsd.te
+@@ -98,4 +98,5 @@ gpsd_var_t_dir(gpsd_t)
+ gpsd_device_t_chr_file(gpsd_t)
+ gpsd_var_t_sock_file(gpsd_t)
+ gpsd_var_t_file(gpsd_t)
++gpsd_bsdpty_device_t_chr_file(gpsd_t)
+ 
+diff --git a/policy/modules/system/modutils.if b/policy/modules/system/modutils.if
+index 30c1c5a18..693482cb0 100644
+--- a/policy/modules/system/modutils.if
++++ b/policy/modules/system/modutils.if
+@@ -438,3 +438,19 @@ interface(`kmod_var_run_t_file',`
+     allow $1 var_run_t:file { write getattr read open };
+ ')
+ 
++interface(`kmod_iptables_t_rawip_socket',`
++    gen_require(`
++        type iptables_t;
++    ')
++
++    allow $1 iptables_t:rawip_socket { write read };
++')
++
++interface(`kmod_devpts_t_chr_file',`
++    gen_require(`
++        type devpts_t;
++    ')
++
++    allow $1 devpts_t:chr_file { write append read open};
++')
++
+diff --git a/policy/modules/system/modutils.te b/policy/modules/system/modutils.te
+index d818e649b..5247b8f7e 100644
+--- a/policy/modules/system/modutils.te
++++ b/policy/modules/system/modutils.te
+@@ -196,4 +196,6 @@ kmod_httpd_var_run_t_file(kmod_t)
+ kmod_tty_device_t_chr_file(kmod_t)
+ kmod_device_t_chr_file(kmod_t)
+ kmod_var_run_t_file(kmod_t)
++kmod_iptables_t_rawip_socket(kmod_t)
++kmod_devpts_t_chr_file(kmod_t)
+ 
+diff --git a/policy/modules/system/mount.if b/policy/modules/system/mount.if
+index 6f0ddb242..05cd99447 100644
+--- a/policy/modules/system/mount.if
++++ b/policy/modules/system/mount.if
+@@ -276,3 +276,11 @@ interface(`mount_configfs_t_dir',`
+     allow $1 configfs_t:dir {mounton getattr};
+ ')
+ 
++interface(`mount_tmpfs_t_dir',`
++    gen_require(`
++        type tmpfs_t;
++    ')
++
++    allow $1 tmpfs_t:dir {mounton getattr add_name search create open read write};
++')
++
+diff --git a/policy/modules/system/mount.te b/policy/modules/system/mount.te
+index 7b2a2831e..8128da145 100644
+--- a/policy/modules/system/mount.te
++++ b/policy/modules/system/mount.te
+@@ -239,4 +239,5 @@ mount_device_t_file(mount_t)
+ mount_device_t_blk_file(mount_t)
+ mount_etc_t_dir(mount_t)
+ mount_configfs_t_dir(mount_t)
++mount_tmpfs_t_dir(mount_t)
+ 
+-- 
+2.17.1
+

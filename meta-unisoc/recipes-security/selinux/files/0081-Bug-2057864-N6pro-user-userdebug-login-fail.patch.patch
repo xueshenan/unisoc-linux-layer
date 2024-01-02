@@ -1,0 +1,218 @@
+From a658e38d0a7f6cacae151a8d3bfa09aa640f4ca0 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Mon, 24 Oct 2022 20:50:36 +0800
+Subject: [PATCH] Bug #2057864-N6pro-user&&userdebug-login-fail.patch
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/services/cron.if     |  4 +-
+ policy/modules/services/rngd.if     |  8 ++++
+ policy/modules/services/rngd.te     |  1 +
+ policy/modules/system/locallogin.if | 73 +++++++++++++++++++++++++++++
+ policy/modules/system/locallogin.te | 11 +++++
+ policy/modules/system/logging.if    | 12 ++++-
+ policy/modules/system/logging.te    |  1 +
+ 7 files changed, 106 insertions(+), 4 deletions(-)
+
+diff --git a/policy/modules/services/cron.if b/policy/modules/services/cron.if
+index f3a97253d..087c4b0f6 100644
+--- a/policy/modules/services/cron.if
++++ b/policy/modules/services/cron.if
+@@ -1009,7 +1009,7 @@ interface(`crond_unlabeled_t_lnk_file',`
+         type unlabeled_t;
+     ')
+ 
+-    allow $1 unlabeled_t:lnk_file {rw_lnk_file_perms};
++    allow $1 unlabeled_t:lnk_file {rw_lnk_file_perms map};
+ ')
+ 
+ interface(`crond_etc_t_file',`
+@@ -1017,6 +1017,6 @@ interface(`crond_etc_t_file',`
+ 	    type etc_t;
+     ')
+ 
+-    allow $1 etc_t:file {rw_file_perms};
++    allow $1 etc_t:file {rw_file_perms map};
+ ')
+ 
+diff --git a/policy/modules/services/rngd.if b/policy/modules/services/rngd.if
+index 73d8951b1..0f28f938d 100644
+--- a/policy/modules/services/rngd.if
++++ b/policy/modules/services/rngd.if
+@@ -80,3 +80,11 @@ interface(`rngd_sysfs_t_file',`
+     allow $1 sysfs_t:file {rw_file_perms};
+ ')
+ 
++interface(`rngd_proc_t_file',`
++    gen_require(`
++        type proc_t;
++    ')
++
++    allow $1 proc_t:file {rw_file_perms map};
++')
++
+diff --git a/policy/modules/services/rngd.te b/policy/modules/services/rngd.te
+index 5c6c995d5..b46b70c1e 100644
+--- a/policy/modules/services/rngd.te
++++ b/policy/modules/services/rngd.te
+@@ -48,4 +48,5 @@ rngd_unlabeled_t_lnk_file(rngd_t)
+ rngd_rngd_t_process(rngd_t)
+ rngd_sysfs_t_dir(rngd_t)
+ rngd_sysfs_t_file(rngd_t)
++rngd_proc_t_file(rngd_t)
+ 
+diff --git a/policy/modules/system/locallogin.if b/policy/modules/system/locallogin.if
+index 5f38392b6..be81dea19 100644
+--- a/policy/modules/system/locallogin.if
++++ b/policy/modules/system/locallogin.if
+@@ -151,3 +151,76 @@ interface(`locallogin_domtrans_sulogin',`
+ 	domtrans_pattern($1, sulogin_exec_t, sulogin_t)
+ ')
+ 
++####unisoc#####
++interface(`locallogin_unlabeled_t_dir',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:dir { search_dir_perms create_dir_perms rw_dir_perms };
++')
++
++interface(`locallogin_unlabeled_t_lnk_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:lnk_file { rw_lnk_file_perms };
++')
++
++interface(`locallogin_etc_t_file',`
++    gen_require(`
++        type etc_t;
++    ')
++
++    allow $1 etc_t:file { rw_file_perms map };
++')
++
++interface(`locallogin_shadow_t_file',`
++    gen_require(`
++	    type etc_t;
++    ')
++
++    allow $1 shadow_t:file { rw_file_perms map };
++')
++
++interface(`locallogin_default_t_dir',`
++    gen_require(`
++        type default_t;
++    ')
++
++    allow $1 default_t:dir { search_dir_perms create_dir_perms rw_dir_perms};
++')
++
++interface(`locallogin_default_t_file',`
++    gen_require(`
++        type default_t;
++    ')
++
++    allow $1 default_t:file { execute execute_no_trans rw_file_perms};
++')
++
++interface(`locallogin_bin_t_file',`
++    gen_require(`
++        type bin_t;
++    ')
++
++    allow $1 bin_t:file { execute execute_no_trans rw_file_perms};
++')
++
++interface(`locallogin_unlabeled_t_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:file { rw_file_perms getattr};
++')
++
++interface(`locallogin_local_login_t_process',`
++    gen_require(`
++        type local_login_t;
++    ')
++
++    allow $1 local_login_t:process { getpgid setpgid getsched setsched signal_perms };
++')
++
+diff --git a/policy/modules/system/locallogin.te b/policy/modules/system/locallogin.te
+index 5644f2f45..701611f95 100644
+--- a/policy/modules/system/locallogin.te
++++ b/policy/modules/system/locallogin.te
+@@ -289,3 +289,14 @@ optional_policy(`
+ 	nscd_use(sulogin_t)
+ ')
+ 
++#####unisoc#####
++locallogin_unlabeled_t_dir(local_login_t)
++locallogin_unlabeled_t_lnk_file(local_login_t)
++locallogin_etc_t_file(local_login_t)
++locallogin_shadow_t_file(local_login_t)
++locallogin_default_t_dir(local_login_t)
++locallogin_default_t_file(local_login_t)
++locallogin_bin_t_file(local_login_t)
++locallogin_unlabeled_t_file(local_login_t)
++locallogin_local_login_t_process(local_login_t)
++
+diff --git a/policy/modules/system/logging.if b/policy/modules/system/logging.if
+index a55afe8f3..23df4ef29 100644
+--- a/policy/modules/system/logging.if
++++ b/policy/modules/system/logging.if
+@@ -1476,7 +1476,7 @@ interface(`syslogd_bin_t_lnk_file',`
+         type bin_t;
+     ')
+ 
+-    allow $1 bin_t:lnk_file {rw_file_perms};
++    allow $1 bin_t:lnk_file {rw_lnk_file_perms};
+ ')
+ 
+ interface(`syslogd_bin_t_file',`
+@@ -1484,6 +1484,14 @@ interface(`syslogd_bin_t_file',`
+         type bin_t;
+     ')
+ 
+-    allow $1 bin_t:file {rw_file_perms};
++    allow $1 bin_t:file {rw_file_perms execute execute_no_trans};
++')
++
++interface(`syslogd_removable_device_t_blk_file',`
++    gen_require(`
++        type removable_device_t;
++    ')
++
++    allow $1 removable_device_t:blk_file {rw_blk_file_perms};
+ ')
+ 
+diff --git a/policy/modules/system/logging.te b/policy/modules/system/logging.te
+index 38a4719c3..b21824612 100644
+--- a/policy/modules/system/logging.te
++++ b/policy/modules/system/logging.te
+@@ -646,4 +646,5 @@ syslogd_unlabeled_t_dir(syslogd_t)
+ syslogd_bin_t_dir(syslogd_t)
+ syslogd_bin_t_lnk_file(syslogd_t)
+ syslogd_bin_t_file(syslogd_t)
++syslogd_removable_device_t_blk_file(syslogd_t)
+ 
+-- 
+2.17.1
+

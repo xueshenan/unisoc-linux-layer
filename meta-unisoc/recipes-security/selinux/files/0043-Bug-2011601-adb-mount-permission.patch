@@ -1,0 +1,164 @@
+From 0e01d12d6e9eefeaee6dec660a3ac57c5e166cbf Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Thu, 29 Sep 2022 16:25:23 +0800
+Subject: [PATCH] Bug #2011601 adb&mount-permission
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/roles/sysadm.if       | 72 ++++++++++++++++++++++++++++
+ policy/modules/roles/sysadm.te       |  9 ++++
+ policy/modules/system/selinuxutil.if | 17 +++++++
+ policy/modules/system/selinuxutil.te |  4 ++
+ 4 files changed, 102 insertions(+)
+
+diff --git a/policy/modules/roles/sysadm.if b/policy/modules/roles/sysadm.if
+index c10f7ebf4..c3dd3f99a 100644
+--- a/policy/modules/roles/sysadm.if
++++ b/policy/modules/roles/sysadm.if
+@@ -542,3 +542,75 @@ interface(`sysadm_unlabeled_t_dir',`
+     allow $1 unlabeled_t:dir {mounton};
+ ')
+ 
++interface(`sysadm_proc_t_filesystem',`
++    gen_require(`
++        type proc_t;
++    ')
++
++    allow $1 proc_t:filesystem {mount};
++')
++
++interface(`sysadm_sysfs_t_dir',`
++    gen_require(`
++        type sysfs_t;
++    ')
++
++    allow $1 sysfs_t:dir {mounton};
++')
++
++interface(`sysadm_debugfs_t_filesystem',`
++    gen_require(`
++        type debugfs_t;
++    ')
++
++    allow $1 debugfs_t:filesystem {mount};
++')
++
++interface(`sysadm_configfs_t_filesystem',`
++    gen_require(`
++        type configfs_t;
++    ')
++
++    allow $1 configfs_t:filesystem {mount};
++')
++
++interface(`sysadm_device_t_filesystem',`
++    gen_require(`
++        type device_t;
++    ')
++
++    allow $1 device_t:filesystem {mount};
++')
++
++interface(`sysadm_device_t_dir',`
++    gen_require(`
++	    type device_t;
++    ')
++
++    allow $1 device_t:dir {mounton};
++')
++
++interface(`sysadm_mnt_t_dir',`
++    gen_require(`
++        type mnt_t;
++    ')
++
++    allow $1 mnt_t:dir {mounton};
++')
++
++interface(`sysadm_var_run_t_dir',`
++    gen_require(`
++        type var_run_t;
++    ')
++
++    allow $1 var_run_t:dir {mounton};
++')
++
++interface(`sysadm_tmpfs_t_filesystem',`
++    gen_require(`
++        type tmpfs_t;
++    ')
++
++    allow $1 tmpfs_t:filesystem {mount};
++')
++
+diff --git a/policy/modules/roles/sysadm.te b/policy/modules/roles/sysadm.te
+index 663c48547..fb74c22fb 100644
+--- a/policy/modules/roles/sysadm.te
++++ b/policy/modules/roles/sysadm.te
+@@ -1376,4 +1376,13 @@ sysadm_sysadm_t_netlink_generic_socket(sysadm_t)
+ sysadm_unreserved_port_t_tcp_socket(sysadm_t)
+ sysadm_device_t_file(sysadm_t)
+ sysadm_unlabeled_t_dir(sysadm_t)
++sysadm_proc_t_filesystem(sysadm_t)
++sysadm_sysfs_t_dir(sysadm_t)
++sysadm_debugfs_t_filesystem(sysadm_t)
++sysadm_configfs_t_filesystem(sysadm_t)
++sysadm_device_t_filesystem(sysadm_t)
++sysadm_device_t_dir(sysadm_t)
++sysadm_mnt_t_dir(sysadm_t)
++sysadm_var_run_t_dir(sysadm_t)
++sysadm_tmpfs_t_filesystem(sysadm_t)
+ 
+diff --git a/policy/modules/system/selinuxutil.if b/policy/modules/system/selinuxutil.if
+index a7b8323cc..e0b33f84d 100644
+--- a/policy/modules/system/selinuxutil.if
++++ b/policy/modules/system/selinuxutil.if
+@@ -1164,3 +1164,20 @@ interface(`seutil_allow_libselinux_linked',`
+ 	selinux_allow_get_fs_mount($1)
+ 	seutil_allow_read_config($1)
+ ')
++
++interface(`setfiles_device_t_file',`
++    gen_require(`
++        type device_t;
++    ')
++
++     allow $1 device_t:file {read write append};
++')
++
++interface(`setfiles_kmsg_device_t_chr_file',`
++     gen_require(`
++         type kmsg_device_t;
++     ')
++
++      allow $1 kmsg_device_t:chr_file {read write append open map};
++')
++
+diff --git a/policy/modules/system/selinuxutil.te b/policy/modules/system/selinuxutil.te
+index 5b6e8aa73..79cfaf5ca 100644
+--- a/policy/modules/system/selinuxutil.te
++++ b/policy/modules/system/selinuxutil.te
+@@ -690,3 +690,7 @@ optional_policy(`
+ optional_policy(`
+ 	hotplug_use_fds(setfiles_t)
+ ')
++
++setfiles_kmsg_device_t_chr_file(setfiles_t)
++setfiles_device_t_file(setfiles_t)
++
+-- 
+2.17.1
+

@@ -1,0 +1,114 @@
+diff --git a/plugins/imklog/bsd.c b/plugins/imklog/bsd.c
+index a663b46..88d9460 100644
+--- a/plugins/imklog/bsd.c
++++ b/plugins/imklog/bsd.c
+@@ -43,6 +43,11 @@
+ #include "debug.h"
+ #include "imklog.h"
+ 
++/* add for bug:1989711 */
++#include <stdio.h>
++#include <stdlib.h>
++#define _KERNEL_DDR_SIZE "/proc/sprd_dmc/property"
++
+ /* globals */
+ static int	fklog = -1;	/* kernel log fd */
+ 
+@@ -225,11 +230,47 @@ readklog(modConfData_t *pModConf)
+ 	char *p, *q;
+ 	int len, i;
+ 	int iMaxLine;
+-	uchar bufRcv[128*1024+1];
++	//uchar bufRcv[128*1024+1];
+ 	char errmsg[2048];
+ 	uchar *pRcv = NULL; /* receive buffer */
++    /* add for bug:1989711:start*/
++    int  ddrsizefd = -1; /* DDR size fd */
++    int  ddrsizelen = -1; /*read DDR size return length*/
++    uchar ddrsize[5]; 
++    int  ddrsizeint; 
++	uchar *bufRcv= NULL; /* reserved buffer */
+ 
+ 	iMaxLine = klog_getMaxLine();
++    //dbgprintf("bsd.c,233,iMaxLine=%d,sizeof(bufRcv)=%d\n",iMaxLine,sizeof(bufRcv));
++
++	ddrsizefd = open(_KERNEL_DDR_SIZE , O_RDONLY, 0);
++	if (ddrsizefd < 0) {
++    //    dbgprintf("bsd.c,243,open ddr size fd failed\n");
++	 //	ABORT_FINALIZE(RS_RET_ERR_OPEN_KLOG);
++	}
++
++    ddrsizelen = read(ddrsizefd,ddrsize,5);
++
++    if (ddrsizelen > 0) {
++        ddrsize[ddrsizelen] = '\0';
++    //    dbgprintf("bsd.c,254,read ddr size ok:ddrsizelen=%d,ddrsize=%s\n",ddrsizelen,ddrsize);
++    } else {
++        dbgprintf("bsd.c,256,read ddr size failed\n");
++    }
++
++    ddrsizeint = atoi((char*) ddrsize); 
++    if (ddrsizeint < (256-1)){
++        bufRcv = (uchar*) malloc(16*1024 + 1);
++    //    dbgprintf("bsd.c,263,ddrsizeint=%d\n",ddrsizeint);
++    } else if(ddrsizeint < (512-1) ){
++        bufRcv = (uchar*) malloc(32*1024 + 1);
++    //    dbgprintf("bsd.c,266,ddrsizeint=%d\n",ddrsizeint);
++    } else {
++        bufRcv = (uchar*) malloc(64*1024 + 1);
++        dbgprintf("bsd.c,269,ddrsizeint=%d\n",ddrsizeint);
++    }
++
++    /* add for bug:1989711:end*/
+ 
+ 	/* we optimize performance: if iMaxLine is below our fixed size buffer (which
+ 	 * usually is sufficiently large), we use this buffer. if it is higher, heap memory
+@@ -239,10 +280,12 @@ readklog(modConfData_t *pModConf)
+ 	 */
+ 	if((size_t) iMaxLine < sizeof(bufRcv) - 1) {
+ 		pRcv = bufRcv;
++       // dbgprintf("bsd.c,282\n");
+ 	} else {
+ 		if((pRcv = (uchar*) malloc(iMaxLine + 1)) == NULL) {
+ 			iMaxLine = sizeof(bufRcv) - 1; /* better this than noting */
+ 			pRcv = bufRcv;
++       //     dbgprintf("bsd.c,287,iMaxLine=%d,sizeof(bufRcv)=%d\n",iMaxLine,sizeof(bufRcv));
+ 		}
+ 	}
+ 
+@@ -250,6 +293,7 @@ readklog(modConfData_t *pModConf)
+ 	for (;;) {
+ 		dbgprintf("imklog(BSD/Linux) waiting for kernel log line\n");
+ 		i = read(fklog, pRcv + len, iMaxLine - len);
++       // dbgprintf("bsd.c,296,i=%d,len=%d\n",i,len);
+ 		if (i > 0) {
+ 			pRcv[i + len] = '\0';
+ 		} else {
+@@ -262,11 +306,15 @@ readklog(modConfData_t *pModConf)
+ 			break;
+ 		}
+ 
++       // int j=0;
+ 		for (p = (char*)pRcv; (q = strchr(p, '\n')) != NULL; p = q + 1) {
+ 			*q = '\0';
++       //     j++;
+ 			submitSyslog(pModConf, LOG_INFO, (uchar*) p);
+ 		}
++
+ 		len = strlen(p);
++       // dbgprintf("bsd.c,317,len=%d,j=%d\n",len,j);
+ 		if (len >= iMaxLine - 1) {
+ 			submitSyslog(pModConf, LOG_INFO, (uchar*)p);
+ 			len = 0;
+diff --git a/runtime/glbl.c b/runtime/glbl.c
+index e46d869..36838e0 100644
+--- a/runtime/glbl.c
++++ b/runtime/glbl.c
+@@ -192,6 +192,7 @@ int
+ glblGetMaxLine(rsconf_t *cnf)
+ {
+ 	assert(cnf != NULL);
++   // DBGPRINTF("glb.c,195\n");
+ 	return(cnf->globals.iMaxLine);
+ }
+ 

@@ -1,0 +1,28 @@
+##
+## Collections of machine feature defined
+## Features meet bellow condition should be a machine feature
+## 1. a feature depends on hardware
+
+# feature-name		Description
+modem			modem功能，包括modem-control,nv,slogmodem,refnotify
+perflink        	network modules
+fs_tools		提供fs debug tools，例如resize2fs
+userdata-resize2fs	开机service,将userdata img进行resize操作
+android-tools-adb	使用oe带的adbd功能
+libcamera		camera模块相关功能
+sysdump                 minidump日志导出以及sysdump使能状态切换功能
+terminal		提供AT通路，包括atrouter及相关解析库
+engpc			提供DIAG通路，包括engpc及相关基础NPI库
+unirlog			提供Rsyslog相关适配支持
+focaltech-ats   s9863a-1h10 TP驱动
+focaltech-ft8756-spi  ums9620-2h10 TP驱动
+strongswan       提供ipsec相关配置
+unisoc-reboot    设置reboot、autodownload等功能
+imgtec           提供npu driver的相关ko编译配置、系统集成及自动加载
+lmbench          性能测评工具，衡量两个关键特征：反应时间和带宽
+aiactiver        提供aiactiver的so库、系统集成及自动加载
+bonnie++         debug版本集成 测试文件系统性能
+perf             debug版本集成 性能分析工具
+tracetool	 debug版本集成 trace工具
+rebootinfo 	 关机时打印发起关机的进程名称
+st-module	提供自动化测试组件及测试case相关的lib库

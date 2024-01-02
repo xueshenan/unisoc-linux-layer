@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=qcalculator
+Exec=/etc/init.d/qtdemo-init
+Icon=/usr/share/icons/icon_qtdemo.png
+Type=Application
+Terminal=false
+Categories=System;
+X-Desktop-File-Install-Version=0.2

@@ -1,0 +1,29 @@
+From b32ae3bd069551d1ee7440ccff55a898bd1b87a8 Mon Sep 17 00:00:00 2001
+From: guobin <guobin.xue@unisoc.com>
+Date: Thu, 24 Jan 2019 14:46:41 +0800
+Subject: [PATCH 5/5] Sp9832a yocto: fixed compiler-gcc.h inline error
+
+---
+ include/linux/compiler-gcc.h | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/compiler-gcc.h b/include/linux/compiler-gcc.h
+index 9896e54..99c6dcc 100644
+--- a/include/linux/compiler-gcc.h
++++ b/include/linux/compiler-gcc.h
+@@ -44,9 +44,10 @@
+  */
+ #if !defined(CONFIG_ARCH_SUPPORTS_OPTIMIZED_INLINING) || \
+     !defined(CONFIG_OPTIMIZE_INLINING) || (__GNUC__ < 4)
+-# define inline		inline		__attribute__((always_inline))
+-# define __inline__	__inline__	__attribute__((always_inline))
+-# define __inline	__inline	__attribute__((always_inline))
++/* XXX: check __GNUC_STDC_INLINE__, fix line length */
++# define inline		inline		__attribute__((always_inline)) __attribute__((__gnu_inline__))
++# define __inline__	__inline__	__attribute__((always_inline)) __attribute__((__gnu_inline__))
++# define __inline	__inline	__attribute__((always_inline)) __attribute__((__gnu_inline__))
+ #endif
+
+ #define __deprecated			__attribute__((deprecated))
+--
+1.9.1

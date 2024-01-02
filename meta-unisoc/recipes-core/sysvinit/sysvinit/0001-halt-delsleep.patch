@@ -1,0 +1,12 @@
+diff --git a/src/halt.c b/src/halt.c
+index 499e973..7dc2b01 100644
+--- a/src/halt.c
++++ b/src/halt.c
+@@ -263,7 +263,6 @@ int main(int argc, char **argv)
+
+ 	if (do_sync) {
+ 		sync();
+-		sleep(2);
+ 	}
+
+ 	if (do_ifdown)

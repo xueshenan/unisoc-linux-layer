@@ -1,0 +1,54 @@
+From dd9ca430eb0988dc19ebb6cb754cb3d303b79b61 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Tue, 11 Oct 2022 00:04:21 +0800
+Subject: [PATCH] Bug #2011601-transplant-1.0-refpolicy-4
+
+[root cause  ]:
+[changes     ]:
+[side effects]:
+[self test   ]:
+[download normally]:
+[power on/off normally]:
+[do common repository/branch inspection]:
+[is there dependence]:
+[confirm dependent commit]:
+[board]:
+[test case]:
+[reviewers]:
+
+commit_template_version:v1
+---
+ policy/modules/system/init.if | 8 --------
+ policy/modules/system/init.te | 3 +--
+ 2 files changed, 1 insertion(+), 10 deletions(-)
+
+diff --git a/policy/modules/system/init.if b/policy/modules/system/init.if
+index 73795be63..e60c7df63 100644
+--- a/policy/modules/system/init.if
++++ b/policy/modules/system/init.if
+@@ -3225,11 +3225,3 @@ interface(`init_getrlimit',`
+ 	allow $1 init_t:process getrlimit;
+ ')
+ 
+-###############unisoc permission########################
+-interface(`init_initrc_t_perf_event',`
+-	gen_require(`   
+-     	type initrc_t;
+-	')
+-
+-  allow $1 initrc_t:perf_event { cpu kernel read write open };
+-')
+diff --git a/policy/modules/system/init.te b/policy/modules/system/init.te
+index 43ed56ebb..ee7c57d39 100644
+--- a/policy/modules/system/init.te
++++ b/policy/modules/system/init.te
+@@ -1425,5 +1425,4 @@ optional_policy(`
+ allow kernel_t init_t:process dyntransition;
+ allow devpts_t device_t:filesystem associate;
+ allow init_t self:capability2 block_suspend;
+-################unisoc permission########################
+-init_initrc_t_perf_event(initrc_t)
++
+-- 
+2.17.1
+

@@ -1,0 +1,85 @@
+From f4fcdb65af40fc4d4a17d0220502faa0a89e47be Mon Sep 17 00:00:00 2001
+From: "zhenghai.yang" <zhenghai.yang@unisoc.com>
+Date: Mon, 7 Nov 2022 14:41:34 +0800
+Subject: [PATCH] Bug #2062440 crond selinux
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[root cause  ]: crond 缺少selinux权限
+[changes     ]: 添加crond的selinux权限
+[side effects]:yes
+[self test   ]:yes
+[download normally]:yes
+[power on/off normally]:yes
+[do common repository/branch inspection]:no
+[is there dependence]:no
+[confirm dependent commit]:no
+[board]:9863
+[test case]:cron
+[reviewers]:hainan
+
+commit_template_version:v1
+---
+ policy/modules/admin/logrotate.if |  2 +-
+ policy/modules/services/cron.if   | 10 +++++++++-
+ policy/modules/system/logging.if  |  8 ++++++++
+ 3 files changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/policy/modules/admin/logrotate.if b/policy/modules/admin/logrotate.if
+index 3bc80b3..ec88cdd 100644
+--- a/policy/modules/admin/logrotate.if
++++ b/policy/modules/admin/logrotate.if
+@@ -150,7 +150,7 @@ interface(`logrotate_unlabeled_t_file',`
+         type unlabeled_t;
+     ')
+ 
+-    allow $1 unlabeled_t:file {read open getattr rename create write setattr ioctl unlink};
++    allow $1 unlabeled_t:file {read open getattr rename create write setattr ioctl unlink lock map};
+ ')
+ 
+ interface(`logrotate_unlabeled_t_dir',`
+diff --git a/policy/modules/services/cron.if b/policy/modules/services/cron.if
+index 77f5557..b7500d4 100644
+--- a/policy/modules/services/cron.if
++++ b/policy/modules/services/cron.if
+@@ -1025,7 +1025,7 @@ interface(`system_cronjob_bin_t_file',`
+         type bin_t;
+     ')
+ 
+-    allow $1 bin_t:file {rw_file_perms map entrypoint execute execute_no_trans};
++    allow $1 bin_t:file {rw_file_perms map entrypoint execute execute_no_trans entrypoint};
+ ')
+ 
+ interface(`crond_unlabeled_t_file',`
+@@ -1036,3 +1036,11 @@ interface(`crond_unlabeled_t_file',`
+     allow $1 unlabeled_t:file {rw_file_perms map};
+ ')
+ 
++interface(`crond_default_t_file',`
++     gen_require(`
++         type default_t;
++     ')
++
++     allow $1 unlabeled_t:file {open execute_no_trans execute read};
++')
++
+diff --git a/policy/modules/system/logging.if b/policy/modules/system/logging.if
+index fd0be2e..786fad6 100644
+--- a/policy/modules/system/logging.if
++++ b/policy/modules/system/logging.if
+@@ -1527,3 +1527,11 @@ interface(`syslogd_default_t_file',`
+     allow $1 default_t:file { manage_file_perms map execute execute_no_trans };
+ ')
+ 
++interface(`syslogd_crond_t_file',`
++    gen_require(`
++        type crond_t;
++    ')
++
++    allow $1 default_t:fifo_file {read append ioctl};
++')
++
+-- 
+2.7.4
+

@@ -1,0 +1,42 @@
+From 4e25eb4e5a44440b5952bed7b8ed7619e183164f Mon Sep 17 00:00:00 2001
+From: "zhijun.li" <zhijun.li@unisoc.com>
+Date: Wed, 26 Oct 2022 13:45:10 +0800
+Subject: [PATCH] Bug-2059680-2022-10-26-factory-scan-fail
+
+---
+ policy/modules/services/networkmanager.if | 8 ++++++++
+ policy/modules/services/networkmanager.te | 2 ++
+ 2 files changed, 10 insertions(+)
+
+diff --git a/policy/modules/services/networkmanager.if b/policy/modules/services/networkmanager.if
+index d664f7f..0fe3c61 100644
+--- a/policy/modules/services/networkmanager.if
++++ b/policy/modules/services/networkmanager.if
+@@ -396,6 +396,14 @@ interface(`networkmanager_tmpfs_t_sock_file',`
+ 
+     allow $1 tmpfs_t:sock_file { write };
+ ')
++###############################################
++interface(`networkmanager_tmp_t_sock_file',`
++    gen_require(`
++       type tmp_t;
++   ')
++
++    allow $1 tmp_t:sock_file { write };
++')
+ ################################################
+ interface(`networkmanager_initrc_t_unix_dgram_socket',`
+     gen_require(`
+diff --git a/policy/modules/services/networkmanager.te b/policy/modules/services/networkmanager.te
+index c062272..37956f3 100644
+--- a/policy/modules/services/networkmanager.te
++++ b/policy/modules/services/networkmanager.te
+@@ -410,3 +410,5 @@ networkmanager_initrc_t_unix_dgram_socket(NetworkManager_t)
+ networkmanager_etc_t_file(NetworkManager_t)
+ 
+ networkmanager_var_lib_t_file(NetworkManager_t)
++# add for wifi_test_cli
++networkmanager_tmp_t_sock_file(NetworkManager_t)
+-- 
+2.7.4
+

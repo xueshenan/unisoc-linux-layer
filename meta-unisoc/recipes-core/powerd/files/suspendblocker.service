@@ -1,0 +1,12 @@
+[Unit]
+Description=suspendblocker Service
+
+[Service]
+ExecStart=/usr/bin/suspendblocker
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+Alias=suspendblocker.service
+

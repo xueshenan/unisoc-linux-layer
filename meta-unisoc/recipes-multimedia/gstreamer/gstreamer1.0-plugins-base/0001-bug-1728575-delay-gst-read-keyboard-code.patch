@@ -1,0 +1,49 @@
+diff --git a/tools/gst-play-kb.c b/tools/gst-play-kb.c
+index cd4f628..09378bc 100755
+--- a/tools/gst-play-kb.c
++++ b/tools/gst-play-kb.c
+@@ -54,11 +54,29 @@ gst_play_kb_io_cb (GIOChannel * ioc, GIOCondition cond, gpointer user_data)
+   if (cond & G_IO_IN) {
+     gchar buf[16] = { 0, };
+     gsize read;
+-
++    gchar key = '\0';
++    
+     status = g_io_channel_read_chars (ioc, buf, sizeof (buf) - 1, &read, NULL);
+     if (status == G_IO_STATUS_ERROR)
+       return FALSE;
+-    if (status == G_IO_STATUS_NORMAL) {
++
++    /*After pressing the key, GStreamer reads the key code immediately. 
++     *Because some keys have multiple codes, stdin has not finished writing, 
++     *and GStreamer reads away, so it needs to read after delay
++     */
++    key = g_ascii_tolower (buf[0]);
++    if (key == 27) {
++        gchar buf_c[16] = { 0, };
++        if((buf[1] == '\0') || (buf[2] == '\0')) {
++            g_usleep (3000);
++            status = g_io_channel_read_chars (ioc, buf_c, sizeof (buf_c) - 1, &read, NULL);
++            if (status == G_IO_STATUS_NORMAL) {
++                strcat(buf, buf_c);
++            }
++        }
++    }
++    
++    if ((status == G_IO_STATUS_NORMAL) || (status == G_IO_STATUS_EOF)) {
+       if (kb_callback)
+         kb_callback (buf, kb_callback_data);
+     }
+diff --git a/tools/gst-play.c b/tools/gst-play.c
+index 8183001..9cbc617 100755
+--- a/tools/gst-play.c
++++ b/tools/gst-play.c
+@@ -1200,7 +1200,7 @@ play_cycle_track_selection (GstPlay * play, GstPlayTrackType track_type)
+     if (!(cur_flags & flag))
+       cur = 0;
+     else
+-      cur = (cur + 1) % (n + 1);
++      cur = (cur + 1) % n;
+   }
+ 
+   if (n < 1) {

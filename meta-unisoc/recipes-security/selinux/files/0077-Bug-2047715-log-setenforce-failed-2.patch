@@ -1,0 +1,62 @@
+From 8846c8cd8a46730eeef5de53e920ce0dbf6148a5 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Fri, 21 Oct 2022 10:46:38 +0800
+Subject: [PATCH] Bug #2047715 log&&setenforce-failed-2
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/services/rngd.if | 16 ++++++++++++++++
+ policy/modules/services/rngd.te |  2 ++
+ 2 files changed, 18 insertions(+)
+
+diff --git a/policy/modules/services/rngd.if b/policy/modules/services/rngd.if
+index b3f4c264d..73d8951b1 100644
+--- a/policy/modules/services/rngd.if
++++ b/policy/modules/services/rngd.if
+@@ -64,3 +64,19 @@ interface(`rngd_rngd_t_process',`
+     allow $1 rngd_t:process {setsched getsched};
+ ')
+ 
++interface(`rngd_sysfs_t_dir',`
++    gen_require(`
++        type sysfs_t;
++    ')
++
++    allow $1 sysfs_t:dir {rw_dir_perms};
++')
++
++interface(`rngd_sysfs_t_file',`
++    gen_require(`
++        type sysfs_t;
++    ')
++
++    allow $1 sysfs_t:file {rw_file_perms};
++')
++
+diff --git a/policy/modules/services/rngd.te b/policy/modules/services/rngd.te
+index 2aea8f60c..5c6c995d5 100644
+--- a/policy/modules/services/rngd.te
++++ b/policy/modules/services/rngd.te
+@@ -46,4 +46,6 @@ rngd_kmsg_device_t_chr_file(rngd_t)
+ rngd_unlabeled_t_dir(rngd_t)
+ rngd_unlabeled_t_lnk_file(rngd_t)
+ rngd_rngd_t_process(rngd_t)
++rngd_sysfs_t_dir(rngd_t)
++rngd_sysfs_t_file(rngd_t)
+ 
+-- 
+2.17.1
+

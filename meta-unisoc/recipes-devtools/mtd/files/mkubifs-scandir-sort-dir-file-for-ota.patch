@@ -1,0 +1,241 @@
+Index: git/ubifs-utils/mkfs.ubifs/mkfs.ubifs.c
+===================================================================
+--- git.orig/ubifs-utils/mkfs.ubifs/mkfs.ubifs.c
++++ git/ubifs-utils/mkfs.ubifs/mkfs.ubifs.c
+@@ -1622,6 +1622,8 @@ static int add_directory(const char *dir
+ 	unsigned long long dir_creat_sqnum = ++c->max_sqnum;
+ 
+ 	dbg_msg(2, "%s", dir_name);
++	sys_err_msg("open directory '%s'",dir_name);
++
+ 	if (existing) {
+ 		dir = opendir(dir_name);
+ 		if (dir == NULL)
+@@ -1658,6 +1660,7 @@ static int add_directory(const char *dir
+ 		if (strcmp("..", entry->d_name) == 0)
+ 			continue;
+ 
++		sys_err_msg("open directory and fime '%s' d_off offset = %lld",entry->d_name,entry->d_off);
+ 		if (ph_elt)
+ 			/*
+ 			 * This directory was referred to at the device table
+@@ -1796,6 +1799,209 @@ out_free:
+ 	return -1;
+ }
+ 
++
++/**
++ * add_directory - write a directory tree to the output file.
++ * @dir_name: directory path name
++ * @dir_inum: UBIFS inode number of directory
++ * @st: directory inode statistics
++ * @non_existing: non-zero if this function is called for a directory which
++ *                does not exist on the host file-system and it is being
++ *                created because it is defined in the device table file.
++ */
++static int add_directory_via_scandir(const char *dir_name, ino_t dir_inum, struct stat *st,
++			 int non_existing)
++{
++	struct dirent **entry;
++	DIR *dir = NULL;
++	int err = 0;
++	loff_t size = UBIFS_INO_NODE_SZ;
++	char *name = NULL;
++	unsigned int nlink = 2;
++	struct path_htbl_element *ph_elt;
++	struct name_htbl_element *nh_elt = NULL;
++	struct hashtable_itr *itr;
++	ino_t inum;
++	unsigned char type;
++	unsigned long long dir_creat_sqnum = ++c->max_sqnum;
++	int dir_index = 0;
++
++
++	dbg_msg(2, "scandir open dir: %s", dir_name);
++	if (!non_existing) {
++		//ret =  scandir(dir_name, &entry, 0, alphasort);
++		dir = opendir(dir_name);
++		if (dir == NULL)
++			return sys_err_msg("cannot open directory '%s'",
++					   dir_name);
++		
++		/*if (ret < 0)
++			return sys_err_msg("cannot open directory '%s'",
++					   dir_name);*/
++	}
++
++	/*
++	 * Check whether this directory contains files which should be
++	 * added/changed because they were specified in the device table.
++	 * @ph_elt will be non-zero if yes.
++	 */
++	ph_elt = devtbl_find_path(dir_name + root_len - 1);
++
++	/*
++	 * Before adding the directory itself, we have to iterate over all the
++	 * entries the device table adds to this directory and create them.
++	 */
++	dir_index =  scandir(dir_name, &entry, 0, alphasort);
++	if(dir_index < 0){
++		sys_err_msg("error reading directory '%s'", dir_name);
++		return -1;
++	}else{
++		while(dir_index--){
++			struct stat dent_st;
++			if (strcmp(".", entry[dir_index]->d_name) == 0)
++				continue;
++			if (strcmp("..", entry[dir_index]->d_name) == 0)
++				continue;
++
++			sys_err_msg("scandir open directory '%s' d_off is %lld ", entry[dir_index]->d_name,entry[dir_index]->d_off);
++			if (ph_elt)
++				/*
++				* This directory was referred to at the device table
++				* file. Check if this directory entry is referred at
++				* too.
++				*/
++				nh_elt = devtbl_find_name(ph_elt, entry[dir_index]->d_name);
++
++			/*
++			* We are going to create the file corresponding to this
++			* directory entry (@entry->d_name). We use 'struct stat'
++			* object to pass information about file attributes (actually
++			* only about UID, GID, mode, major, and minor). Get attributes
++			* for this file from the UBIFS rootfs on the host.
++			*/
++			free(name);
++			name = make_path(dir_name,  entry[dir_index]->d_name);
++			//name =  entry[dir_index]->d_name;
++			
++			if (lstat(name, &dent_st) == -1) {
++				sys_err_msg("lstat failed for file '%s'", name);
++				goto out_free;
++			}
++
++			if (squash_owner)
++				/*
++				* Squash UID/GID. But the device table may override
++				* this.
++				*/
++				dent_st.st_uid = dent_st.st_gid = 0;
++
++			/*
++			* And if the device table describes the same file, override
++			* the attributes. However, this is not allowed for device node
++			* files.
++			*/
++			if (nh_elt && override_attributes(&dent_st, ph_elt, nh_elt))
++				goto out_free;
++
++			inum = ++c->highest_inum;
++
++			if (S_ISDIR(dent_st.st_mode)) {
++				err = add_directory_via_scandir(name, inum, &dent_st, 0);
++				if (err)
++					goto out_free;
++				nlink += 1;
++				type = UBIFS_ITYPE_DIR;
++			} else {
++				err = add_non_dir(name, &inum, 0, &type, &dent_st);
++				if (err)
++					goto out_free;
++			}
++
++			err = add_dent_node(dir_inum, entry[dir_index]->d_name, inum, type);
++			if (err)
++				goto out_free;
++			size += ALIGN(UBIFS_DENT_NODE_SZ + strlen(entry[dir_index]->d_name) + 1,
++					8);
++		}//while
++	}//
++
++	/*
++	 * OK, we have created all files in this directory (recursively), let's
++	 * also create all files described in the device table. All t
++	 */
++	nh_elt = first_name_htbl_element(ph_elt, &itr);
++	while (nh_elt) {
++		struct stat fake_st;
++
++		/*
++		 * We prohibit creating regular files using the device table,
++		 * the device table may only re-define attributes of regular
++		 * files.
++		 */
++		if (S_ISREG(nh_elt->mode)) {
++			err_msg("Bad device table entry %s/%s - it is "
++				"prohibited to create regular files "
++				"via device table",
++				strcmp(ph_elt->path, "/") ? ph_elt->path : "",
++				nh_elt->name);
++			goto out_free;
++		}
++
++		memcpy(&fake_st, &root_st, sizeof(struct stat));
++		fake_st.st_uid  = nh_elt->uid;
++		fake_st.st_uid  = nh_elt->uid;
++		fake_st.st_mode = nh_elt->mode;
++		fake_st.st_rdev = nh_elt->dev;
++		fake_st.st_nlink = 1;
++
++		free(name);
++		name = make_path(dir_name, nh_elt->name);
++		inum = ++c->highest_inum;
++
++		if (S_ISDIR(nh_elt->mode)) {
++			err = add_directory(name, inum, &fake_st, 1);
++			if (err)
++				goto out_free;
++			nlink += 1;
++			type = UBIFS_ITYPE_DIR;
++		} else {
++			err = add_non_dir(name, &inum, 0, &type, &fake_st);
++			if (err)
++				goto out_free;
++		}
++
++		err = add_dent_node(dir_inum, nh_elt->name, inum, type);
++		if (err)
++			goto out_free;
++		size += ALIGN(UBIFS_DENT_NODE_SZ + strlen(nh_elt->name) + 1, 8);
++
++		nh_elt = next_name_htbl_element(ph_elt, &itr);
++	}
++
++	creat_sqnum = dir_creat_sqnum;
++
++	//err = add_dir_inode(dir, dir_inum, size, nlink, st);
++	err = add_dir_inode(dir ? dir_name : NULL, dir, dir_inum, size, nlink, st);
++	if (err)
++		goto out_free;
++
++	free(name);
++	free(entry);
++	if (!non_existing && closedir(dir) == -1)
++		return sys_err_msg("error closing directory '%s'", dir_name);
++
++	return 0;
++
++out_free:
++	free(name);
++	if (!non_existing)
++		closedir(dir);
++	if(entry != NULL)
++		free(entry);
++	return -1;
++}
++
++
+ /**
+  * add_multi_linked_files - write all the files for which we counted links.
+  */
+@@ -1845,7 +2051,8 @@ static int write_data(void)
+ 	if (err)
+ 		return err;
+ 
+-	err = add_directory(root, UBIFS_ROOT_INO, &root_st, !!root);
++	//err = add_directory(root, UBIFS_ROOT_INO, &root_st, !!root);
++	err = add_directory_via_scandir(root, UBIFS_ROOT_INO, &root_st, !!root);
+ 	if (err)
+ 		return err;
+ 	err = add_multi_linked_files();

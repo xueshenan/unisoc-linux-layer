@@ -1,0 +1,22 @@
+diff --git a/src/wscript_build b/src/wscript_build
+index 65e107f..a3d0d46 100644
+--- a/src/wscript_build
++++ b/src/wscript_build
+@@ -69,7 +69,7 @@ flavor_uselibs = {
+   'mir-gl' : ['mirclient', 'glad-egl-mir', 'glad-gl', 'matrix-gl', 'common-gl'],
+   'mir-glesv2' : ['mirclient', 'glad-egl-mir', 'glad-glesv2', 'matrix-glesv2', 'common-glesv2'],
+   'wayland-gl' : ['wayland-client', 'wayland-egl', 'glad-egl-wayland', 'glad-gl', 'matrix-gl', 'common-gl'],
+-  'wayland-glesv2' : ['wayland-client', 'wayland-egl', 'glad-egl-wayland', 'glad-glesv2', 'matrix-glesv2', 'common-glesv2'],
++  'wayland-glesv2' : ['wayland-client', 'glad-egl-wayland', 'glad-glesv2', 'matrix-glesv2', 'common-glesv2'],
+   'win32-gl': ['glad-gl', 'glad-wgl', 'matrix-gl', 'common-gl'],
+   'win32-glesv2': ['glad-egl-win32', 'glad-glesv2', 'matrix-glesv2', 'common-glesv2'],
+   'x11-gl' : ['x11', 'glad-gl', 'glad-glx', 'matrix-gl', 'common-gl'],
+@@ -96,7 +96,7 @@ flavor_libs = {
+   'mir-gl' : [],
+   'mir-glesv2' : [],
+   'wayland-gl' : [],
+-  'wayland-glesv2' : [],
++  'wayland-glesv2' : ['wayland-egl', 'mali'],
+   'win32-gl': ['opengl32', 'gdi32'],
+   'win32-glesv2' : [],
+   'x11-gl' : [],

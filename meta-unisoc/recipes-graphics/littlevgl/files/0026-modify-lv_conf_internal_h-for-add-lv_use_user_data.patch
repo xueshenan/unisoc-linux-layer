@@ -1,0 +1,13 @@
+diff --git a/src/lv_conf_internal.h b/src/lv_conf_internal.h
+index a8e379798..13ed972e7 100755
+--- a/src/lv_conf_internal.h
++++ b/src/lv_conf_internal.h
+@@ -303,7 +303,7 @@ e.g. "stm32f769xx.h" or "stm32f429xx.h" */
+
+ /*1: Add a `user_data` to drivers and objects*/
+ #ifndef LV_USE_USER_DATA
+-#define LV_USE_USER_DATA        0
++#define LV_USE_USER_DATA        1
+ #endif
+
+ /*1: Show CPU usage and FPS count in the right bottom corner*/

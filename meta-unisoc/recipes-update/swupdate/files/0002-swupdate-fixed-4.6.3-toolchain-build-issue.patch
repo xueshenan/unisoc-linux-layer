@@ -1,0 +1,15 @@
+:100644 100644 8060ff9... 0000000... M	Makefile
+
+diff --git a/Makefile b/Makefile
+index 8060ff9..45ec2c9 100644
+--- a/Makefile
++++ b/Makefile
+@@ -348,6 +348,8 @@ endif # $(dot-config)
+ # Now we can define CFLAGS etc according to .config
+ include $(srctree)/Makefile.flags
+
++# add -lrt for 4.6.3 toolchain build
++LDLIBS += rt
+ # The all: target is the default when no target is given on the
+ # command line.
+ # This allow a user to issue only 'make' to build a kernel including modules

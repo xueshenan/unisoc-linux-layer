@@ -1,0 +1,12 @@
+[Unit]
+Description=Android Debug Bridge
+
+[Service]
+Type=simple
+Restart=on-failure
+ExecStart= /bin/sh -c '/usr/sbin/adbd-init.sh start'
+StandardOutput=null
+
+[Install]
+WantedBy=basic.target
+

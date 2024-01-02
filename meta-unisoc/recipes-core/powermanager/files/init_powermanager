@@ -1,0 +1,49 @@
+#!/bin/sh
+DAEMON=/usr/bin/powermanager
+DESC="powermanager"
+NAME=powermanager
+
+# Exit if the package is not installed
+[ -x "$DAEMON" ] || exit 0
+
+# Read configuration variable file if it is present
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+
+do_start() {
+cat /etc/inittab | grep "$DAEMON"
+
+if [ $? -eq 0 ]
+then
+    echo "Starting $DESC from inittab"
+else
+    echo "Starting $DESC"
+    $DAEMON &
+fi
+}
+
+do_stop() {
+	start-stop-daemon --stop --name powerd --quiet
+}
+
+case "$1" in
+  start)
+	do_start
+	;;
+  stop)
+	echo "Stopping $DESC"
+	do_stop
+	;;
+  restart|force-reload)
+	echo "Restarting $DESC"
+	do_stop
+	sleep 1
+	do_start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0
+

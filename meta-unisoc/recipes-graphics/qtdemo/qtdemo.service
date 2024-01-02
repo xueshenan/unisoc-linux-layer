@@ -1,0 +1,11 @@
+[Unit]
+Description=qt demo test
+RequiresMountsFor=/run
+
+[Service]
+User=root
+ExecStart=/usr/bin/qtdemo-init.sh
+
+[Install]
+WantedBy=multi-user.target
+

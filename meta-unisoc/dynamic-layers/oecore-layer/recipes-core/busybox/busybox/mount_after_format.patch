@@ -1,0 +1,57 @@
+# SPDX-FileCopyrightText: 2019-2021 Unisoc (Shanghai) Technologies Co., Ltd.
+#
+# SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
+
+diff --git a/util-linux/mount.c b/util-linux/mount.c
+index 2acde04..12ccd19 100644
+--- a/util-linux/mount.c
++++ b/util-linux/mount.c
+@@ -185,6 +185,10 @@
+ #include <mntent.h>
+ #include <syslog.h>
+ #include <sys/mount.h>
++#include <mtd/ubi-user.h>
++#include "libbb.h"
++#include <unistd.h>
++#include <linux/kernel.h>
+ // Grab more as needed from util-linux's mount/mount_constants.h
+ #ifndef MS_DIRSYNC
+ # define MS_DIRSYNC     (1 << 7) // Directory modifications are synchronous
+@@ -703,6 +707,34 @@ static int mount_it_now(struct mntent *mp, unsigned long vfsflags, char *filtero
+ 		rc = verbose_mount(mp->mnt_fsname, mp->mnt_dir, mp->mnt_type,
+ 				vfsflags, filteropts);
+ 
++ 		// Mount after userdata and prodnv  formatting
++               if(strcmp(mp->mnt_type,"ubifs") == 0) {
++                       if(rc && (  (strcmp(mp->mnt_fsname, "/dev/ubi0_prodnv") == 0) || (strcmp(mp->mnt_fsname, "/dev/ubi0_userdata") == 0)) ){
++                               printf("%s mount failed,we are formating it\n",mp->mnt_fsname);
++                               int rv = -1;
++                               int64_t byte =0;
++                               int fd = open(mp->mnt_fsname,O_RDWR);
++                               if(fd < 0) {
++                                       printf("open volume  %s failed\n",mp->mnt_fsname);
++                                       goto ret;
++                               }
++                               rv = ioctl(fd,UBI_IOCVOLUP,&byte);
++                               if(rv != 0) {
++                                       close(fd);
++                                       printf("volume %s update failed (%d)\n",mp->mnt_fsname,rv);
++                                       goto ret;
++                               }
++                               close(fd);
++                               rc = verbose_mount(mp->mnt_fsname, mp->mnt_dir, mp->mnt_type,
++                                                       vfsflags, filteropts);
++                               if (rc == 0) {
++                                       printf("mount volume %s success after formating\n",mp->mnt_fsname);
++                                       goto mtab;
++                               }
++                       }
++               }
++
++
+ 		// If mount failed, try
+ 		// helper program mount.<mnt_type>
+ 		if (HELPERS_ALLOWED && rc && mp->mnt_type) {
+-- 
+2.17.1
+

@@ -1,0 +1,15 @@
+diff --git a/src/msgqueue.c b/src/msgqueue.c
+index 88f32ec..02eed2a 100644
+--- a/src/msgqueue.c
++++ b/src/msgqueue.c
+@@ -249,6 +249,10 @@ int msgqueue_handler_init( mtp_ctx * ctx )
+ 
+ 			ctx->msgqueue_id = msgget(key, 0666 | IPC_CREAT);
+ 
++			msgctl(ctx->msgqueue_id,IPC_RMID,NULL);
++
++			ctx->msgqueue_id = msgget(key, 0666 | IPC_CREAT);
++
+ 			if(ctx->msgqueue_id != -1)
+ 			{
+ 				PRINT_DEBUG("msgqueue_handler_init : msgqueue_id = %d", ctx->msgqueue_id);

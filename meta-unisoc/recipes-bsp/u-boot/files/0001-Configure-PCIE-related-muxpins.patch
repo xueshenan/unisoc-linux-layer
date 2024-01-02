@@ -1,0 +1,31 @@
+From 3b876a19cd3d201fc2ca2dc1da39ad5cb73fd853 Mon Sep 17 00:00:00 2001
+From: fujia <fujia@bingtangtech.com>
+Date: Mon, 14 Aug 2023 16:38:19 +0800
+Subject: [PATCH] Configure-PCIE-related-muxpins
+
+---
+ board/spreadtrum/ums9620_2h10/pinmap.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/board/spreadtrum/ums9620_2h10/pinmap.c b/board/spreadtrum/ums9620_2h10/pinmap.c
+index 772d3bb..d092464 100755
+--- a/board/spreadtrum/ums9620_2h10/pinmap.c
++++ b/board/spreadtrum/ums9620_2h10/pinmap.c
+@@ -447,11 +447,11 @@ static pinmap_t pinmap[]={
+ {REG_MISC_PIN_SD1_D0,                   BITS_PIN_DS(3)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_OE},//WF_SD1_D0
+ {REG_PIN_SD1_D1,                        BITS_PIN_AF(3)},
+ {REG_MISC_PIN_SD1_D1,                   BITS_PIN_DS(3)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_OE},//WF_SD1_D1
+-{REG_PIN_SD1_CLK,                       BITS_PIN_AF(3)},
++{REG_PIN_SD1_CLK,                       BITS_PIN_AF(1)}, //PCIE3_RST
+ {REG_MISC_PIN_SD1_CLK,                  BITS_PIN_DS(4)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_OE},//WF_SD1_CLK
+-{REG_PIN_SD1_D2,                        BITS_PIN_AF(3)},
++{REG_PIN_SD1_D2,                        BITS_PIN_AF(1)}, //PCIE3_CLK
+ {REG_MISC_PIN_SD1_D2,                   BITS_PIN_DS(3)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//WF_SD1_D2
+-{REG_PIN_SD1_D3,                        BITS_PIN_AF(3)},
++{REG_PIN_SD1_D3,                        BITS_PIN_AF(1)}, //PCIE3_WAKEUP
+ {REG_MISC_PIN_SD1_D3,                   BITS_PIN_DS(3)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_OE},//WF_SD1_D3
+ {REG_PIN_U5TXD,                         BITS_PIN_AF(3)},
+ {REG_MISC_PIN_U5TXD,                    BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_OE},//I2C5_SCL
+-- 
+2.25.1
+

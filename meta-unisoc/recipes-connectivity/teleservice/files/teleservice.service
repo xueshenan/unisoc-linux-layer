@@ -1,0 +1,16 @@
+[Unit]
+Description=teleservice Daemon Service
+After=ofono.service
+
+
+[Service]
+ExecStart=/usr/bin/tele-service
+
+#User=radio
+#Group=radio
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+

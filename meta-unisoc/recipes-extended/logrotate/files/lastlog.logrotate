@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2022 Unisoc (Shanghai) Technologies Co., Ltd.
+#
+# SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
+
+# Unisoc default rules for rsyslog.
+#
+# For more informaton see rsyslog.conf
+
+/mnt/data/log/lastlog
+/mnt/data/log/cachelog
+{
+    su root adm
+    rotate 10
+    notifempty
+    compress
+}
+
+/mnt/media/log/cachelog
+/mnt/media/log/lastlog
+{
+    su root adm
+    rotate 10
+    notifempty
+    compress
+}
+

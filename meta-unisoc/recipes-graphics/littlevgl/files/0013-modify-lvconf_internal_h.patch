@@ -1,0 +1,17 @@
+diff --git a/src/lv_conf_internal.h b/src/lv_conf_internal.h
+index 77c1bda..90e33f6 100644
+--- a/src/lv_conf_internal.h
++++ b/src/lv_conf_internal.h
+@@ -32,10 +32,10 @@
+ 
+ /* Maximal horizontal and vertical resolution to support by the library.*/
+ #ifndef LV_HOR_RES_MAX
+-#define LV_HOR_RES_MAX          (480)
++extern int LV_HOR_RES_MAX;
+ #endif
+ #ifndef LV_VER_RES_MAX
+-#define LV_VER_RES_MAX          (320)
++extern int LV_VER_RES_MAX;
+ #endif
+ 
+ /* Color depth:

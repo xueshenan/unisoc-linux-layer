@@ -1,0 +1,71 @@
+#!/bin/sh
+#
+#first usb enum after kernel start
+#
+
+do_start() {
+        if [ ! -f "/mnt/data/usbenum.ini" ];then
+                cp /etc/usbenum/usbenum.ini /mnt/data/usbenum.ini
+        fi
+	AfterPL=$(/usr/bin/rwini.sh /mnt/data/usbenum.ini property AfterPowerLoss)
+	if [ "$AfterPL"x != "1"x ];then
+		cp /etc/usbenum/usbenum.ini /mnt/data/usbenum.ini
+	fi
+	echo "starting usbenum"
+	cat /proc/cmdline | grep "linuxboot.mode=cali"
+	if [ $? -eq 0 ];then
+		/usr/bin/usbenum.sh cali &
+		exit 0
+	fi
+	cat /proc/cmdline | grep "linuxboot.mode=autotest"
+	if [ $? -eq 0 ];then
+		/usr/bin/usbenum.sh autotest &
+		exit 0
+	fi
+	cat /mnt/data/engpc.ini | grep "engpcenable"
+	if [ $? -eq 0 ];then
+		/usr/bin/usbenum.sh set diag 1
+		/usr/bin/usbenum.sh set log 1
+		/usr/bin/usbenum.sh usbmode init &
+		exit 0
+	fi
+	cat /mnt/data/engpc.ini | grep "engpcdisable"
+	if [ $? -eq 0 ];then
+		/usr/bin/usbenum.sh set diag 0
+		/usr/bin/usbenum.sh set log 0
+		/usr/bin/usbenum.sh usbmode init &
+		exit 0
+	fi
+	cat /etc/engpc/engpc.ini | grep "engpcenable"
+	if [ $? -eq 0 ];then
+		/usr/bin/usbenum.sh set diag 1
+		/usr/bin/usbenum.sh set log 1
+		/usr/bin/usbenum.sh usbmode init &
+		exit 0
+	fi
+	cat /etc/engpc/engpc.ini | grep "engpcdisable"
+	if [ $? -eq 0 ];then
+		/usr/bin/usbenum.sh set diag 0
+		/usr/bin/usbenum.sh set log 0
+		/usr/bin/usbenum.sh usbmode init &
+		exit 0
+	fi
+
+	/usr/bin/usbenum.sh usbmode init &
+	exit 0
+}
+
+case "$1" in
+  start)
+	echo "starting usbenum"
+	do_start
+	;;
+  stop)
+	;;
+  restart)
+	;;
+  *)
+	exit 1
+	;;
+esac
+exit 0

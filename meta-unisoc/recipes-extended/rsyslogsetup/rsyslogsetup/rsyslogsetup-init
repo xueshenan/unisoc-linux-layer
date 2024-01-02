@@ -1,0 +1,131 @@
+# SPDX-FileCopyrightText: 2022 Unisoc (Shanghai) Technologies Co., Ltd.
+#
+# SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
+
+#Start before rsyslog, set for ##LASTLOG and others
+
+#! /bin/sh
+#
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+
+
+
+do_status() {
+	if [ ! -d /mnt/data/rsyslog.d ]; then
+	    mkdir /mnt/data/rsyslog.d
+	fi
+
+	if [ ! -f /mnt/data/rsyslog.d/unirlog.ini ]; then
+	    cp /etc/rsyslog.d/unirlog.ini /mnt/data/rsyslog.d/unirlog.ini
+	fi
+
+	if [ ! -f /mnt/data/unirlog-service.ini ]; then
+	    cp /etc/rsyslog.d/unirlog-service.ini /mnt/data/unirlog-service.ini
+	fi
+
+	. /mnt/data/rsyslog.d/unirlog.ini
+}
+
+do_syslog() {
+	let found_cali=`grep "sprdboot.mode=cali" /proc/cmdline -o | wc -l`
+	let found_bbat=`grep "sprdboot.mode=autotest" /proc/cmdline -o | wc -l`
+	let found_factorytest=`grep "sprdboot.mode=factorytest" /proc/cmdline -o | wc -l`
+	if [[ $found_cali -ne 0 ]]||[[ $found_bbat -ne 0 ]]||[[ $found_factorytest -ne 0 ]]; then
+		STARTMODE=2
+	else
+		STARTMODE=5
+	fi
+	if [ "$STARTMODE" = "5" ]; then
+		if [ ! -f /mnt/data/rsyslog.d/unisoc-rsyslog-default.conf ]; then
+			cp -r /etc/rsyslog.d/unisoc-rsyslog-default.conf /mnt/data/rsyslog.d/unisoc-rsyslog-default.conf
+			rm /mnt/data/rsyslog.d/unisoc-rsyslog-cbf.conf
+		fi
+	else
+		if [ ! -f /mnt/data/rsyslog.d/unisoc-rsyslog-cbf.conf ]; then
+			cp -r /etc/rsyslog.d/unisoc-rsyslog-cbf.conf /mnt/data/rsyslog.d/unisoc-rsyslog-cbf.conf
+			rm /mnt/data/rsyslog.d/unisoc-rsyslog-default.conf
+		fi
+	fi
+}
+
+do_logrotate() {
+	if [ ! -d /mnt/data/logrotate.d ]; then
+		mkdir /mnt/data/logrotate.d
+		cp /etc/logrotate.d/syslog.logrotate /mnt/data/logrotate.d/syslog.logrotate
+	fi
+	if [ ! -f /mnt/data/logrotate.d/syslog.logrotate ]; then
+		cp /etc/logrotate.d/syslog.logrotate /mnt/data/logrotate.d/syslog.logrotate
+	fi
+}
+
+do_lastlog() {
+	if [ "$LAST_LOG_STATUS" = "1" ]; then
+		if mountpoint -q /mnt/media
+		then
+			if [ -f /mnt/media/log/current.log ]; then
+				mv /mnt/media/log/current.log* /mnt/media/
+				tar -zcvf /mnt/media/log/lastlog /mnt/media/current.log* && \
+				rm -rf /mnt/media/current* && \
+				logrotate -f /etc/logrotate.d/lastlog.logrotate &
+			fi
+			if [ -d /mnt/media/log/cache ]; then
+				mv /mnt/media/log/cache/ /mnt/media/
+				tar -zcvf /mnt/media/log/cachelog /mnt/media/cache/ && \
+				rm -rf /mnt/media/cache/ && \
+				logrotate -f /etc/logrotate.d/lastlog.logrotate &
+			fi
+		else
+			if [ -f /mnt/data/log/current.log ]; then
+				mv /mnt/data/log/current.log* /mnt/data/
+				tar -zcvf /mnt/data/log/lastlog /mnt/data/current.log* && \
+				rm -rf /mnt/data/current* && \
+				logrotate -f /etc/logrotate.d/lastlog.logrotate &
+			fi
+			if [ -d /mnt/data/log/cache ]; then
+				mv /mnt/data/log/cache/ /mnt/data/
+				tar -zcvf /mnt/data/log/cachelog /mnt/data/cache/ && \
+				rm -rf /mnt/data/cache/ && \
+				logrotate -f /etc/logrotate.d/lastlog.logrotate &
+			fi
+		fi
+		#logrotate -f /etc/logrotate.d/lastlog.logrotate
+	fi
+}
+
+do_crashlog() {
+	if [ "$CRASHLOG_STATUS" = "1" ]; then
+		sysctl kernel.print-fatal-signals=1
+	else
+		sysctl kernel.print-fatal-signals=0
+	fi
+}
+
+do_setpath() {
+	. /usr/bin/setup-log-path
+}
+
+case "$1" in
+  start)
+	echo "rsyslogsetup-init start..."
+	do_status
+	do_syslog
+	do_logrotate
+	do_lastlog
+	do_crashlog
+	do_setpath
+	echo "done"
+       ;;
+  stop)
+        ;;
+  reload|force-reload)
+        ;;
+  restart)
+        ;;
+  status)
+        ;;
+  *)
+        ;;
+esac
+exit 0
+

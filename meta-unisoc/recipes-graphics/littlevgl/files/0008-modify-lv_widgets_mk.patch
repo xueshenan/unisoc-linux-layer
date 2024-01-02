@@ -1,0 +1,13 @@
+diff --git a/src/lv_widgets/lv_widgets.mk b/src/lv_widgets/lv_widgets.mk
+index e8835ae..6817e62 100644
+--- a/src/lv_widgets/lv_widgets.mk
++++ b/src/lv_widgets/lv_widgets.mk
+@@ -32,6 +32,8 @@ CSRCS += lv_switch.c
+ CSRCS += lv_win.c
+ CSRCS += lv_objmask.c
+
++CSRCS += lv_multimedia.c
++
+ DEPPATH += --dep-path $(LVGL_DIR)/$(LVGL_DIR_NAME)/src/lv_widgets
+ VPATH += :$(LVGL_DIR)/$(LVGL_DIR_NAME)/src/lv_widgets
+

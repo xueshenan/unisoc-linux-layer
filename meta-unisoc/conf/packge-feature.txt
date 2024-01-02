@@ -1,0 +1,7 @@
+##
+## Collections of package feature defined with "FEATURE_PACKAGES_"
+## Such as "FEATURE_PACKAGES_ssh-server-openssh = "packagegroup-core-ssh-openssh"
+##
+
+# feature-name	Description
+lrzsz		linux下的文件传输工具，通过它可以使用SecureCRT传输文件

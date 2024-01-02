@@ -1,0 +1,16 @@
+diff --git a/wpa_supplicant/ap.c b/wpa_supplicant/ap.c
+index 6ef4e15..75685b4 100755
+--- a/wpa_supplicant/ap.c
++++ b/wpa_supplicant/ap.c
+@@ -65,7 +65,11 @@ static void wpas_conf_ap_vht(struct wpa_supplicant *wpa_s,
+	ieee80211_freq_to_chan(ssid->vht_center_freq2,
+ 			       &conf->vht_oper_centr_freq_seg1_idx);
+
++#ifdef CONFIG_ACS
++	if (!ssid->p2p_group && !ssid->acs) {
++#else
+	if (!ssid->p2p_group) {
++#endif /* CONFIG_ACS */
+ 		if (!ssid->vht_center_freq1 ||
+ 		    conf->vht_oper_chwidth == CHANWIDTH_USE_HT)
+			goto no_vht;

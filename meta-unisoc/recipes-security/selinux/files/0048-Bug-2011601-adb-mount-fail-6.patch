@@ -1,0 +1,180 @@
+From 38439b2b546cc34d9f15971c0b5e170db0514274 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Sat, 8 Oct 2022 13:21:53 +0800
+Subject: [PATCH] Bug #0046-Bug-2011601-adb-mount-fail-6
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/services/gpsd.if   | 10 +++++++++-
+ policy/modules/services/gpsd.te   |  1 +
+ policy/modules/system/clock.if    |  8 ++++++++
+ policy/modules/system/clock.te    |  1 +
+ policy/modules/system/hostname.if |  2 +-
+ policy/modules/system/modutils.if |  8 ++++++++
+ policy/modules/system/modutils.te |  1 +
+ policy/modules/system/udev.if     | 26 +++++++++++++++++++++++++-
+ policy/modules/system/udev.te     |  5 +++++
+ 9 files changed, 59 insertions(+), 3 deletions(-)
+
+diff --git a/policy/modules/services/gpsd.if b/policy/modules/services/gpsd.if
+index 32afd603a..58d6e4974 100644
+--- a/policy/modules/services/gpsd.if
++++ b/policy/modules/services/gpsd.if
+@@ -193,6 +193,14 @@ interface(`gpsd_var_t_dir',`
+         type var_t;
+     ')
+ 
+-   allow $1 var_t:dir {write open read create};
++   allow $1 var_t:dir {write open read create add_name};
++')
++
++interface(`gpsd_device_t_chr_file',`
++    gen_require(`
++        type device_t;
++    ')
++
++   allow $1 device_t:chr_file {write map open read append ioctl getattr};
+ ')
+ 
+diff --git a/policy/modules/services/gpsd.te b/policy/modules/services/gpsd.te
+index 8d9c61170..d14097096 100644
+--- a/policy/modules/services/gpsd.te
++++ b/policy/modules/services/gpsd.te
+@@ -95,4 +95,5 @@ gpsd_device_t_sock_file(gpsd_t)
+ gpsd_gpsd_t_process(gpsd_t)
+ gpsd_device_t_file(gpsd_t)
+ gpsd_var_t_dir(gpsd_t)
++gpsd_device_t_chr_file(gpsd_t)
+ 
+diff --git a/policy/modules/system/clock.if b/policy/modules/system/clock.if
+index e6faec55a..c55acf8fe 100644
+--- a/policy/modules/system/clock.if
++++ b/policy/modules/system/clock.if
+@@ -142,3 +142,11 @@ interface(`hwclock_etc_t_dir',`
+     allow $1 etc_t:dir {read add_name write create open};
+ ')
+ 
++interface(`hwclock_device_t_chr_file',`
++    gen_require(`
++        type device_t;
++    ')
++
++    allow $1 device_t:chr_file {read append write create open ioctl map};
++')
++
+diff --git a/policy/modules/system/clock.te b/policy/modules/system/clock.te
+index 985f086fa..f3dc1f890 100644
+--- a/policy/modules/system/clock.te
++++ b/policy/modules/system/clock.te
+@@ -83,4 +83,5 @@ optional_policy(`
+ hwclock_device_t_file(hwclock_t)
+ hwclock_etc_t_file(hwclock_t)
+ hwclock_etc_t_dir(hwclock_t)
++hwclock_device_t_chr_file(hwclock_t)
+ 
+diff --git a/policy/modules/system/hostname.if b/policy/modules/system/hostname.if
+index 534cc6c62..d79544d2d 100644
+--- a/policy/modules/system/hostname.if
++++ b/policy/modules/system/hostname.if
+@@ -69,6 +69,6 @@ interface(`hostname_device_t_file',`
+ 		type device_t;
+     ')
+ 
+-    allow $1 device_t:file {read append write open ioctl map create};
++    allow $1 device_t:file {read append write open ioctl map create getattr};
+ ')
+ 
+diff --git a/policy/modules/system/modutils.if b/policy/modules/system/modutils.if
+index b12facc54..30c1c5a18 100644
+--- a/policy/modules/system/modutils.if
++++ b/policy/modules/system/modutils.if
+@@ -430,3 +430,11 @@ interface(`kmod_device_t_chr_file',`
+     allow $1 device_t:chr_file { write append read open};
+ ')
+ 
++interface(`kmod_var_run_t_file',`
++    gen_require(`
++        type var_run_t;
++    ')
++
++    allow $1 var_run_t:file { write getattr read open };
++')
++
+diff --git a/policy/modules/system/modutils.te b/policy/modules/system/modutils.te
+index f55806a4c..d818e649b 100644
+--- a/policy/modules/system/modutils.te
++++ b/policy/modules/system/modutils.te
+@@ -195,4 +195,5 @@ kmod_var_log_t_file(kmod_t)
+ kmod_httpd_var_run_t_file(kmod_t)
+ kmod_tty_device_t_chr_file(kmod_t)
+ kmod_device_t_chr_file(kmod_t)
++kmod_var_run_t_file(kmod_t)
+ 
+diff --git a/policy/modules/system/udev.if b/policy/modules/system/udev.if
+index 015d02817..ac9349680 100644
+--- a/policy/modules/system/udev.if
++++ b/policy/modules/system/udev.if
+@@ -523,6 +523,30 @@ interface(`udevadm_var_run_t_sock_file',`
+         type var_run_t;
+     ')
+ 
+-   allow $1 var_run_t:sock_file {write read open map append};
++   allow $1 var_run_t:sock_file {write read open map append getattr};
++')
++
++interface(`udevadm_device_t_chr_file',`
++    gen_require(`
++        type device_t;
++    ')
++
++   allow $1 device_t:chr_file {write read open map append ioctl setattr getattr};
++')
++
++interface(`udevadm_device_t_file',`
++    gen_require(`
++        type device_t;
++    ')
++
++   allow $1 device_t:file {write read open map append ioctl setattr getattr};
++')
++
++interface(`udevadm_sysadm_t_unix_stream_socket',`
++    gen_require(`
++        type sysadm_t;
++    ')
++
++   allow $1 sysadm_t:unix_stream_socket {connectto};
+ ')
+ 
+diff --git a/policy/modules/system/udev.te b/policy/modules/system/udev.te
+index cce631bda..303560a07 100644
+--- a/policy/modules/system/udev.te
++++ b/policy/modules/system/udev.te
+@@ -408,6 +408,11 @@ init_read_state(udevadm_t)
+ kernel_read_system_state(udevadm_t)
+ 
+ seutil_read_file_contexts(udevadm_t)
++
+ udevadm_init_t_fd(udevadm_t)
+ udevadm_var_run_t_sock_file(udevadm_t)
++udevadm_device_t_chr_file(udevadm_t)
++udevadm_device_t_file(udevadm_t)
++udevadm_sysadm_t_unix_stream_socket(udevadm_t)
++
+ 
+-- 
+2.17.1
+

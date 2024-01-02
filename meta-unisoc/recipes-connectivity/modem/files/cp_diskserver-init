@@ -1,0 +1,31 @@
+#!/bin/sh
+
+DESC="cp_diskserver"
+set -e
+
+do_start() {
+	/usr/bin/cp_diskserver -l /usr/lib/libmodem_utils.so &
+}
+
+do_stop() {
+	start-stop-daemon --stop --name cp_diskserver --quiet
+}
+
+case "$1" in
+  start)
+	echo "Starting $DESC"
+	do_start
+	;;
+  restart|force-reload)
+	echo "Restarting $DESC"
+	do_stop
+	sleep 1
+	do_start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

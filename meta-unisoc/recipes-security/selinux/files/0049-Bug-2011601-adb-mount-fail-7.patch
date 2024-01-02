@@ -1,0 +1,106 @@
+From d53067919f61f8b579564929b79417fb11a2b10d Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Sat, 8 Oct 2022 17:27:20 +0800
+Subject: [PATCH] Bug #2011601-adb-mount-fail-7
+
+[root cause  ]:
+[changes     ]:
+[side effects]:
+[self test   ]:
+[download normally]:
+[power on/off normally]:
+[do common repository/branch inspection]:
+[is there dependence]:
+[confirm dependent commit]:
+[board]:
+[test case]:
+[reviewers]:
+
+commit_template_version:v1
+---
+ policy/modules/roles/sysadm.if  | 2 +-
+ policy/modules/roles/sysadm.te  | 1 -
+ policy/modules/services/gpsd.if | 8 ++++++++
+ policy/modules/services/gpsd.te | 1 +
+ policy/modules/system/udev.if   | 8 ++++++++
+ policy/modules/system/udev.te   | 2 +-
+ 6 files changed, 19 insertions(+), 3 deletions(-)
+
+diff --git a/policy/modules/roles/sysadm.if b/policy/modules/roles/sysadm.if
+index f00ece8cb..0506d733f 100644
+--- a/policy/modules/roles/sysadm.if
++++ b/policy/modules/roles/sysadm.if
+@@ -387,7 +387,7 @@ interface(`sysadm_sysadm_t_process',`
+         type sysadm_t;
+     ')
+ 
+-    allow $1 sysadm_t:process {transition noatsecure rlimitinh siginh};
++    allow $1 sysadm_t:process {transition noatsecure rlimitinh siginh execmem};
+ ')
+ 
+ interface(`sysadm_urandom_device_t_chr_file',`
+diff --git a/policy/modules/roles/sysadm.te b/policy/modules/roles/sysadm.te
+index f7d223647..60aed0cd2 100644
+--- a/policy/modules/roles/sysadm.te
++++ b/policy/modules/roles/sysadm.te
+@@ -1392,4 +1392,3 @@ sysadm_etc_t_dir(sysadm_t)
+ sysadm_home_root_t_dir(sysadm_t)
+ sysadm_var_t_dir(sysadm_t)
+ 
+-
+diff --git a/policy/modules/services/gpsd.if b/policy/modules/services/gpsd.if
+index 58d6e4974..0545b98b4 100644
+--- a/policy/modules/services/gpsd.if
++++ b/policy/modules/services/gpsd.if
+@@ -204,3 +204,11 @@ interface(`gpsd_device_t_chr_file',`
+    allow $1 device_t:chr_file {write map open read append ioctl getattr};
+ ')
+ 
++interface(`gpsd_var_t_sock_file',`
++    gen_require(`
++        type var_t;
++    ')
++
++   allow $1 var_t:sock_file {write map open read create getattr append};
++')
++
+diff --git a/policy/modules/services/gpsd.te b/policy/modules/services/gpsd.te
+index d14097096..1cab19c4a 100644
+--- a/policy/modules/services/gpsd.te
++++ b/policy/modules/services/gpsd.te
+@@ -96,4 +96,5 @@ gpsd_gpsd_t_process(gpsd_t)
+ gpsd_device_t_file(gpsd_t)
+ gpsd_var_t_dir(gpsd_t)
+ gpsd_device_t_chr_file(gpsd_t)
++gpsd_var_t_sock_file(gpsd_t)
+ 
+diff --git a/policy/modules/system/udev.if b/policy/modules/system/udev.if
+index ac9349680..1c135aab1 100644
+--- a/policy/modules/system/udev.if
++++ b/policy/modules/system/udev.if
+@@ -550,3 +550,11 @@ interface(`udevadm_sysadm_t_unix_stream_socket',`
+    allow $1 sysadm_t:unix_stream_socket {connectto};
+ ')
+ 
++interface(`udevadm_var_run_t_dir',`
++    gen_require(`
++        type var_run_t;
++    ')
++
++   allow $1 var_run_t:dir {write read open create getattr};
++')
++
+diff --git a/policy/modules/system/udev.te b/policy/modules/system/udev.te
+index 303560a07..b931ca005 100644
+--- a/policy/modules/system/udev.te
++++ b/policy/modules/system/udev.te
+@@ -414,5 +414,5 @@ udevadm_var_run_t_sock_file(udevadm_t)
+ udevadm_device_t_chr_file(udevadm_t)
+ udevadm_device_t_file(udevadm_t)
+ udevadm_sysadm_t_unix_stream_socket(udevadm_t)
+-
++udevadm_var_run_t_dir(udevadm_t)
+ 
+-- 
+2.17.1
+

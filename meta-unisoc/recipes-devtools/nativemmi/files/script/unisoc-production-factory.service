@@ -1,0 +1,9 @@
+[Unit]
+Description=Unisoc NativeMMI Service
+ 
+[Service]
+ExecStart=/usr/bin/nativemmi
+
+[Install]
+WantedBy=unisoc-production-factory.target
+Alias=unisoc-production-factory.service

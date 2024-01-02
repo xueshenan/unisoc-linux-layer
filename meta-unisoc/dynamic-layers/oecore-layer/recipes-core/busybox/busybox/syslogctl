@@ -1,0 +1,107 @@
+#!/bin/sh
+
+# SPDX-FileCopyrightText: 2019-2021 Unisoc (Shanghai) Technologies Co., Ltd.
+#
+# SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
+
+# log_name="log_path rotate_num max_size(MB) compress"
+CRITICAL_LOG_INTERNAL="/mnt/data/cirt.log 3 5 compress "
+ROUTINE_LOG_INTERNAL="/mnt/data/yocto.log 13 200 compress "
+
+
+internal_path=("$CRITICAL_LOG_INTERNAL" "$ROUTINE_LOG_INTERNAL" )
+sd_path=(${CRITICAL_LOG_TCARD} ${ROUTINE_LOG_TCARD} )
+
+rename_log_by_time(){
+	echo "file name $1"
+	first_log=`head -n 1 $1`
+	last_log=`tail -n 1 $1`
+	filename_headfix=`echo $1 | sed 's/\.log.tmp//g'`
+	filename_suffix=${first_log: 0: 15}_to_${last_log: 0: 15}.log
+	filename_suffix=`echo $filename_suffix | sed 's/\ /-/g'`
+	mv $1 ${filename_headfix}_${filename_suffix}
+	echo "rename $1 ${filename_headfix}_${filename_suffix}"
+	gzip ${filename_headfix}_${filename_suffix}
+	mv ${filename_headfix}_${filename_suffix}.gz ${filename_headfix}.log.0.gz
+	echo "rename ${filename_headfix}_${filename_suffix}.gz ${filename_headfix}.log.0.gz"
+
+}
+
+rotate(){
+	echo "rotate $1, rotate_num = $2, max_size = $3, compress? = $4"
+	if [ $4 = "compress" ]; then
+		compress_suffix=".gz"
+	else
+		compress_suffix=""
+	fi
+
+	current_file_path=$1.tmp
+
+	if [ ! -e $current_file_path ]; then
+		echo "file $current_file_path not exit， return"
+		return
+	fi
+
+	i=$[$2-1]
+	while [ $i -gt 0 ]
+	do
+		newfile=$1.$i$compress_suffix
+		i=$[$i-1]
+		oldfile=$1.$i$compress_suffix
+
+		echo "rename $oldfile to $newfile"
+		mv $oldfile $newfile
+	done
+
+	if [ $4 = "compress" ]; then
+		
+		rename_log_by_time $current_file_path
+	else
+		oldfile=$1.0
+		mv $current_file_path $oldfile
+		echo "rename $current_file_path $oldfile"
+	fi
+
+}
+
+
+if [ $# -eq 0 ]; then
+	echo "Please input your commond number:"
+	echo "1. enable syslog       --enable"
+	echo "2. disable syslog      --disable"
+	echo "3. clean log path       --clean"
+	read cmd_num
+	case $cmd_num in
+		1)	cmd="--enable";;
+		2)	cmd="--disable";;
+		3)	cmd="--clean";;
+	esac
+else
+	cmd=$1 
+fi
+
+if [[ $cmd = "--enable" ]]; then
+	echo "enable syslog"
+	/etc/init.d/syslog start
+
+elif [[ $cmd = "--disable" ]]; then
+	echo "disable syslog"
+	/etc/init.d/syslog stop
+
+elif [[ $cmd = "--restart" ]]; then
+	echo "restart syslog"
+	/etc/init.d/syslog restart
+
+elif [[ $cmd = "--clean" ]]; then
+	echo "clean log file"
+	rm -f *.log*
+
+elif [[ $cmd = "--logrotate" ]]; then
+	echo "log rotate"
+	rotate $ROUTINE_LOG_INTERNAL
+	rotate $CRITICAL_LOG_INTERNAL
+	echo "log rotate over"
+else 
+	echo "unsupport cmd !!!"
+fi
+

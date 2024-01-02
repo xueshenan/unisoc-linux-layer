@@ -1,0 +1,12 @@
+diff --git a/lvgl.h b/lvgl.h
+index 288d481..9ecaaa2 100644
+--- a/lvgl.h
++++ b/lvgl.h
+@@ -77,6 +77,7 @@ extern "C" {
+ #include "src/lv_widgets/lv_spinner.h"
+ #include "src/lv_widgets/lv_calendar.h"
+ #include "src/lv_widgets/lv_spinbox.h"
++#include "src/lv_widgets/lv_multimedia.h"
+
+ #include "src/lv_draw/lv_img_cache.h"
+

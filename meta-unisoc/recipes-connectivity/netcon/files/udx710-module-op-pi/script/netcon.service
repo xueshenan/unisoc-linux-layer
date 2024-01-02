@@ -1,0 +1,13 @@
+[Unit]
+Description=netcon Daemon Service
+After=sprdrild.target
+
+[Service]
+ExecStart=/usr/bin/netcon
+
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+

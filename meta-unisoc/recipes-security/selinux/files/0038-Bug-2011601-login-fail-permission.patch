@@ -1,0 +1,668 @@
+From e536919888b80e4b42fff022c1fc8a305da33c35 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Mon, 26 Sep 2022 14:27:27 +0800
+Subject: [PATCH] Bug #2011601 login-fail-permission
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/admin/logrotate.if |  57 ++++++
+ policy/modules/admin/logrotate.te |   9 +
+ policy/modules/roles/sysadm.if    | 281 ++++++++++++++++++++++++++++++
+ policy/modules/roles/sysadm.te    |  36 ++++
+ policy/modules/services/gpsd.if   |  66 +++++++
+ policy/modules/services/gpsd.te   |  10 ++
+ policy/modules/system/modutils.if |  25 +++
+ policy/modules/system/modutils.te |   4 +
+ policy/modules/system/mount.if    |  56 ++++++
+ policy/modules/system/mount.te    |   9 +
+ 10 files changed, 553 insertions(+)
+
+diff --git a/policy/modules/admin/logrotate.if b/policy/modules/admin/logrotate.if
+index dd8e01af3..c08d6fb59 100644
+--- a/policy/modules/admin/logrotate.if
++++ b/policy/modules/admin/logrotate.if
+@@ -120,3 +120,60 @@ interface(`logrotate_read_tmp_files',`
+ 	files_search_tmp($1)
+ 	allow $1 logrotate_tmp_t:file read_file_perms;
+ ')
++
++interface(`logrotate_init_t_fd',`
++    gen_require(`
++        type init_t;
++    ')
++
++    allow $1 init_t:fd {use};
++')
++
++interface(`logrotate_device_t_file',`
++    gen_require(`
++        type device_t;
++    ')
++
++    allow $1 device_t:file {read write map open};
++')
++
++interface(`logrotate_unlabeled_t_lnk_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:lnk_file {read setattr open write};
++')
++
++interface(`logrotate_unlabeled_t_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:file {read open getattr rename create write setattr ioctl unlink};
++')
++
++interface(`logrotate_unlabeled_t_dir',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:dir {write remove_name add_name};
++')
++
++interface(`logrotate_device_t_sock_file',`
++    gen_require(`
++        type device_t;
++    ')
++
++    allow $1 device_t:sock_file {read write open map};
++')
++
++interface(`logrotate_sysadm_t_unix_dgram_socket',`
++    gen_require(`
++        type sysadm_t;
++    ')
++
++    allow $1 sysadm_t:unix_dgram_socket {sendto};
++')
++
+diff --git a/policy/modules/admin/logrotate.te b/policy/modules/admin/logrotate.te
+index 4f397b7e7..465657a35 100644
+--- a/policy/modules/admin/logrotate.te
++++ b/policy/modules/admin/logrotate.te
+@@ -285,3 +285,12 @@ allow logrotate_mail_t logrotate_t:process sigchld;
+ manage_files_pattern(logrotate_mail_t, logrotate_tmp_t, logrotate_tmp_t)
+ 
+ logging_read_all_logs(logrotate_mail_t)
++
++logrotate_init_t_fd(logrotate_t)
++logrotate_device_t_file(logrotate_t)
++logrotate_unlabeled_t_lnk_file(logrotate_t)
++logrotate_unlabeled_t_file(logrotate_t)
++logrotate_unlabeled_t_dir(logrotate_t)
++logrotate_device_t_sock_file(logrotate_t)
++logrotate_sysadm_t_unix_dgram_socket(logrotate_t)
++
+diff --git a/policy/modules/roles/sysadm.if b/policy/modules/roles/sysadm.if
+index ff9243078..1e24f32c1 100644
+--- a/policy/modules/roles/sysadm.if
++++ b/policy/modules/roles/sysadm.if
+@@ -236,3 +236,284 @@ interface(`sysadm_rw_pipes',`
+ 
+ 	allow $1 sysadm_t:fifo_file rw_fifo_file_perms;
+ ')
++
++interface(`sysadm_default_t_file',`
++    gen_require(`
++        type default_t;
++    ')
++
++    allow $1 default_t:file {execute execute_no_trans read open};
++')
++
++interface(`sysadm_device_t_chr_file',`
++    gen_require(`
++	    type device_t;
++    ')
++
++    allow $1 device_t:chr_file {write read open ioctl map};
++')
++
++interface(`sysadm_modem_device_t_chr_file',`
++    gen_require(`
++        type modem_device_t;
++    ')
++
++    allow $1 modem_device_t:chr_file {ioctl read open write map};
++')
++
++interface(`sysadm_sysadm_t_capability2',`
++    gen_require(`
++	    type sysadm_t;
++    ')
++
++    allow $1 sysadm_t:capability2 {block_suspend};
++')
++
++interface(`sysadm_bsdpty_device_t_chr_file',`
++    gen_require(`
++        type bsdpty_device_t;
++    ')
++
++    allow $1 bsdpty_device_t:chr_file {setattr map ioctl read open write};
++')
++
++interface(`sysadm_kernel_t_system',`
++    gen_require(`
++        type kernel_t;
++    ')
++
++    allow $1 kernel_t:system {module_request};
++')
++
++interface(`sysadm_node_t_tcp_socket',`
++    gen_require(`
++        type node_t;
++    ')
++
++    allow $1 node_t:tcp_socket {node_bind};
++')
++
++interface(`sysadm_proc_kmsg_t_file',`
++    gen_require(`
++        type proc_kmsg_t;
++    ')
++
++    allow $1 proc_kmsg_t:file {read open};
++')
++
++interface(`sysadm_tty_device_t_chr_file',`
++    gen_require(`
++        type tty_device_t;
++    ')
++
++    allow $1 tty_device_t:chr_file {setattr ioctl map open read write};
++')
++
++interface(`sysadm_clock_device_t_chr_file',`
++	gen_require(`
++        type clock_device_t;
++    ')
++
++    allow $1 clock_device_t:chr_file {write setattr ioctl map open read};
++')
++
++interface(`sysadm_event_device_t_chr_file',`
++    gen_require(`
++        type event_device_t;
++    ')
++
++    allow $1 event_device_t:chr_file {write ioctl map read open};
++')
++
++interface(`sysadm_usb_device_t_chr_file',`
++    gen_require(`
++        type usb_device_t;
++    ')
++
++    allow $1 usb_device_t:chr_file {setattr map open read write ioctl};
++')
++
++interface(`sysadm_sysadm_t_capability',`
++    gen_require(`
++        type sysadm_t;
++    ')
++
++    allow $1 sysadm_t:capability {sys_module audit_write};
++')
++
++interface(`sysadm_modules_object_t_system',`
++	 gen_require(`
++        type modules_object_t;
++    ')
++
++    allow $1 modules_object_t:system {module_load};
++')
++
++interface(`sysadm_fixed_disk_device_t_blk_file',`
++    gen_require(`
++        type fixed_disk_device_t;
++    ')
++
++    allow $1 fixed_disk_device_t:blk_file {read write};
++')
++
++interface(`sysadm_kmsg_device_t_chr_file',`
++    gen_require(`
++        type kmsg_device_t;
++    ')
++
++    allow $1 kmsg_device_t:chr_file {write open read ioctl map};
++')
++
++interface(`sysadm_random_device_t_chr_file',`
++    gen_require(`
++		type random_device_t;
++    ')
++
++    allow $1 random_device_t:chr_file {write open read map ioctl};
++')
++
++interface(`sysadm_shadow_t_file',`
++    gen_require(`
++        type shadow_t;
++    ')
++
++    allow $1 shadow_t:file {write read open map};
++')
++
++interface(`sysadm_sysadm_t_process',`
++    gen_require(`
++        type sysadm_t;
++    ')
++
++    allow $1 sysadm_t:process {transition noatsecure rlimitinh siginh};
++')
++
++interface(`sysadm_urandom_device_t_chr_file',`
++    gen_require(`
++		type urandom_device_t;
++    ')
++
++    allow $1 urandom_device_t:chr_file {write open read map ioctl};
++')
++
++interface(`sysadm_lvm_control_t_chr_file',`
++    gen_require(`
++	     type lvm_control_t;
++    ')
++
++    allow $1 lvm_control_t:chr_file {write open read map ioctl};
++')
++
++interface(`sysadm_netcontrol_device_t_chr_file',`
++     gen_require(`
++         type netcontrol_device_t;
++    ')
++
++    allow $1 netcontrol_device_t:chr_file {write open read map ioctl};
++')
++
++interface(`sysadm_fuse_device_t_chr_file',`
++     gen_require(`
++         type fuse_device_t;
++    ')
++
++    allow $1 fuse_device_t:chr_file {write open read ioctl map};
++')
++
++interface(`sysadm_kvm_device_t_chr_file',`
++     gen_require(`
++         type kvm_device_t;
++    ')
++
++    allow $1 kvm_device_t:chr_file {write read open map ioctl};
++')
++
++interface(`sysadm_loop_control_device_t_chr_file',`
++     gen_require(`
++         type loop_control_device_t;
++    ')
++
++    allow $1 loop_control_device_t:chr_file {write open read map ioctl};
++')
++
++interface(`sysadm_wireless_device_t_chr_file',`
++     gen_require(`
++         type wireless_device_t;
++    ')
++
++    allow $1 wireless_device_t:chr_file {write read open map ioctl};
++')
++
++interface(`sysadm_ppp_device_t_chr_file',`
++     gen_require(`
++         type ppp_device_t;
++    ')
++
++    allow $1 ppp_device_t:chr_file {write read open map ioctl};
++')
++
++interface(`sysadm_configfs_t_dir',`
++     gen_require(`
++         type configfs_t;
++    ')
++
++    allow $1 configfs_t:dir {write search add_name create setattr};
++')
++
++interface(`sysadm_kernel_t_fd',`
++     gen_require(`
++         type kernel_t;
++    ')
++
++   allow $1 kernel_t:fd {use};
++')
++
++interface(`sysadm_configfs_t_file',`
++	gen_require(`
++         type configfs_t;
++    ')
++
++    allow $1 configfs_t:file {write open create read};
++')
++
++interface(`sysadm_configfs_t_lnk_file',`
++    gen_require(`
++         type configfs_t;
++    ')
++
++    allow $1 configfs_t:lnk_file {write open create read};
++')
++
++interface(`sysadm_device_t_blk_file',`
++    gen_require(`
++         type device_t;
++    ')
++
++    allow $1 device_t:blk_file {write open create read lock ioctl setattr};
++')
++
++interface(`sysadm_sysadm_t_bluetooth_socket',`
++     gen_require(`
++         type sysadm_t;
++    ')
++
++    allow $1 sysadm_t:bluetooth_socket {write listen read create bind};
++')
++
++interface(`sysadm_dri_device_t_chr_file',`
++     gen_require(`
++         type dri_device_t;
++    ')
++
++    allow $1 dri_device_t:chr_file {write map open read ioctl};
++')
++
++interface(`sysadm_sysadm_t_netlink_generic_socket',`
++     gen_require(`
++         type sysadm_t;
++    ')
++
++    allow $1 sysadm_t:netlink_generic_socket {write read create bind};
++')
++
+diff --git a/policy/modules/roles/sysadm.te b/policy/modules/roles/sysadm.te
+index d781378fa..285097477 100644
+--- a/policy/modules/roles/sysadm.te
++++ b/policy/modules/roles/sysadm.te
+@@ -1335,3 +1335,39 @@ ifndef(`distro_redhat',`
+ 	')
+ ')
+ 
++sysadm_default_t_file(sysadm_t)
++sysadm_device_t_chr_file(sysadm_t)
++sysadm_modem_device_t_chr_file(sysadm_t)
++sysadm_sysadm_t_capability2(sysadm_t)
++sysadm_bsdpty_device_t_chr_file(sysadm_t)
++sysadm_kernel_t_system(sysadm_t)
++sysadm_node_t_tcp_socket(sysadm_t)
++sysadm_proc_kmsg_t_file(sysadm_t)
++sysadm_tty_device_t_chr_file(sysadm_t)
++sysadm_clock_device_t_chr_file(sysadm_t)
++sysadm_event_device_t_chr_file(sysadm_t)
++sysadm_usb_device_t_chr_file(sysadm_t)
++sysadm_sysadm_t_capability(sysadm_t)
++sysadm_modules_object_t_system(sysadm_t)
++sysadm_fixed_disk_device_t_blk_file(sysadm_t)
++sysadm_kmsg_device_t_chr_file(sysadm_t)
++sysadm_random_device_t_chr_file(sysadm_t)
++sysadm_shadow_t_file(sysadm_t)
++sysadm_sysadm_t_process(sysadm_t)
++sysadm_urandom_device_t_chr_file(sysadm_t)
++sysadm_lvm_control_t_chr_file(sysadm_t)
++sysadm_netcontrol_device_t_chr_file(sysadm_t)
++sysadm_fuse_device_t_chr_file(sysadm_t)
++sysadm_kvm_device_t_chr_file(sysadm_t)
++sysadm_loop_control_device_t_chr_file(sysadm_t)
++sysadm_wireless_device_t_chr_file(sysadm_t)
++sysadm_ppp_device_t_chr_file(sysadm_t)
++sysadm_configfs_t_dir(sysadm_t)
++sysadm_kernel_t_fd(sysadm_t)
++sysadm_configfs_t_file(sysadm_t)
++sysadm_configfs_t_lnk_file(sysadm_t)
++sysadm_device_t_blk_file(sysadm_t)
++sysadm_sysadm_t_bluetooth_socket(sysadm_t)
++sysadm_dri_device_t_chr_file(sysadm_t)
++sysadm_sysadm_t_netlink_generic_socket(sysadm_t)
++
+diff --git a/policy/modules/services/gpsd.if b/policy/modules/services/gpsd.if
+index 1d10f63ad..61a50e98b 100644
+--- a/policy/modules/services/gpsd.if
++++ b/policy/modules/services/gpsd.if
+@@ -98,3 +98,69 @@ interface(`gpsd_admin',`
+ 
+ 	gpsd_run($1, $2)
+ ')
++
++interface(`gpsd_user_devpts_t_chr_file',`
++    gen_require(`
++        type gpsd_t;
++    ')
++
++   allow $1 gpsd_t:chr_file {setattr};
++')
++
++interface(`gpsd_etc_t_file',`
++    gen_require(`
++        type etc_t;
++    ')
++
++   allow $1 etc_t:file {map open read};
++')
++
++interface(`gpsd_sysadm_t_dbus',`
++    gen_require(`
++		class dbus send_msg;
++        type sysadm_t;
++    ')
++
++   allow $1 sysadm_t:dbus {send_msg};
++')
++
++interface(`gpsd_unlabeled_t_lnk_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++   allow $1 unlabeled_t:lnk_file {write map open read};
++')
++
++interface(`gpsd_unlabeled_t_dir',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++   allow $1 unlabeled_t:dir {search create read write};
++')
++
++interface(`gpsd_gpsd_t_unix_stream_socket',`
++    gen_require(`
++        type gpsd_t;
++    ')
++
++    allow $1 gpsd_t:unix_stream_socket {listen connectto};
++')
++
++interface(`gpsd_sysadm_t_unix_stream_socket',`
++    gen_require(`
++        type sysadm_t;
++    ')
++
++    allow $1 sysadm_t:unix_stream_socket {listen connectto};
++')
++
++interface(`gpsd_sysadm_t_unix_dgram_socket',`
++    gen_require(`
++        type sysadm_t;
++    ')
++
++    allow $1 sysadm_t:unix_dgram_socket {sendto};
++')
++
+diff --git a/policy/modules/services/gpsd.te b/policy/modules/services/gpsd.te
+index d4aacb79c..0009ee598 100644
+--- a/policy/modules/services/gpsd.te
++++ b/policy/modules/services/gpsd.te
+@@ -82,3 +82,13 @@ optional_policy(`
+ optional_policy(`
+ 	ntp_rw_shm(gpsd_t)
+ ')
++
++gpsd_user_devpts_t_chr_file(gpsd_t)
++gpsd_etc_t_file(gpsd_t)
++gpsd_sysadm_t_dbus(gpsd_t)
++gpsd_unlabeled_t_lnk_file(gpsd_t)
++gpsd_unlabeled_t_dir(gpsd_t)
++gpsd_gpsd_t_unix_stream_socket(gpsd_t)
++gpsd_sysadm_t_unix_stream_socket(gpsd_t)
++gpsd_sysadm_t_unix_dgram_socket(gpsd_t)
++
+diff --git a/policy/modules/system/modutils.if b/policy/modules/system/modutils.if
+index e9ee3c291..2adc989b5 100644
+--- a/policy/modules/system/modutils.if
++++ b/policy/modules/system/modutils.if
+@@ -397,3 +397,28 @@ interface(`modutils_exec_update_mods',`
+ interface(`modutils_read_var_run_files',`
+ 	refpolicywarn(`$0($*) has been deprecated.')
+ ')
++
++interface(`kmod_var_log_t_file',`
++    gen_require(`
++        type var_log_t;
++    ')
++
++    allow $1 var_log_t:file { write getattr read open};
++')
++
++interface(`kmod_httpd_var_run_t_file',`
++    gen_require(`
++        type httpd_var_run_t;
++    ')
++
++    allow $1 httpd_var_run_t:file { read open write getattr};
++')
++
++interface(`kmod_tty_device_t_chr_file',`
++    gen_require(`
++        type tty_device_t;
++    ')
++
++    allow $1 tty_device_t:chr_file { write append read open};
++')
++
+diff --git a/policy/modules/system/modutils.te b/policy/modules/system/modutils.te
+index 8e616394d..ba6c791fb 100644
+--- a/policy/modules/system/modutils.te
++++ b/policy/modules/system/modutils.te
+@@ -191,3 +191,7 @@ optional_policy(`
+ 	xserver_getattr_log(kmod_t)
+ ')
+ 
++kmod_var_log_t_file(kmod_t)
++kmod_httpd_var_run_t_file(kmod_t)
++kmod_tty_device_t_chr_file(kmod_t)
++
+diff --git a/policy/modules/system/mount.if b/policy/modules/system/mount.if
+index bf9a8bf31..c82a1644a 100644
+--- a/policy/modules/system/mount.if
++++ b/policy/modules/system/mount.if
+@@ -220,3 +220,59 @@ interface(`mount_rw_runtime_files',`
+ 	rw_files_pattern($1, mount_runtime_t, mount_runtime_t)
+ ')
+ 
++interface(`mount_httpd_var_run_t_file',`
++    gen_require(`
++        type httpd_var_run_t;
++    ')
++
++    allow $1 httpd_var_run_t:file {read open write};
++')
++
++interface(`mount_var_log_t_file',`
++    gen_require(`
++        type var_log_t;
++    ')
++
++    allow $1 var_log_t:file {write read open};
++')
++
++interface(`mount_sysadm_t_file',`
++	gen_require(`
++        type sysadm_t;
++    ')
++
++    allow $1 sysadm_t:file {read open write};
++')
++
++interface(`mount_device_t_file',`
++    gen_require(`
++        type device_t;
++    ')
++
++    allow $1 device_t:file {read write open};
++')
++
++interface(`mount_device_t_blk_file',`
++    gen_require(`
++        type device_t;
++    ')
++
++    allow $1 device_t:blk_file {getattr};
++')
++
++interface(`mount_etc_t_dir',`
++    gen_require(`
++        type etc_t;
++    ')
++
++    allow $1 etc_t:dir {mounton};
++')
++
++interface(`mount_configfs_t_dir',`
++    gen_require(`
++        type configfs_t;
++    ')
++
++    allow $1 configfs_t:dir {mounton};
++')
++
+diff --git a/policy/modules/system/mount.te b/policy/modules/system/mount.te
+index 3dcb84935..eaa7b34ad 100644
+--- a/policy/modules/system/mount.te
++++ b/policy/modules/system/mount.te
+@@ -231,3 +231,12 @@ optional_policy(`
+ 	files_etc_filetrans_etc_runtime(unconfined_mount_t, file)
+ 	unconfined_domain(unconfined_mount_t)
+ ')
++
++mount_httpd_var_run_t_file(mount_t)
++mount_var_log_t_file(mount_t)
++mount_sysadm_t_file(mount_t)
++mount_device_t_file(mount_t)
++mount_device_t_blk_file(mount_t)
++mount_etc_t_dir(mount_t)
++mount_configfs_t_dir(mount_t)
++
+-- 
+2.17.1
+

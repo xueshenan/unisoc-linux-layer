@@ -1,0 +1,35 @@
+<audioparam_config>
+    <AudioTester ChipName="sharkl3" FmType="Digital" CodeType="2730" SocketBufferSize="0xffff" DiagBufferSize="0xfff0" etc_Type="/vendor/etc/audio_params/sprd">
+        <record>
+            <record_Source>
+                <AUDIO_SOURCE_DEFAULT mic="AUDIO_DEVICE_IN_BUILTIN_MIC" />
+                <AUDIO_SOURCE_MIC mic="AUDIO_DEVICE_IN_BUILTIN_MIC" />
+                <AUDIO_SOURCE_CAMCORDER mic="AUDIO_DEVICE_IN_BACK_MIC" />
+            </record_Source>
+            <nr>
+                <nr_support rate="48000" enable="true" />
+                <nr_support rate="44100" enable="true" />
+                <nr_support rate="16000" enable="false" />
+                <nr_support rate="8000" enable="false" />
+            </nr>
+        </record>
+        <audiohw_config>
+            <Earpiece val="RCV" />
+            <Speaker val="SPK" />
+            <Headset val="HPLR" />
+            <MainMic val="MAINMIC" />
+            <AuxMic val="AUXMIC" />
+            <HeadsetMic val="HEADMIC" />
+        </audiohw_config>
+        <mode>
+            <audioparam name="Headset" mode="AUDIO_MODE_HEADSET" />
+            <audioparam name="Headfree" mode="AUDIO_MODE_HEADFREE" />
+            <audioparam name="Handset" mode="AUDIO_MODE_HANDSET" />
+            <audioparam name="Handsfree" mode="AUDIO_MODE_HANDSFREE" />
+            <audioparam name="ISCHandsfree" mode="AUDIO_MODE_ISCHANDSFREE" />
+            <audioparam name="ISCHeadfree" mode="AUDIO_MODE_ISCHEADFREE" />
+            <audioparam name="Unprocess" mode="AUDIO_MODE_UNPROCESS" />
+            <audioparam name="Recognition"  mode="AUDIO_MODE_RECOGNITION" />
+        </mode>
+    </AudioTester>
+</audioparam_config>

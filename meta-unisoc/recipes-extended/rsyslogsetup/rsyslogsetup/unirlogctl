@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: 2021 Unisoc (Shanghai) Technologies Co., Ltd.
+#
+# SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
+
+#!/bin/bash
+internal_path=(/mnt/data/log/yocto.log )
+sd_path=(/mnt/data/log/yocto.log )
+
+
+if mountpoint -q /mnt/media
+then
+	log_path=${sd_path[*]}
+
+else
+	log_path=${internal_path[*]}
+fi
+
+
+if [ $# -eq 0 ]; then
+	echo "Please input your commond number:"
+	echo "1. enable rsyslog       --enable"
+	echo "2. disable rsyslog      --disable"
+	echo "3. clean log path       --clean"
+	# echo "4. log to internal      --internal"
+	# echo "5. log to SD card       --sdcard"
+	#echo "4. set log level        --level"
+	#echo "5. inforce rotate log   --rotate"
+	#echo "6. export log           --export"
+	read cmd_num
+	case $cmd_num in
+		1)	cmd="--enable";;
+		2)	cmd="--disable";;
+		3)	cmd="--clean";;
+		4)	cmd="--internal";;
+		5)	cmd="--sdcard";;
+		6)	cmd="--export";;
+	esac
+else
+	cmd=$1 
+fi
+
+if [[ $cmd = "start" ]]; then
+	echo "start unirlog:"
+	/etc/init.d/syslog start
+	echo "done!"
+elif [[ $cmd = "stop" ]]; then
+	echo "stop rsyslog"
+	/etc/init.d/syslog stop
+	echo "done!"
+elif [[ $cmd = "restart" ]]; then
+	echo "restart rsyslog"
+	/etc/init.d/syslog restart
+	echo "done!"
+elif [[ $cmd = "enable" ]]; then
+	echo "enable rsyslog"
+	#do something to enable rsyslog
+	echo "done!"
+elif [[ $cmd = "disable" ]]; then
+	echo "disable rsyslog"
+	#do something to disable rsyslog
+	echo "done!"
+else 
+	echo "syslog-tools unsupport cmd !!!"
+	logger "syslog-tools unsupport cmd !!!"
+fi
+

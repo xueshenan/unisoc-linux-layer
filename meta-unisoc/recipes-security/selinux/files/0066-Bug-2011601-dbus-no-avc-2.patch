@@ -1,0 +1,38 @@
+From 6087921567cb0b776f430fdd0949f8a9e2213d87 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Tue, 11 Oct 2022 14:10:40 +0800
+Subject: [PATCH] Bug #2011601 dbus-no-avc-2
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/roles/sysadm.if | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/policy/modules/roles/sysadm.if b/policy/modules/roles/sysadm.if
+index f8b434dbc..0c76bad76 100644
+--- a/policy/modules/roles/sysadm.if
++++ b/policy/modules/roles/sysadm.if
+@@ -664,6 +664,7 @@ interface(`sysadm_var_t_dir',`
+ 
+ interface(`sysadm_sysadm_t_dbus',`
+     gen_require(`
++		class dbus acquire_svc;
+         type sysadm_t;
+     ')
+ 
+-- 
+2.17.1
+

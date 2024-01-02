@@ -1,0 +1,21 @@
+[Unit]
+Description=sprdrild Daemon Service
+After=syslog.target
+Before=ofono.service
+
+[Service]
+ExecStart=/usr/bin/sprdrild -l /usr/lib/libsprd-ril.so
+
+#User=radio
+#Group=radio
+#SupplementaryGroups=inet net_admin net_raw
+#SecureBits=keep-caps
+#Capabilities=cap_net_admin=ep cap_net_bind_service=ep cap_net_broadcast=ep cap_net_raw=ep
+#CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW
+Restart=always
+#NonBlocking=true
+
+
+[Install]
+WantedBy=multi-user.target
+

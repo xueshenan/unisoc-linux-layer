@@ -1,0 +1,44 @@
+diff --git a/policy/modules/system/iptables.if b/policy/modules/system/iptables.if
+index 982e41018..41f96aa6a 100755
+--- a/policy/modules/system/iptables.if
++++ b/policy/modules/system/iptables.if
+@@ -266,3 +266,27 @@ interface(`iptables_kmsg_device_t_chr_file',`
+ 
+ 	allow $1 kmsg_device_t:chr_file {append};
+ ')
++
++interface(`iptables_urandom_device_t_chr_file',`
++	gen_require(`
++		type urandom_device_t;
++	')
++
++	allow $1 urandom_device_t:chr_file { write open read map ioctl getattr };
++')
++
++interface(`iptables_initrc_t_udp_socket',`
++	gen_require(`
++		type initrc_t;
++	')
++
++	allow $1 initrc_t:udp_socket { rw_socket_perms };
++')
++
++interface(`iptables_initrc_t_netlink_generic_socket',`
++	gen_require(`
++		type initrc_t;
++	')
++
++	allow $1 initrc_t:netlink_generic_socket { rw_socket_perms write read create bind };
++')
+\ No newline at end of file
+diff --git a/policy/modules/system/iptables.te b/policy/modules/system/iptables.te
+index ef7de9c7f..241eca35b 100755
+--- a/policy/modules/system/iptables.te
++++ b/policy/modules/system/iptables.te
+@@ -151,3 +151,6 @@ optional_policy(`
+ ')
+ 
+ iptables_kmsg_device_t_chr_file(iptables_t)
++iptables_urandom_device_t_chr_file(iptables_t)
++iptables_initrc_t_udp_socket(iptables_t)
++iptables_initrc_t_netlink_generic_socket(iptables_t)

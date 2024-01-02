@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<rootnode>
+	<playback>
+		<mm_normal channels="2" rate="44100" period_size="480" period_count="4" format="0" card="sprdphone" pcm_device="0" start_threshold="1920" stop_threshold="-1" apptype="AUDIO_HW_APP_PRIMARY" />
+		<voipdl channels="1" rate="16000" period_size="160" period_count="2" format="0" card="sprdphone"  pcm_device="1" apptype="AUDIO_HW_APP_VOIPDL" />
+		<voip channels="1" rate="16000" period_size="320" period_count="5" format="0" card="saudiovoip"  pcm_device="0" apptype="AUDIO_HW_APP_VOIP" />
+		<voipmixer channels="1" rate="16000" period_size="320" period_count="5" format="0" card="saudiovoip"  pcm_device="1" apptype="AUDIO_HW_VOIPMIXER" />
+		<btsco0 channels="1" rate="8000" period_size="160" period_count="5" format="0" stop_threshold="-1" card="all-i2s"  pcm_device="0" apptype="AUDIO_HW_BTSCO" />
+		<btsco1 channels="2" rate="16000" period_size="320" period_count="5" format="0" stop_threshold="-1" card="all-i2s"  pcm_device="0" apptype="AUDIO_HW_BTSCO" />
+		<vaudio0 channels="2" rate="8000" period_size="320" period_count="4" format="0" card="saudiolte"  pcm_device="0" apptype="AUDIO_HW_APP_VAUDIO" />
+		<vaudio1 channels="2" rate="8000" period_size="320" period_count="4" format="0" start_threshold="160" card="VIRTUAL AUDIO W"  pcm_device="0" apptype="AUDIO_HW_APP_VAUDIO" />
+		<vaudio2 channels="2" rate="8000" period_size="320" period_count="4" format="0" start_threshold="160" card="VIRTUAL AUDIO"  pcm_device="0" apptype="AUDIO_HW_APP_VAUDIO" />
+		<offload0 channels="2" rate="44100" period_size="9600" period_count="6" format="0" card="sprdphone" pcm_device="5" start_threshold="9600" stop_threshold="-1" apptype="AUDIO_HW_APP_OFFLOAD" />
+		<offload1 channels="2" rate="8000" period_size="320" period_count="4" format="0" card="VIRTUAL AUDIO W" pcm_device="1" apptype="AUDIO_HW_APP_OFFLOAD" />
+		<offload2 channels="2" rate="8000" period_size="320" period_count="4" format="0" card="VIRTUAL AUDIO" pcm_device="1"  apptype="AUDIO_HW_APP_OFFLOAD" />
+		<offload3 channels="2" rate="8000" period_size="320" period_count="4" format="0" card="saudiolte" pcm_device="1" apptype="AUDIO_HW_APP_OFFLOAD" />
+		<voice channels="2" rate="8000" period_size="160" period_count="2" format="0" start_threshold="160" stop_threshold="-1" card="sprdphone" pcm_device="1" apptype="AUDIO_HW_APP_CALL" />
+		<fm channels="2" rate="44100" period_size="2880" period_count="2" format="0" stop_threshold="-1" card="sprdphone"  pcm_device="4" apptype="AUDIO_HW_APP_FM" />
+	</playback>
+	<record>
+		<mm_normal channels="2" rate="44100" period_size="1760" period_count="4" format="0" card="sprdphone" pcm_device="0" apptype="AUDIO_HW_APP_NORMAL_RECORD" />
+		<voipul channels="1" rate="16000" period_size="320" period_count="8" format="0" card="sprdphone"  pcm_device="1" apptype="AUDIO_HW_APP_VOIPUL" />
+		<voip channels="1" rate="16000" period_size="640" period_count="8" format="0" card="saudiovoip"  pcm_device="0" apptype="AUDIO_HW_APP_VOIP_RECORD" />
+		<voice channels="1" rate="8000" period_size="320" period_count="8" format="0" start_threshold="160" stop_threshold="-1" card="sprdphone"  pcm_device="1" apptype="AUDIO_HW_APP_CALL" />
+                <voicerecord channels="1" rate="8000" period_size="320" period_count="4" format="0" card="saudiolte"  pcm_device="0" apptype="AUDIO_HW_APP_CALL_RECORD" />
+		<fm channels="2" rate="32000" period_size="1920" period_count="4" format="0" stop_threshold="2147483646" card="sprdphone"  pcm_device="0" apptype="AUDIO_HW_APP_FM_RECORD" />
+		<btrecord0 channels="1" rate="8000" period_size="640" period_count="8" format="0" card="all-i2s"  pcm_device="0" apptype="AUDIO_HW_APP_BT_RECORD" />
+		<btrecord1 channels="2" rate="16000" period_size="640" period_count="8" format="0" card="all-i2s"  pcm_device="0" apptype="AUDIO_HW_APP_BT_RECORD" />
+	</record>
+	<compress fragment_size="0x10000" fragments="0xf" card="0" pcm_device="0x05" apptype="AUDIO_HW_APP_COMPRESS" />
+	<!--Note:modify period_size and period_count affect the latency-->
+	<offload>
+		<a2dp>
+			<mixer channels="2" rate="44100" period_size="960" period_count="4" format="0" stop_threshold="-1" card="0"  pcm_device="12"/>
+			<compress fragment_size="0x5000" fragments="0x08" card="0" pcm_device="11"/>
+		</a2dp>
+	</offload>
+</rootnode>

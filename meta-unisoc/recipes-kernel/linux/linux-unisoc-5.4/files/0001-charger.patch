@@ -1,0 +1,2293 @@
+From 81a8d63360b8d48e84e435f8f14831c7b737c153 Mon Sep 17 00:00:00 2001
+From: fujia <fujia@bingtangtech.com>
+Date: Mon, 7 Aug 2023 20:19:29 +0800
+Subject: [PATCH] charger
+
+---
+ drivers/power/supply/Kconfig           |    6 +
+ drivers/power/supply/Makefile          |    1 +
+ drivers/power/supply/bq25723-charger.c | 1580 ++++++++++++++++++++++++
+ include/linux/fb.h                     |    3 +
+ include/linux/power/bq25723_reg.h      |  597 +++++++++
+ include/linux/power_supply.h           |   24 +
+ 6 files changed, 2211 insertions(+)
+ create mode 100755 drivers/power/supply/bq25723-charger.c
+ create mode 100755 include/linux/power/bq25723_reg.h
+
+diff --git a/drivers/power/supply/Kconfig b/drivers/power/supply/Kconfig
+index a7760c5afaae..4b879e45a09b 100644
+--- a/drivers/power/supply/Kconfig
++++ b/drivers/power/supply/Kconfig
+@@ -603,6 +603,12 @@ config CHARGER_BQ25890
+ 	help
+ 	  Say Y to enable support for the TI BQ25890 battery charger.
+ 
++config CHARGER_BQ25723
++	tristate "TI BQ25723 battery charger driver"
++	depends on I2C
++	help
++	  Say Y to enable support for the TI BQ25723 battery charger.
++
+ config CHARGER_SMB347
+ 	tristate "Summit Microelectronics SMB347 Battery Charger"
+ 	depends on I2C
+diff --git a/drivers/power/supply/Makefile b/drivers/power/supply/Makefile
+index 74af92114203..d75017bf947e 100644
+--- a/drivers/power/supply/Makefile
++++ b/drivers/power/supply/Makefile
+@@ -83,6 +83,7 @@ obj-$(CONFIG_CHARGER_BQ24257)	+= bq24257_charger.o
+ obj-$(CONFIG_CHARGER_BQ24735)	+= bq24735-charger.o
+ obj-$(CONFIG_CHARGER_BQ25890)	+= bq25890_charger.o
+ obj-$(CONFIG_CHARGER_BQ25910)	+= bq25910_charger.o
++obj-$(CONFIG_CHARGER_BQ25723)	+= bq25723-charger.o
+ obj-$(CONFIG_CHARGER_SMB347)	+= smb347-charger.o
+ obj-$(CONFIG_CHARGER_TPS65090)	+= tps65090-charger.o
+ obj-$(CONFIG_CHARGER_TPS65217)	+= tps65217_charger.o
+diff --git a/drivers/power/supply/bq25723-charger.c b/drivers/power/supply/bq25723-charger.c
+new file mode 100755
+index 000000000000..d02efd7393bf
+--- /dev/null
++++ b/drivers/power/supply/bq25723-charger.c
+@@ -0,0 +1,1580 @@
++/*
++ * Driver for the Texas Instruments bq25723 charger.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++#include <linux/gpio/consumer.h>
++#include <linux/extcon.h>
++#include <linux/interrupt.h>
++#include <linux/i2c.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/of_platform.h>
++#include <linux/of_gpio.h>
++#include <linux/platform_device.h>
++#include <linux/power_supply.h>
++#include <linux/power/bq25723_reg.h>
++#include <linux/power/charger-manager.h>
++#include <linux/regmap.h>
++#include <linux/regulator/driver.h>
++#include <linux/regulator/machine.h>
++#include <linux/slab.h>
++#include <linux/usb/phy.h>
++#include <uapi/linux/usb/charger.h>
++#include<linux/miscdevice.h>
++
++#define BQ25723_BATTERY_NAME				"ds278x-fgu"
++
++#define BQ25723_MANUFACTURER_ID	0x40
++#define BQ25723_DEVICE_ID	0xE0
++#define SC8886_DEVICE_ID	0x66
++
++#define BQ25723_DISABLE_PIN_MASK_2730 BIT(0)
++#define BQ25723_OTG_VALID_MS		100
++#define BQ25723_OTG_NORMAL_VALID_MS	1500
++#define BQ25723_OTG_RETRY_TIMES	10
++#define BIT_DP_DM_BC_ENB		BIT(0)
++
++/*==== customization defines for user ====*/
++/* special charger output voltage ramps up from 5V to 12V,
++   not 12V directly, set a 2s timer to retry */
++#undef SUPPORT_TWO_STEPS_SPECIAL_CHG
++
++/* sense resistor has two options can use: 5mohm or 10mohm,
++   please confirm this infomation with hardware colleagues,
++   10mohm is reference design.*/
++#undef USE_10MOHM_SENSE_RESISTOR
++/*==== customization defines for user ====*/
++
++/* dump registers for debugging */
++#undef DEBUG_DUMP
++
++#ifdef USE_10MOHM_SENSE_RESISTOR
++	#define	CHARGECURRENT_LSB			64   // depends: RSNS_RAC
++	#define	IIN_DPM_REG_LSB				50   // depends: RSNS_RAC
++	#define	ADCIBAT_CHG_LSB				64   // depends: RSNS_RSR
++	#define	ADCIBAT_DSG_LSB				256  // depends: RSNS_RSR
++	#define	ADCIBUS_LSB					50   // depends: RSNS_RAC
++	#define	ADCCMPIN_LSB					12   // depends: ADC_FULLSCALE
++#else
++	#define	CHARGECURRENT_LSB			128  // depends: RSNS_RAC
++	#define	IIN_DPM_REG_LSB				100  // depends: RSNS_RAC
++	#define	ADCIBAT_CHG_LSB				128  // depends: RSNS_RSR
++	#define	ADCIBAT_DSG_LSB				512  // depends: RSNS_RSR
++	#define	ADCIBUS_LSB					100  // depends: RSNS_RAC
++	#define	ADCCMPIN_LSB					12   // depends: ADC_FULLSCALE
++#endif
++#define	CHARGECURRENT_SC_LSB				64   // sc8886 does not depends RSNS_RAC
++
++struct bq25723_charger_info {
++	struct i2c_client *client;
++	struct device *dev;
++	struct regmap *regmap;
++	struct usb_phy *usb_phy;
++	struct notifier_block usb_notify;
++	struct power_supply *psy_usb;
++	struct power_supply_charge_current cur;
++	struct work_struct work;
++	struct mutex lock;
++	bool charging;
++	u32 limit;
++	struct delayed_work otg_work;
++	struct delayed_work wdt_work;
++#ifdef SUPPORT_TWO_STEPS_SPECIAL_CHG
++	struct delayed_work retry_chg_work;
++#endif
++	struct regmap *pmic;
++	u32 charger_detect;
++	u32 charger_type;
++	int charger_vol_type;
++	int chager_bq_sc;  /* bq25723: 1, sc8886: 2 */
++	bool pd_fast_charger;
++	bool otg_enable;
++	u32 charger_pd;
++	u32 charger_pd_mask;
++	struct extcon_dev *edev;
++	int otg_gpio;
++};
++
++struct bq25723_charger_info *bqbak_info;
++
++static const char * const bq25723_fast_charger_supply_name[] = {
++	"sc2730_fast_charger",
++};
++
++static const char * const bq25723_fgu_supply_name[] = {
++	"ds278x-fgu",
++	"sc27xx-fgu",
++};
++
++static bool bq25723_volatile_reg(struct device *dev, u32 reg)
++{
++	switch (reg) {
++	case MANUFACTUREID_REG:
++	case DEVICEID_REG:
++	case IIN_DPM_REG:
++	case ADCVBUS_REG:
++	case ADCPSYS_REG:
++	case ADCIBAT_CHG_REG:
++	case ADCIBAT_DSG_REG:
++	case ADCIBUS_REG:
++	case ADCCMPIN_REG:
++	case ADCVSYS_REG:
++	case ADCVBAT_REG:
++		return true;
++	default:
++		return false;
++	};
++};
++
++static bool bq25723_readable_reg(struct device *dev, u32 reg)
++{
++	switch (reg) {
++	case CHARGEOPTION0_0_REG:
++	case CHARGEOPTION0_1_REG:
++	case CHARGECURRENT_REG:
++	case BQ25723REG_03:
++	case CHARGEVOLT_REG:
++	case BQ25723REG_05:
++	case OTGVOLT_REG:
++	case BQ25723REG_07:
++	case OTGCURRENT_REG:
++	case INPUTVOLTLIM_REG:
++	case BQ25723REG_0B:
++	case MINSYSVOLT_REG:
++	case INPUTCURRENTLIM_REG:
++	case CHARGERSTATUS_0_REG:
++	case CHARGERSTATUS_1_REG:
++	case PROCHOTSTATUS_0_REG:
++	case PROCHOTSTATUS_1_REG:
++	case CHARGEOPTION1_1_REG:
++	case CHARGEOPTION1_0_REG:
++	case CHARGEOPTION2_0_REG:
++	case CHARGEOPTION2_1_REG:
++	case CHARGEOPTION3_0_REG:
++	case CHARGEOPTION3_1_REG:
++	case PROCHOTOPTION0_0_REG:
++	case PROCHOTOPTION0_1_REG:
++	case PROCHOTOPTION1_0_REG:
++	case PROCHOTOPTION1_1_REG:
++	case ADCOPTION_0_REG:
++	case ADCOPTION_1_REG:
++	case CHARGEOPTION4_0_REG:
++	case CHARGEOPTION4_1_REG:
++	case VMIN_ACTIVE_PROTECTION_0_REG:
++	case VMIN_ACTIVE_PROTECTION_1_REG:
++	case MANUFACTUREID_REG:
++	case DEVICEID_REG:
++	case IIN_DPM_REG:
++	case ADCVBUS_REG:
++	case ADCPSYS_REG:
++	case ADCIBAT_CHG_REG:
++	case ADCIBAT_DSG_REG:
++	case ADCIBUS_REG:
++	case ADCCMPIN_REG:
++	case ADCVSYS_REG:
++	case ADCVBAT_REG:
++		return true;
++	default:
++		return false;
++	};
++};
++
++static const struct regmap_config bq25723_regmap_config = {
++	.reg_bits = 8,
++	.val_bits = 8,
++	.max_register = BQ25723_LASTREG,
++	.volatile_reg = bq25723_volatile_reg,
++	.readable_reg = bq25723_readable_reg,
++	.cache_type = REGCACHE_RBTREE,
++};
++
++struct regulator_dev *dev_temp=NULL;
++struct delayed_work pr_close_vbus_test_work;
++struct work_struct pr_open_vbus_test_work;
++static int bq25723_read(struct bq25723_charger_info *info, u8 reg, u8 *data);
++static int bq25723_read_word(struct bq25723_charger_info *info, u8 reg, u16 *data);
++static int bq25723_write(struct bq25723_charger_info *info, u8 reg, u8 data);
++static int bq25723_write_word(struct bq25723_charger_info *info, u8 reg, u16 data);
++static int bq25723_charger_set_voltage(struct bq25723_charger_info *info, u32 cur);
++static int bq25723_charger_set_limit_current(struct bq25723_charger_info *info, u32 limit_cur);
++static void bq25723_charger_disable_watchdog(struct bq25723_charger_info *info);
++static bool bq25723_charger_is_support_fchg(struct bq25723_charger_info *info);
++
++static bool bq25723_charger_is_bat_present(struct bq25723_charger_info *info)
++{
++	struct power_supply *psy;
++	union power_supply_propval val;
++	bool present = false;
++	int i, ret;
++
++	for (i = 0; i < ARRAY_SIZE(bq25723_fgu_supply_name); i++) {
++		psy = power_supply_get_by_name(bq25723_fgu_supply_name[i]);
++		if (!psy)
++			continue;
++
++		ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_CAPACITY,
++						&val);
++
++		if (!ret){
++			break;
++		}
++
++		power_supply_put(psy);
++	}
++
++	//psy = power_supply_get_by_name(BQ25723_BATTERY_NAME);
++	if (!psy) {
++		dev_err(info->dev, "Failed to get psy of sc27xx_fgu\n");
++		return present;
++	}
++	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_PRESENT,
++					&val);
++	if (ret == 0 && val.intval)
++		present = true;
++	power_supply_put(psy);
++
++	if (ret)
++		dev_err(info->dev,
++			"Failed to get property of present:%d\n", ret);
++
++	return true;  //present
++}
++
++static int bq25723_read(struct bq25723_charger_info *info, u8 reg, u8 *data)
++{
++	int ret;
++
++	ret = i2c_smbus_read_byte_data(info->client, reg);
++	if (ret < 0)
++		return ret;
++
++	*data = ret;
++	return 0;
++}
++
++static int bq25723_read_word(struct bq25723_charger_info *info, u8 reg, u16 *data)
++{
++	int ret;
++
++	ret = i2c_smbus_read_word_data(info->client, reg);
++	if (ret < 0)
++		return ret;
++
++	*data = ret;
++	return 0;
++}
++
++static int bq25723_write(struct bq25723_charger_info *info, u8 reg, u8 data)
++{
++	return i2c_smbus_write_byte_data(info->client, reg, data);
++}
++
++static int bq25723_write_word(struct bq25723_charger_info *info, u8 reg, u16 data)
++{
++	return i2c_smbus_write_word_data(info->client, reg, data);
++}
++
++static int bq25723_update_bits(struct bq25723_charger_info *info, u8 reg,
++		u8 mask, u8 data)
++{
++	u8 v;
++	int ret;
++
++	ret = bq25723_read(info, reg, &v);
++	if (ret < 0)
++		return ret;
++
++	v &= ~mask;
++	v |= (data & mask);
++
++	return bq25723_write(info, reg, v);
++}
++
++static int bq25723_update_word_bits(struct bq25723_charger_info *info, u8 reg,
++		u16 mask, u16 data)
++{
++	u16 v;
++	int ret;
++
++	ret = bq25723_read_word(info, reg, &v);
++	if (ret < 0)
++		return ret;
++
++	v &= ~mask;
++	v |= (data & mask);
++
++	return bq25723_write_word(info, reg, v);
++}
++
++static int bq25723_charger_hw_init(struct bq25723_charger_info *info)
++{
++	struct power_supply_battery_info bat_info = { };
++	int ret, vbus_max_voltage;
++	u16 v = 0;
++	u8 vshort;
++
++	ret = bq25723_read(info, DEVICEID_REG, &vshort);
++	if (vshort == BQ25723_DEVICE_ID) {
++		info->chager_bq_sc = 1;
++		dev_info(info->dev, "device id: 0x%x, Ti BQ25723\n", vshort);
++	}else if (vshort == SC8886_DEVICE_ID) {
++		info->chager_bq_sc = 2;
++		dev_info(info->dev, "device id: 0x%x, Southcip SC8886\n", vshort);
++	} else {
++		info->chager_bq_sc = 0;
++		dev_err(info->dev, "read chg chip failed\n");
++		return ret;
++	}
++
++	bq25723_charger_disable_watchdog(info);
++
++	ret = power_supply_get_battery_info(info->psy_usb, &bat_info);
++	if (ret) {
++		dev_warn(info->dev, "no battery information is supplied\n");
++		/*
++		 * If no battery information is supplied, we should set
++		 * default charge termination current to 100 mA, and default
++		 * charge termination voltage to 4.2V.
++		 */
++		info->cur.sdp_limit = 500000;
++		info->cur.sdp_cur = 500000;
++		info->cur.dcp_limit = 5000000;
++		info->cur.dcp_cur = 500000;
++		info->cur.cdp_limit = 5000000;
++		info->cur.cdp_cur = 1500000;
++		info->cur.unknown_limit = 5000000;
++		info->cur.unknown_cur = 500000;
++		info->cur.highdcp_limit = 5000000;
++		info->cur.highdcp_cur = 500000;
++	} else {
++		info->cur.sdp_limit = bat_info.cur.sdp_limit;
++		info->cur.sdp_cur = bat_info.cur.sdp_cur;
++		info->cur.dcp_limit = bat_info.cur.dcp_limit;
++		info->cur.dcp_cur = bat_info.cur.dcp_cur;
++		info->cur.cdp_limit = bat_info.cur.cdp_limit;
++		info->cur.cdp_cur = bat_info.cur.cdp_cur;
++		info->cur.unknown_limit = bat_info.cur.unknown_limit;
++		info->cur.unknown_cur = bat_info.cur.unknown_cur;
++		info->cur.fchg_limit = bat_info.cur.fchg_limit;
++		info->cur.fchg_cur = bat_info.cur.fchg_cur;
++		info->cur.highdcp_limit = bat_info.cur.highdcp_limit;
++		info->cur.highdcp_cur = bat_info.cur.highdcp_cur;
++		vbus_max_voltage = bat_info.constant_charge_voltage_max_uv;
++
++		// clear EN_LWPWR
++		ret = bq25723_read(info, CHARGEOPTION0_1_REG, &vshort);
++		vshort = vshort & ~EN_LWPWR_MASK;
++		ret = bq25723_write(info, CHARGEOPTION0_1_REG, vshort);
++
++		// EN_ICHG_IDCHG: IBAT pin as charge current
++		ret = bq25723_read(info, CHARGEOPTION2_0_REG, &vshort);
++		vshort = (vshort | EN_ICHG_IDCHG_MASK) & ~EN_EXTLIM_MASK;
++		ret = bq25723_write(info, CHARGEOPTION2_0_REG, vshort);
++
++		// Enable ADC_CONV, ADC_START
++		ret = bq25723_read(info, ADCOPTION_1_REG, &vshort);
++		vshort = vshort | (ADC_CONV_MASK | ADC_START_MASK);
++		ret = bq25723_write(info, ADCOPTION_1_REG, vshort);
++		dev_info(info->dev, "REG.0x3B: 0x%x, ADC continuous update, start\n", vshort);
++
++		// enable ADC fields
++		ret = bq25723_write(info, ADCOPTION_0_REG, 0xFF);
++
++		ret = bq25723_read(info, CHARGEOPTION1_1_REG, &vshort);
++#ifdef USE_10MOHM_SENSE_RESISTOR
++		vshort = vshort & 0xF3;
++		dev_info(info->dev, "REG.0x31: 0x%x, bit rac = rsr = 0 charge/input sensor resistor: 10mohm\n", vshort);
++#else
++		vshort = vshort | 0x0C;
++		dev_info(info->dev, "REG.0x31: 0x%x, bit rac = rsr = 1 charge/input sensor resistor: 5mohm\n", vshort);
++#endif
++		ret = bq25723_write(info, CHARGEOPTION1_1_REG, vshort);
++
++		ret = bq25723_charger_set_voltage(info, vbus_max_voltage);
++		if (ret) {
++			dev_err(info->dev, "set vbus voltage failed\n");
++		}
++
++		// set OTG voltage = 5.2V
++		if (info->chager_bq_sc == 1) {
++			v = 5200 / OTGVOLT_LSB;
++		} else if (info->chager_bq_sc == 2) {
++			v = (5200 -1280) / OTGVOLT_LSB;
++		}
++		ret = bq25723_update_word_bits(info, OTGVOLT_REG, OTGVOLT_MASK, v << OTGVOLT_SHIFT);
++		if (ret) {
++			dev_err(info->dev, "set OTG voltage failed\n");
++		}
++		// set OTG current = 1A
++		v = 1000 / OTGCURRENT_LSB;
++		ret = bq25723_update_bits(info, OTGCURRENT_REG, OTGCURRENT_MASK, v << OTGCURRENT_SHIFT);
++		if (ret) {
++			dev_err(info->dev, "set OTG current failed\n");
++		}
++                ret = bq25723_write_word(info, INPUTVOLTLIM_REG, 0);
++                if (ret) {
++	                       dev_err(info->dev, "set INPUTVOLTLIM_REG failed\n");
++	               }
++	}
++	return ret;
++}
++
++static int bq25723_charger_start_charge(struct bq25723_charger_info *info)
++{
++	int ret;
++	u8 val;
++
++	val = LWPWR_DISABLE << EN_LWPWR_SHIFT;
++	ret = bq25723_update_bits(info, CHARGEOPTION0_1_REG, EN_LWPWR_MASK, val);
++	if (ret)
++		dev_err(info->dev, "disable low power mode failed\n");
++
++	val = CHRG_ENABLE << CHRG_INHIBIT_SHIFT;
++	ret = bq25723_update_bits(info, CHARGEOPTION0_0_REG, CHRG_INHIBIT_MASK, val); 
++	if (ret)
++		dev_err(info->dev, "enable bq25723 charge failed\n");
++
++	ret = bq25723_read(info, CHARGEOPTION0_1_REG, &val);
++	dev_info(info->dev, "disable low power mode, Reg0x01: 0x%x\n", val);
++	ret = bq25723_read(info, CHARGEOPTION0_0_REG, &val);
++	dev_info(info->dev, "start bq25723 charge, Reg0x00: 0x%x\n", val);
++
++	return ret;
++}
++
++static void bq25723_charger_stop_charge(struct bq25723_charger_info *info)
++{
++	int ret;
++	u8 val;
++
++	bq25723_charger_is_support_fchg(info);
++
++	val = CHRG_INHIBIT << CHRG_INHIBIT_SHIFT;
++	ret = bq25723_update_bits(info, CHARGEOPTION0_0_REG, CHRG_INHIBIT_MASK, val); 
++	if (ret)
++		dev_err(info->dev, "disable bq25723 charge failed\n");
++
++	val = LWPWR_ENABLE << EN_LWPWR_SHIFT;
++	ret = bq25723_update_bits(info, CHARGEOPTION0_1_REG, EN_LWPWR_MASK, val);
++	if (ret)
++		dev_err(info->dev, "enable low power mode failed\n");
++
++	ret = bq25723_read(info, CHARGEOPTION0_1_REG, &val);
++	dev_info(info->dev, "enable low power mode, Reg0x01: 0x%x\n", val);
++	ret = bq25723_read(info, CHARGEOPTION0_0_REG, &val);
++	dev_info(info->dev, "stop bq25723 charge, Reg0x00: 0x%x\n", val);
++}
++
++static int bq25723_charger_set_current(struct bq25723_charger_info *info,
++					u32 cur)
++{
++	int ret = 0;
++	u16 val = 0;
++
++	cur = cur / 1000;
++	if (info->chager_bq_sc == 1) {
++		val = (cur / CHARGECURRENT_LSB) << CHARGECURRENT_SHIFT;
++	} else if (info->chager_bq_sc == 2) {
++		val = (cur / CHARGECURRENT_SC_LSB) << CHARGECURRENT_SHIFT;
++	}
++
++	ret = bq25723_write_word(info, CHARGECURRENT_REG, val);
++	if (ret < 0) {
++		return ret;
++	}
++	dev_info(info->dev, "%s: cur: %d, CHARGECURRENT_REG: 0x%x\n", __func__, cur, val);
++
++	return 0;
++}
++
++static int bq25723_charger_get_current(struct bq25723_charger_info *info,
++					u32 *cur)
++{
++	int ret = 0;
++	u16 val;
++
++	ret = bq25723_read_word(info, CHARGECURRENT_REG, &val);
++	if (ret < 0) {
++		return ret;
++	}
++	if (info->chager_bq_sc == 1) {
++		*cur = (val >> CHARGECURRENT_SHIFT) * CHARGECURRENT_LSB;
++	} else if (info->chager_bq_sc == 2) {
++		*cur = (val >> CHARGECURRENT_SHIFT) * CHARGECURRENT_SC_LSB;
++	}
++	return 0;
++}
++
++static int
++bq25723_charger_set_limit_current(struct bq25723_charger_info *info,
++				   u32 limit_cur)
++{
++	int ret = 0;
++	u16 val;
++
++#ifndef USE_10MOHM_SENSE_RESISTOR
++	if (info->chager_bq_sc == 1) {
++		limit_cur = limit_cur / 1000 - 200;  //5mohm offset
++	} else if (info->chager_bq_sc == 2) {
++		limit_cur = limit_cur / 1000 - 50;    //5mohm offset
++	}
++#else
++	limit_cur = limit_cur / 1000;
++#endif
++	val = (limit_cur / INPUTCURRENTLIM_LSB) << INPUTCURRENTLIM_SHIFT;
++
++	ret = bq25723_write(info, INPUTCURRENTLIM_REG, val);
++	if (ret < 0) {
++		return ret;
++	}
++	dev_info(info->dev, "%s: limit_cur: %d, INPUTCURRENTLIM_REG: 0x%x\n", __func__, limit_cur, val);
++
++	return 0;
++}
++
++static u32
++bq25723_charger_get_limit_current(struct bq25723_charger_info *info,
++				   u32 *limit_cur)
++{
++	int ret = 0;
++	u8 val;
++
++	ret = bq25723_read(info, IIN_DPM_REG, &val);
++	if (info->chager_bq_sc == 1) {
++#ifndef USE_10MOHM_SENSE_RESISTOR
++		*limit_cur = (val * 200 + 100) * 1000;
++#else
++		*limit_cur = (val * 100 + 50) * 1000;
++#endif
++	} else if (info->chager_bq_sc == 2) {
++		*limit_cur = (val * 50 + 50) * 1000;
++	}
++
++	return 0;
++}
++
++static int bq25723_charger_set_voltage(struct bq25723_charger_info *info,
++					u32 cur)
++{
++	int ret = 0;
++	u16 val;
++
++	cur = cur / 1000;
++	val = (cur / CHARGEVOLT_LSB) << CHARGEVOLT_SHIFT;
++
++	ret = bq25723_write_word(info, CHARGEVOLT_REG, val);
++	if (ret < 0) {
++		return ret;
++	}
++	dev_info(info->dev, "%s: cur: %d, CHARGEVOLT_REG: 0x%x\n", __func__, cur, val);
++
++	return 0;
++}
++
++static int bq25723_charger_get_input_current(struct bq25723_charger_info *info, u32 *cur)
++{
++	int ret = 0;
++	u8 val;
++
++	ret = bq25723_read(info, ADCIBAT_CHG_REG, &val);
++	if (info->chager_bq_sc == 1) {
++#ifndef USE_10MOHM_SENSE_RESISTOR
++		*cur = val * 128 * 1000;
++#else
++		*cur = val * 64 * 1000;
++#endif
++	} else if (info->chager_bq_sc == 2) {
++		*cur = val * 64 * 1000;
++	}
++
++	return 0;
++}
++
++#if 0
++static int bq25723_charger_set_input_voltage_limit(struct bq25723_charger_info *info,
++					u32 cur)
++{
++	int ret = 0;
++	u16 val;
++
++	cur = cur / 1000;
++	val = (cur / INPUTVOLTLIM_LSB) << INPUTVOLTLIM_SHIFT;
++
++	ret = bq25723_write_word(info, INPUTVOLTLIM_REG, val);
++	if (ret < 0) {
++		return ret;
++	}
++	dev_info(info->dev, "%s: cur: %d, INPUTVOLTLIM_REG: 0x%x\n", __func__, cur, val);
++
++	return 0;
++}
++#endif
++
++static int bq25723_charger_get_health(struct bq25723_charger_info *info,
++				     u32 *health)
++{
++	*health = POWER_SUPPLY_HEALTH_GOOD;
++
++	return 0;
++}
++
++static int bq25723_charger_get_online(struct bq25723_charger_info *info,
++				     u32 *online)
++{
++	if (info->limit)
++		*online = true;
++	else
++		*online = false;
++
++	return 0;
++}
++
++static void bq25723_charger_disable_watchdog(struct bq25723_charger_info *info)
++{
++	int ret = 0;
++	u8 val = WDTMR_ADJ_DISABLE << WDTMR_ADJ_SHIFT;
++
++	ret = bq25723_update_bits(info, CHARGEOPTION0_1_REG, WDTMR_ADJ_MASK, val);
++}
++
++#ifdef DEBUG_DUMP
++static void bq25723_register_dump(struct bq25723_charger_info *info)
++{
++	int ret = 0;
++	u8 val, i = 0;
++
++	// Enable ADC_CONV, ADC_START
++	ret = bq25723_read(info, ADCOPTION_1_REG, &val);
++	val = val | (ADC_CONV_MASK | ADC_START_MASK);
++	ret = bq25723_write(info, ADCOPTION_1_REG, val);
++
++	while(i < 0x10) {
++		ret = bq25723_read(info, i, &val);
++		dev_info(info->dev, "%s: 0x%x = 0x%x\n", __func__, i, val);
++		i++;
++	}
++	i = 0x20;
++	while(i < 0x40) {
++		ret = bq25723_read(info, i, &val);
++		dev_info(info->dev, "%s: 0x%x = 0x%x\n", __func__, i, val);	
++		i++;
++	}
++	ret = gpio_get_value_cansleep(info->otg_gpio);
++	dev_info(info->dev, "%s: otg_gpio pin: %d\n", __func__, ret);
++}
++#endif
++
++// static int bq25723_charger_feed_watchdog(struct bq25723_charger_info *info,
++// 					  u32 val)
++// {
++// #ifdef DEBUG_DUMP
++// 	bq25723_register_dump(info);
++// #endif
++// 	bq25723_write_word(info, INPUTVOLTLIM_REG, 0);
++// 	return 0;
++// }
++
++static int bq25723_charger_get_status(struct bq25723_charger_info *info)
++{
++	if (info->charging == true)
++		return POWER_SUPPLY_STATUS_CHARGING;
++	else
++		return POWER_SUPPLY_STATUS_NOT_CHARGING;
++}
++
++static int bq25723_charger_set_fchg_current(struct bq25723_charger_info *info, u32 val)
++{
++	int ret, limit_cur, cur;
++
++	if (val == CM_FAST_CHARGE_OVP_ENABLE_CMD) {
++		limit_cur = info->cur.fchg_limit;
++		cur = info->cur.fchg_cur;
++		info->pd_fast_charger = true;
++	} else if (val == CM_FAST_CHARGE_OVP_DISABLE_CMD) {
++		limit_cur = info->cur.dcp_limit;
++		cur =info->cur.dcp_cur;
++		info->pd_fast_charger = false;
++	} else {
++		info->pd_fast_charger = false;
++		return 0;
++	}
++
++	ret = bq25723_charger_set_limit_current(info, limit_cur);
++	if (ret) {
++		dev_err(info->dev, "failed to set fast charge limit current\n");
++		return ret;
++	}
++
++	ret = bq25723_charger_set_current(info, cur);
++	if (ret) {
++		dev_err(info->dev, "failed to set  fast charge current\n");
++		return ret;
++	}
++
++	return 0;
++}
++
++static int bq25723_charger_set_status(struct bq25723_charger_info *info, int val)
++{
++	int ret = 0;
++
++	ret = bq25723_charger_set_fchg_current(info, val);
++	if (ret)
++		return ret;
++
++	if (val > CM_FAST_CHARGE_NORMAL_CMD)
++		return 0;
++
++	if (!val && info->charging) {
++		bq25723_charger_stop_charge(info);
++		info->charging = false;
++	} else if (val && !info->charging) {
++		ret = bq25723_charger_start_charge(info);
++		if (ret)
++			dev_err(info->dev, "start charge failed\n");
++		else
++			info->charging = true;
++	}
++
++	return 0;
++}
++
++static u8 bq25723_charger_get_chg_type(struct bq25723_charger_info *info)
++{
++	int ret = 0;
++	u8 val;
++	u16 voltage = 0;
++
++	ret = bq25723_read(info, ADCVBUS_REG, &val);
++	if (info->chager_bq_sc == 1) {
++		voltage = val * ADCVBUS_LSB;
++	} else if (info->chager_bq_sc == 2) {
++		voltage = val * ADCVBUS_SC_LSB + ADCVBUS_SC_OFFSET;
++	}
++	dev_info(info->dev, "REG.0x27: 0x%x, vbus: %d mv\n", val, voltage);
++	if (voltage > 6500)
++		return 2;
++	else
++		return 1;
++}
++
++#ifdef SUPPORT_TWO_STEPS_SPECIAL_CHG
++static void bq25723_charger_retry_chg_type(struct work_struct *work)
++{
++	struct delayed_work *dwork = to_delayed_work(work);
++	struct bq25723_charger_info *info = container_of(dwork,
++			struct bq25723_charger_info, retry_chg_work);
++	int ret = 0;
++
++	ret= bq25723_charger_get_chg_type(info);
++	if ((ret != info->charger_vol_type) && (ret == 2)) {
++		bq25723_charger_set_limit_current(info, info->cur.highdcp_limit);
++		bq25723_charger_set_current(info, info->cur.highdcp_cur);
++		dev_info(info->dev, "charge voltage has been increased!\n");
++	}
++	else
++		dev_info(info->dev, "charge voltage has no change!\n");
++}
++#endif
++
++static bool bq25723_charger_is_support_fchg(struct bq25723_charger_info *info)
++{
++	union power_supply_propval val;
++	struct power_supply *psy;
++	int ret, i;
++
++	for (i = 0; i < ARRAY_SIZE(bq25723_fast_charger_supply_name); i++) {
++		psy = power_supply_get_by_name(bq25723_fast_charger_supply_name[i]);
++		if (!psy)
++			continue;
++
++		ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_CHARGE_TYPE,
++						&val);
++		power_supply_put(psy);
++		if (ret)
++			return false;
++		//info->charger_type = val.intval;
++	}
++	return true;
++}
++
++static void bq25723_charger_work(struct work_struct *data)
++{
++	struct bq25723_charger_info *info =
++		container_of(data, struct bq25723_charger_info, work);
++	int limit_cur, cur, ret;
++	bool present = bq25723_charger_is_bat_present(info);
++
++	dev_info(info->dev, "bat present: %d, chg_type: %d\n", present, info->usb_phy->chg_type);
++	mutex_lock(&info->lock);
++
++	if (info->limit > 0 && !info->charging && present) {
++		/* set current limitation and start to charge */
++		switch (info->usb_phy->chg_type) {
++		case SDP_TYPE://1
++			limit_cur = info->cur.sdp_limit;
++			cur = info->cur.sdp_cur;
++			break;
++		case DCP_TYPE://2
++			limit_cur = info->cur.dcp_limit;
++			cur = info->cur.dcp_cur;
++			break;
++		case CDP_TYPE://3
++			limit_cur = info->cur.cdp_limit;
++			cur = info->cur.cdp_cur;
++			break;
++		default:
++			limit_cur = info->cur.unknown_limit;
++			cur = info->cur.unknown_cur;
++		}
++
++		if ((info->usb_phy->chg_type == DCP_TYPE) || (info->usb_phy->chg_type == UNKNOWN_TYPE)) {
++			info->charger_vol_type = bq25723_charger_get_chg_type(info);
++			if (info->charger_vol_type == 2) {
++				limit_cur = info->cur.highdcp_limit;
++				cur = info->cur.highdcp_cur;
++			}
++		}
++		ret = bq25723_write_word(info, INPUTVOLTLIM_REG, 0);
++#if 0
++		ret = bq25723_charger_set_input_voltage_limit(info, 3200000);
++		if (ret)
++			goto out;
++#endif
++		ret = bq25723_charger_set_limit_current(info, limit_cur);
++		if (ret)
++			goto out;
++
++		ret = bq25723_charger_set_current(info, cur);
++		if (ret)
++			goto out;
++
++		ret = bq25723_charger_start_charge(info);
++		if (ret)
++			goto out;
++
++		info->charging = true;
++
++#ifdef SUPPORT_TWO_STEPS_SPECIAL_CHG
++		schedule_delayed_work(&info->retry_chg_work, msecs_to_jiffies(2000));
++#endif
++	} else if ((!info->limit && info->charging) || !present) {
++		/* Stop charging */
++		info->charging = false;
++		bq25723_charger_stop_charge(info);
++		info->charger_type = POWER_SUPPLY_CHARGE_TYPE_UNKNOWN;
++	}
++
++out:
++	mutex_unlock(&info->lock);
++	dev_info(info->dev, "battery present = %d, charger type = %d\n",
++		 present, info->usb_phy->chg_type);
++	cm_notify_event(info->psy_usb, CM_EVENT_CHG_START_STOP, NULL);
++}
++
++static int bq25723_charger_usb_change(struct notifier_block *nb,
++				       unsigned long limit, void *data)
++{
++	struct bq25723_charger_info *info =
++		container_of(nb, struct bq25723_charger_info, usb_notify);
++
++	dev_info(info->dev, "%s, limit = %lu\n", __func__, limit);
++	info->limit = limit;
++
++	schedule_work(&info->work);
++	return NOTIFY_OK;
++}
++
++static int bq25723_charger_usb_get_property(struct power_supply *psy,
++					     enum power_supply_property psp,
++					     union power_supply_propval *val)
++{
++	struct bq25723_charger_info *info = power_supply_get_drvdata(psy);
++	u32 cur, online, health;
++	enum usb_charger_type type;
++	int ret = 0;
++
++	mutex_lock(&info->lock);
++
++	switch (psp) {
++	case POWER_SUPPLY_PROP_STATUS:
++		if (info->limit)
++			val->intval = bq25723_charger_get_status(info);
++		else
++			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
++		break;
++
++	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
++		if (!info->charging) {
++			val->intval = 0;
++		} else {
++			ret = bq25723_charger_get_current(info, &cur);
++			if (ret)
++				goto out;
++
++			val->intval = cur;
++		}
++		break;
++
++	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
++		if (!info->charging) {
++			val->intval = 0;
++		} else {
++			ret = bq25723_charger_get_limit_current(info, &cur);
++			if (ret)
++				goto out;
++
++			val->intval = cur;
++		}
++		break;
++
++	case POWER_SUPPLY_PROP_ONLINE:
++		ret = bq25723_charger_get_online(info, &online);
++		if (ret)
++			goto out;
++
++		val->intval = online;
++
++		break;
++
++	case POWER_SUPPLY_PROP_HEALTH:
++		if (info->charging) {
++			val->intval = 0;
++		} else {
++			ret = bq25723_charger_get_health(info, &health);
++			if (ret)
++				goto out;
++
++			val->intval = health;
++		}
++		break;
++
++	case POWER_SUPPLY_PROP_USB_TYPE:
++		type = info->usb_phy->charger_detect(info->usb_phy);
++		switch (type) {
++		case SDP_TYPE:
++			val->intval = POWER_SUPPLY_USB_TYPE_SDP;
++			break;
++		case DCP_TYPE:
++			if ((bq25723_charger_get_chg_type(info) == 2) || (info->pd_fast_charger)) {
++				val->intval = POWER_SUPPLY_USB_TYPE_DCP|0x80;
++			} else {
++				val->intval = POWER_SUPPLY_USB_TYPE_DCP;
++			}
++			break;
++		case CDP_TYPE:
++			val->intval = POWER_SUPPLY_USB_TYPE_CDP;
++			break;
++		default:
++			val->intval = POWER_SUPPLY_USB_TYPE_UNKNOWN;
++		}
++		break;
++
++	case POWER_SUPPLY_PROP_CURRENT_NOW:
++		bq25723_charger_get_input_current(info, &cur);
++		if (ret)
++			goto out;
++		val->intval = cur;
++		break;
++	default:
++		ret = -EINVAL;
++	}
++
++out:
++	mutex_unlock(&info->lock);
++	return ret;
++}
++
++static int bq25723_charger_usb_set_property(struct power_supply *psy,
++				enum power_supply_property psp,
++				const union power_supply_propval *val)
++{
++	struct bq25723_charger_info *info = power_supply_get_drvdata(psy);
++	int ret;
++
++	mutex_lock(&info->lock);
++
++	if (!info->charging) {
++		mutex_unlock(&info->lock);
++		return 0;
++	}
++
++	dev_info(info->dev, "%s: psp: %d, val->intval: %d\n", __func__, psp, val->intval);
++	switch (psp) {
++	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
++		// if (info->charger_vol_type == 2) {
++		// 	ret = 0;
++		// } else {
++		// 	if (!info->pd_fast_charger) {
++		// 		ret = bq25723_charger_set_current(info, val->intval);
++		// 		if (ret < 0)
++		// 			dev_err(info->dev, "set charge current failed\n");
++		// 	}
++		// }
++		ret = bq25723_charger_set_current(info, val->intval);
++		if(ret < 0){
++			dev_err(info->dev,"set charge current failed\n");
++		}
++		break;
++
++	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
++		ret = bq25723_charger_set_limit_current(info, val->intval);
++		if (ret < 0)
++			dev_err(info->dev, "set input current limit failed\n");
++		ret = 0;
++		break;
++
++	case POWER_SUPPLY_PROP_STATUS:
++		ret = bq25723_charger_set_status(info, val->intval);
++		if (ret < 0)
++			dev_err(info->dev, "set charge status failed\n");
++		break;
++
++	// case POWER_SUPPLY_PROP_FEED_WATCHDOG:
++	// 	ret = bq25723_charger_feed_watchdog(info, val->intval);
++	// 	if (ret < 0)
++	// 		dev_err(info->dev, "feed charger watchdog failed\n");
++	// 	break;
++
++	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE_MAX:
++		ret = bq25723_charger_set_voltage(info, val->intval);
++		if (ret < 0)
++			dev_err(info->dev, "failed to set terminate voltage\n");
++		break;
++
++	default:
++		ret = -EINVAL;
++	}
++
++	mutex_unlock(&info->lock);
++	return ret;
++}
++
++static int bq25723_charger_property_is_writeable(struct power_supply *psy,
++						enum power_supply_property psp)
++{
++	int ret;
++
++	switch (psp) {
++	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
++	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
++	case POWER_SUPPLY_PROP_STATUS:
++		ret = 1;
++		break;
++
++	default:
++		ret = 0;
++	}
++	return ret;
++}
++
++static enum power_supply_usb_type bq25723_charger_usb_types[] = {
++	POWER_SUPPLY_USB_TYPE_UNKNOWN,
++	POWER_SUPPLY_USB_TYPE_SDP,
++	POWER_SUPPLY_USB_TYPE_DCP,
++	POWER_SUPPLY_USB_TYPE_CDP,
++	POWER_SUPPLY_USB_TYPE_C,
++	POWER_SUPPLY_USB_TYPE_PD,
++	POWER_SUPPLY_USB_TYPE_PD_DRP,
++	POWER_SUPPLY_USB_TYPE_APPLE_BRICK_ID
++};
++
++static enum power_supply_property bq25723_usb_props[] = {
++	POWER_SUPPLY_PROP_STATUS,
++	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
++	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
++	POWER_SUPPLY_PROP_ONLINE,
++	POWER_SUPPLY_PROP_HEALTH,
++	POWER_SUPPLY_PROP_USB_TYPE,
++};
++
++static const struct power_supply_desc bq25723_charger_desc = {
++	.name			= "bq25723_charger",
++	.type			= POWER_SUPPLY_TYPE_USB,
++	.properties		= bq25723_usb_props,
++	.num_properties		= ARRAY_SIZE(bq25723_usb_props),
++	.get_property		= bq25723_charger_usb_get_property,
++	.set_property		= bq25723_charger_usb_set_property,
++	.property_is_writeable	= bq25723_charger_property_is_writeable,
++	.usb_types		= bq25723_charger_usb_types,
++	.num_usb_types		= ARRAY_SIZE(bq25723_charger_usb_types),
++};
++
++static void bq25723_charger_detect_status(struct bq25723_charger_info *info)
++{
++	int min, max;
++
++	/*
++	 * If the USB charger status has been USB_CHARGER_PRESENT before
++	 * registering the notifier, we should start to charge with getting
++	 * the charge current.
++	 */
++	if (info->usb_phy->chg_state != USB_CHARGER_PRESENT)
++		return;
++
++	usb_phy_get_charger_current(info->usb_phy, &min, &max);
++	info->limit = min;
++	schedule_work(&info->work);
++}
++
++static void
++bq25723_charger_feed_watchdog_work(struct work_struct *work)
++{
++}
++
++static bool bq25723_charger_otg_is_valid(struct bq25723_charger_info *info)
++{
++	u8 otg_state, otg_fault;
++	int ret;
++
++	ret = bq25723_read(info, CHARGERSTATUS_1_REG, &otg_state);
++	if (ret)
++		return false;
++	ret = bq25723_read(info, CHARGERSTATUS_0_REG, &otg_fault);
++	if (ret)
++		return false;
++
++	otg_state = otg_state & CHARGERSTATUS_IN_OTG;
++	otg_fault = otg_fault & (CHARGERSTATUS_FAULT_OTG_UVP |
++								CHARGERSTATUS_FAULT_OTG_UVP);
++	if (!otg_state || otg_fault) {
++		dev_err(info->dev, "otg_state: %d, otg_fault: %d", otg_state, otg_fault);
++		return false;
++	}
++
++	return true;
++}
++
++static void bq25723_charger_otg_work(struct work_struct *work)
++{
++	struct delayed_work *dwork = to_delayed_work(work);
++	struct bq25723_charger_info *info = container_of(dwork,
++			struct bq25723_charger_info, otg_work);
++	bool otg_valid = bq25723_charger_otg_is_valid(info);
++	int ret, retry = 0;
++
++	if (otg_valid)
++		goto out;
++
++	do  {
++		ret = bq25723_update_bits(info, CHARGEOPTION3_0_REG,
++							OTG_VAP_MODE_MASK,
++							OTG_VAP_MODE_ENABLE << OTG_VAP_MODE_SHIFT);
++		if (ret)
++			dev_err(info->dev, "set bq25723 OTG_VAP_MODE failed\n");
++
++		ret = bq25723_update_bits(info, CHARGEOPTION3_1_REG,
++							EN_OTG_MASK,
++							OTG_ENABLE << EN_OTG_SHIFT);
++		if (ret)
++			dev_err(info->dev, "set bq25723 EN_OTG failed\n");
++
++		if(gpio_is_valid(info->otg_gpio))
++			gpio_set_value_cansleep(info->otg_gpio, 1);
++		else
++			dev_err(info->dev, "set OTG_GPIO pin failed\n");
++		msleep(10);
++		otg_valid = bq25723_charger_otg_is_valid(info);
++	} while (!otg_valid && retry++ < BQ25723_OTG_RETRY_TIMES);
++
++out:
++	schedule_delayed_work(&info->otg_work,
++					msecs_to_jiffies(BQ25723_OTG_NORMAL_VALID_MS));
++}
++
++static int bq25723_charger_enable_otg(struct regulator_dev *dev)
++{
++	struct bq25723_charger_info *info = rdev_get_drvdata(dev);
++	int ret;
++
++	/*
++	 * Disable charger detection function in case
++	 * affecting the OTG timing sequence.
++	 */
++	ret = regmap_update_bits(info->pmic, info->charger_detect,
++				 BIT_DP_DM_BC_ENB, BIT_DP_DM_BC_ENB);
++	if (ret) {
++		dev_err(info->dev, "failed to disable bc1.2 detect function.\n");
++		return ret;
++	}
++
++	ret = bq25723_update_bits(info, CHARGEOPTION3_0_REG,
++							OTG_VAP_MODE_MASK,
++							OTG_VAP_MODE_ENABLE << OTG_VAP_MODE_SHIFT);
++	if (ret)
++		dev_err(info->dev, "set bq25723 OTG_VAP_MODE failed\n");
++
++	ret = bq25723_update_bits(info, CHARGEOPTION3_1_REG,
++							EN_OTG_MASK,
++							OTG_ENABLE << EN_OTG_SHIFT);
++	if (ret) {
++		dev_err(info->dev, "set bq25723 EN_OTG failed\n");
++		regmap_update_bits(info->pmic, info->charger_detect,
++			   BIT_DP_DM_BC_ENB, 0);
++		return ret;
++	}
++
++	if(gpio_is_valid(info->otg_gpio))
++		gpio_set_value_cansleep(info->otg_gpio, 1);
++	else
++		dev_err(info->dev, "set OTG_GPIO pin failed\n");
++	msleep(10);
++
++	info->otg_enable = true;
++
++	schedule_delayed_work(&info->otg_work,
++			      msecs_to_jiffies(BQ25723_OTG_VALID_MS));
++	return 0;
++}
++
++static int bq25723_charger_disable_otg(struct regulator_dev *dev)
++{
++	struct bq25723_charger_info *info = rdev_get_drvdata(dev);
++	int ret;
++
++	info->otg_enable = false;
++	cancel_delayed_work_sync(&info->otg_work);
++
++	if(gpio_is_valid(info->otg_gpio))
++		gpio_set_value_cansleep(info->otg_gpio, 0);
++	else
++		dev_err(info->dev, "clear OTG_GPIO pin failed\n");
++
++	ret = bq25723_update_bits(info, CHARGEOPTION3_0_REG,
++							OTG_VAP_MODE_MASK,
++							OTG_VAP_MODE_DISABLE << OTG_VAP_MODE_SHIFT);
++	if (ret)
++		dev_err(info->dev, "clear bq25723 OTG_VAP_MODE failed\n");
++
++	ret = bq25723_update_bits(info, CHARGEOPTION3_1_REG,
++							EN_OTG_MASK,
++							OTG_DISABLE << EN_OTG_SHIFT);
++	if (ret) {
++		dev_err(info->dev, "clear bq25723 EN_OTG failed\n");
++		return ret;
++	}
++
++	/* Enable charger detection function to identify the charger type */
++	return regmap_update_bits(info->pmic, info->charger_detect,
++				  BIT_DP_DM_BC_ENB, 0);
++}
++
++static int bq25723_charger_vbus_is_enabled(struct regulator_dev *dev)
++{
++	struct bq25723_charger_info *info = rdev_get_drvdata(dev);
++
++	return info->otg_enable;
++}
++
++void dwc3_sprd_pr_close_vbus_test(bool enable_flag)
++{
++	if(enable_flag)
++	  {  
++	  	 schedule_delayed_work(&pr_close_vbus_test_work, msecs_to_jiffies(1000));
++    }
++  else
++  	{
++  		schedule_work(&pr_open_vbus_test_work);
++  	}
++}
++static void bq25723_pr_close_vbus_test_work(struct work_struct *work)
++{
++    struct regulator_dev *dev=NULL;
++    int ret=0;
++    dev=dev_temp;
++      if(bq25723_charger_vbus_is_enabled(dev))
++    	{
++    		ret=bq25723_charger_disable_otg(dev);
++    		if(ret !=0)
++    			printk("bq25723_pr_close_vbus_test_work fail\n");
++    	}
++}
++static void bq25723_pr_open_vbus_test_work(struct work_struct *work)
++{
++    struct regulator_dev *dev=NULL;
++    int ret=0;
++    dev=dev_temp;
++      if(!bq25723_charger_vbus_is_enabled(dev))
++    	{
++    		ret=bq25723_charger_enable_otg(dev);
++    		if(ret !=0)
++    			printk("bq25723_pr_open_vbus_test_work fail\n");
++    	}
++}
++static const struct regulator_ops bq25723_charger_vbus_ops = {
++	.enable = bq25723_charger_enable_otg,
++	.disable = bq25723_charger_disable_otg,
++	.is_enabled = bq25723_charger_vbus_is_enabled,
++};
++
++static const struct regulator_desc bq25723_charger_vbus_desc = {
++	.name = "otg-vbus",
++	.of_match = "otg-vbus",
++	.type = REGULATOR_VOLTAGE,
++	.owner = THIS_MODULE,
++	.ops = &bq25723_charger_vbus_ops,
++	.fixed_uV = 5000000,
++	.n_voltages = 1,
++};
++
++static int
++bq25723_charger_register_vbus_regulator(struct bq25723_charger_info *info)
++{
++	struct regulator_config cfg = { };
++	struct regulator_dev *reg;
++	int ret = 0;
++
++	cfg.dev = info->dev;
++	cfg.driver_data = info;
++	reg = devm_regulator_register(info->dev,
++				      &bq25723_charger_vbus_desc, &cfg);
++	if (IS_ERR(reg)) {
++		ret = PTR_ERR(reg);
++		dev_err(info->dev, "Can't register regulator:%d\n", ret);
++	}
++dev_temp=reg;
++	return ret;
++}
++
++static int bq25723_charger_parse_dt(struct device *dev,
++						struct bq25723_charger_info *info, struct device_node *np)
++{
++	info->otg_gpio = of_get_named_gpio(np, "otg-gpio", 0);
++	if(info->otg_gpio < 0){
++		dev_err(dev, "fail to get otg_gpio\n");
++		return -EINVAL;
++	}
++
++	return 0;
++}
++static int bq_open(struct inode *inod, struct file *filep)
++{
++	printk("%s pd_fast_charger:%d charge type:%d\n", __func__, bqbak_info->pd_fast_charger, bq25723_charger_get_chg_type(bqbak_info));
++	return 0;
++}
++
++static ssize_t bq_read(struct file *filep, char __user *buf, size_t n, loff_t *offset)
++{
++	int ret = 0;
++	unsigned char charger_type_bq;
++	if((bq25723_charger_get_chg_type(bqbak_info) == 2) || (bqbak_info->pd_fast_charger)){
++		charger_type_bq = 1;
++	}else{
++		charger_type_bq = 0;
++	}
++	printk("%s pd_fast_charger:%d\n",__func__, charger_type_bq);
++	ret = copy_to_user(buf, &charger_type_bq, sizeof(charger_type_bq));
++	return ret;
++}
++
++static const struct file_operations bq25723_misc_fops = {
++	.owner = THIS_MODULE,
++	.open = bq_open,
++	.read = bq_read,
++};
++
++static struct miscdevice misc_bq25723 = {
++	.minor = MISC_DYNAMIC_MINOR,
++	.name = "bq25723_for_charge",
++	.fops = &bq25723_misc_fops,
++};
++
++static int bq25723_charger_probe(struct i2c_client *client,
++		const struct i2c_device_id *id)
++{
++	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
++	struct device *dev = &client->dev;
++	struct power_supply_config charger_cfg = { };
++	struct bq25723_charger_info *info;
++	struct device_node *regmap_np;
++	struct device_node *np = client->dev.of_node;
++	struct platform_device *regmap_pdev;
++	int ret;
++
++	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE_DATA)) {
++		dev_err(dev, "No support for SMBUS_BYTE_DATA\n");
++		return -ENODEV;
++	}
++
++	info = devm_kzalloc(dev, sizeof(*info), GFP_KERNEL);
++	if (!info)
++		return -ENOMEM;
++	info->client = client;
++	info->dev = dev;
++	mutex_init(&info->lock);
++	INIT_WORK(&info->work, bq25723_charger_work);
++
++	if (np) {
++		ret = bq25723_charger_parse_dt(&client->dev, info, np);
++		if (ret) {
++			dev_err(dev, "Failed to parse devicetree node\n");
++			return -ENODEV;
++		}
++	}
++
++	if(gpio_is_valid(info->otg_gpio)) {
++		ret = devm_gpio_request_one(&client->dev, info->otg_gpio,
++								GPIOF_OUT_INIT_LOW, "otg_gpio");
++		if (ret) {
++			dev_err(dev, "OTG gpio request failed\n");
++			return -ENODEV;
++		}
++	}
++
++	i2c_set_clientdata(client, info);
++	info->regmap = devm_regmap_init_i2c(client, &bq25723_regmap_config);
++	if (!info->regmap) {
++		dev_err(dev, "Failed to allocate register map: %d\n", ret);
++		return -ENODEV;
++	}
++
++	info->usb_phy = devm_usb_get_phy_by_phandle(dev, "phys", 0);
++	if (IS_ERR(info->usb_phy)) {
++		dev_err(dev, "failed to find USB phy\n");
++		return PTR_ERR(info->usb_phy);
++	}
++
++	info->edev = extcon_get_edev_by_phandle(info->dev, 0);
++	if (IS_ERR(info->edev)) {
++		dev_err(dev, "failed to find vbus extcon device.\n");
++		return PTR_ERR(info->edev);
++	}
++
++	ret = bq25723_charger_register_vbus_regulator(info);
++	if (ret) {
++		dev_err(dev, "failed to register vbus regulator.\n");
++		return ret;
++	}
++
++	//regmap_np = of_find_compatible_node(NULL, NULL, "sprd,sc27xx-syscon");
++	regmap_np = of_find_compatible_node(NULL, NULL, "sprd,sc27xx-syscon");
++	if (!regmap_np)
++		regmap_np = of_find_compatible_node(NULL, NULL, "sprd,ump962x-syscon");
++	if (!regmap_np) {
++		dev_err(dev, "unable to get syscon node\n");
++		return -ENODEV;
++	}
++
++	ret = of_property_read_u32_index(regmap_np, "reg", 1,
++					 &info->charger_detect);
++	if (ret) {
++		dev_err(dev, "failed to get charger_detect\n");
++		return -EINVAL;
++	}
++
++	ret = of_property_read_u32_index(regmap_np, "reg", 2,
++					 &info->charger_pd);
++	if (ret) {
++		dev_err(dev, "failed to get charger_pd reg\n");
++		return ret;
++	}
++
++	//if (of_device_is_compatible(regmap_np->parent, "sprd,sc2721"))
++		info->charger_pd_mask = BQ25723_DISABLE_PIN_MASK_2730;
++	//else {
++		//dev_err(dev, "failed to get charger_pd mask\n");
++		//return -EINVAL;
++	//}
++
++	regmap_pdev = of_find_device_by_node(regmap_np);
++	if (!regmap_pdev) {
++		of_node_put(regmap_np);
++		dev_err(dev, "unable to get syscon device\n");
++		return -ENODEV;
++	}
++
++	of_node_put(regmap_np);
++	info->pmic = dev_get_regmap(regmap_pdev->dev.parent, NULL);
++	if (!info->pmic) {
++		dev_err(dev, "unable to get pmic regmap device\n");
++		return -ENODEV;
++	}
++
++	info->usb_notify.notifier_call = bq25723_charger_usb_change;
++	ret = usb_register_notifier(info->usb_phy, &info->usb_notify);
++	if (ret) {
++		dev_err(dev, "failed to register notifier:%d\n", ret);
++		return ret;
++	}
++
++	charger_cfg.drv_data = info;
++	charger_cfg.of_node = dev->of_node;
++	info->psy_usb = devm_power_supply_register(dev,
++						   &bq25723_charger_desc,
++						   &charger_cfg);
++	if (IS_ERR(info->psy_usb)) {
++		dev_err(dev, "failed to register power supply\n");
++		usb_unregister_notifier(info->usb_phy, &info->usb_notify);
++		return PTR_ERR(info->psy_usb);
++	}
++
++	ret = bq25723_charger_hw_init(info);
++	if (ret) {
++		usb_unregister_notifier(info->usb_phy, &info->usb_notify);
++		return ret;
++	}
++	bq25723_charger_detect_status(info);
++
++	bqbak_info = info;
++	ret = misc_register(&misc_bq25723);
++	if(ret){
++		printk("%s misc register failed\n",__func__);
++		return ret;
++	}
++  INIT_DELAYED_WORK(&pr_close_vbus_test_work, bq25723_pr_close_vbus_test_work);
++  INIT_WORK(&pr_open_vbus_test_work, bq25723_pr_open_vbus_test_work);
++	INIT_DELAYED_WORK(&info->otg_work, bq25723_charger_otg_work);
++	INIT_DELAYED_WORK(&info->wdt_work, bq25723_charger_feed_watchdog_work);
++#ifdef SUPPORT_TWO_STEPS_SPECIAL_CHG
++	INIT_DELAYED_WORK(&info->retry_chg_work, bq25723_charger_retry_chg_type);
++#endif
++	return 0;
++}
++
++static int bq25723_charger_remove(struct i2c_client *client)
++{
++	struct bq25723_charger_info *info = i2c_get_clientdata(client);
++
++	usb_unregister_notifier(info->usb_phy, &info->usb_notify);
++
++	return 0;
++}
++
++static void bq25723_charger_shutdown(struct i2c_client *client)
++{
++	struct bq25723_charger_info *info = i2c_get_clientdata(client);
++
++	bq25723_update_bits(info, CHARGEOPTION3_1_REG, RESET_REG_MASK, RESET_REG << RESET_REG_SHIFT);
++
++}
++
++static const struct i2c_device_id bq25723_i2c_id[] = {
++	{"bq25723-charger", 0},
++	{}
++};
++
++static const struct of_device_id bq25723_charger_of_match[] = {
++	{ .compatible = "ti,bq25723-charger", },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(of, bq25723_charger_of_match);
++
++static struct i2c_driver bq25723_charger_driver = {
++	.driver = {
++		.name = "bq25723-charger",
++		.of_match_table = bq25723_charger_of_match,
++	},
++	.probe = bq25723_charger_probe,
++	.remove = bq25723_charger_remove,
++	.shutdown = bq25723_charger_shutdown,
++	.id_table = bq25723_i2c_id,
++};
++
++module_i2c_driver(bq25723_charger_driver);
++MODULE_DESCRIPTION("BQ25723 Charger Driver");
++MODULE_LICENSE("GPL v2");
+diff --git a/include/linux/fb.h b/include/linux/fb.h
+index 8221838fefd9..268b1988229e 100644
+--- a/include/linux/fb.h
++++ b/include/linux/fb.h
+@@ -136,6 +136,9 @@ struct fb_cursor_user {
+ /*      A display blank is requested       */
+ #define FB_EVENT_BLANK                  0x09
+ 
++/*      A hardware display blank early change occured */
++#define FB_EARLY_EVENT_BLANK		0x10
++
+ struct fb_event {
+ 	struct fb_info *info;
+ 	void *data;
+diff --git a/include/linux/power/bq25723_reg.h b/include/linux/power/bq25723_reg.h
+new file mode 100755
+index 000000000000..9c5ca04b519c
+--- /dev/null
++++ b/include/linux/power/bq25723_reg.h
+@@ -0,0 +1,597 @@
++#ifndef __BQ25723_H__
++#define	__BQ25723_H__
++
++#define	BQ25723REG_00				0x00
++#define	CHARGEOPTION0_0_REG		BQ25723REG_00
++#define	EN_LEARN_MASK					0x20
++#define	EN_LEARN_SHIFT				5
++#define	LEARN_ENABLE					1
++#define	LEARN_DISABLE					0
++#define	IADPT_GAIN_MASK					0x10
++#define	IADPT_GAIN_SHIFT				4
++#define	IADPT_GAIN_20X					0
++#define	IADPT_GAIN_40X					1
++#define	IBAT_GAIN_MASK				0x08
++#define	IBAT_GAIN_SHIFT				3
++#define	IBAT_GAIN_8X					0
++#define	IBAT_GAIN_16X					1
++#define	EN_LDO_MASK						0x04
++#define	EN_LDO_SHIFT					2
++#define	LDO_MODE_ENABLE				1
++#define	LDO_MODE_DISABLE			0
++#define	EN_IDPM_MASK					0x02
++#define	EN_IDPM_SHIFT					1
++#define	IDPM_ENABLE						1
++#define	IDPM_DISABLE					0
++#define	CHRG_INHIBIT_MASK			0x01
++#define	CHRG_INHIBIT_SHIFT		0
++#define	CHRG_INHIBIT					1
++#define	CHRG_ENABLE						0
++
++#define	BQ25723REG_01				0x01
++#define	CHARGEOPTION0_1_REG		BQ25723REG_01
++#define	EN_LWPWR_MASK					0x80
++#define	EN_LWPWR_SHIFT				7
++#define	LWPWR_ENABLE					1
++#define	LWPWR_DISABLE					0
++#define	WDTMR_ADJ_MASK				0x60
++#define	WDTMR_ADJ_SHIFT				5
++#define	WDTMR_ADJ_DISABLE			0
++#define	WDTMR_ADJ_5S					1
++#define	WDTMR_ADJ_88S					2
++#define	WDTMR_ADJ_175S						3
++#define	IDPM_AUTO_DISABLE_MASK		0x10
++#define	IDPM_AUTO_DISABLE_SHIFT		4
++#define	IDPM_AUTO_DISABLE					0
++#define	IDPM_AUTO_ENABLE					1
++#define	OTG_ON_CHRGOK_MASK				0x08
++#define	OTG_ON_CHRGOK_SHIFT				3
++#define	OTG_ON_CHRGOK_ENABLE			1
++#define	OTG_ON_CHRGOK_DISABLE			0
++#define	EN_OOA_MASK						0x04
++#define	EN_OOA_SHIFT					2
++#define	OOA_ENABLE						1
++#define	OOA_DISABLE						0
++#define	PWM_FREQ_MASK					0x02
++#define	PWM_FREQ_SHIFT				1
++#define	PWM_FREQ_1200KHZ			0
++#define	PWM_FREQ_800KHZ				1
++
++#define	BQ25723REG_02					0x02
++#define	BQ25723REG_03					0x03
++#define	CHARGECURRENT_REG				BQ25723REG_02
++#define	CHARGECURRENT_BASE			0
++#define	CHARGECURRENT_SHIFT			6
++#define	CHARGECURRENT_MASK			0x1FC0
++
++#define	BQ25723REG_04				0x04
++#define	BQ25723REG_05				0x05
++#define	CHARGEVOLT_REG				BQ25723REG_04
++#define	CHARGEVOLT_BASE				0
++#define	CHARGEVOLT_LSB				8
++#define	CHARGEVOLT_SHIFT			3
++#define	CHARGEVOLT_MASK				0x7FF8
++
++#define	BQ25723REG_06					0x06
++#define	BQ25723REG_07					0x07
++#define	OTGVOLT_REG						BQ25723REG_06
++#define	OTGVOLT_BASE					3000
++#define	OTGVOLT_LSB						8
++#define	OTGVOLT_SHIFT					2
++#define	OTGVOLT_MASK					0x3FFC
++
++#define	BQ25723REG_08					0x08
++#define	BQ25723REG_09					0x09
++#define	OTGCURRENT_REG					BQ25723REG_09
++#define	OTGCURRENT_BASE					0
++#define	OTGCURRENT_LSB					50
++#define	OTGCURRENT_SHIFT				0
++#define	OTGCURRENT_MASK					0x7F
++
++#define	BQ25723REG_0A					0x0A
++#define	BQ25723REG_0B					0x0B
++#define	INPUTVOLTLIM_REG				BQ25723REG_0A
++#define	INPUTVOLTLIM_BASE				3200
++#define	INPUTVOLTLIM_LSB				64
++#define	INPUTVOLTLIM_SHIFT			6
++#define	INPUTVOLTLIM_MASK				0x3FC0
++
++#define	BQ25723REG_0C					0x0C
++#define	BQ25723REG_0D					0x0D
++#define	MINSYSVOLT_REG					BQ25723REG_0D
++#define	MINSYSVOLT_BASE					0
++#define MINSYSVOLT_LSB					100
++#define	MINSYSVOLT_SHIFT				8
++#define	MINSYSVOLT_MASK					0xFF00
++
++#define	BQ25723REG_0E					0x0E
++#define	BQ25723REG_0F					0x0F
++//TODO:check address order
++#define	INPUTCURRENTLIM_REG				BQ25723REG_0F
++#define	INPUTCURRENTLIM_BASE			0
++#define	INPUTCURRENTLIM_LSB				50
++#define	INPUTCURRENTLIM_SHIFT			0
++#define	INPUTCURRENTLIM_MASK			0xFF
++
++#define	BQ25723REG_20					0x20
++#define	BQ25723REG_21					0x21
++#define CHARGERSTATUS_0_REG						BQ25723REG_20
++#define	CHARGERSTATUS_FAULT_ACOV			0x80
++#define	CHARGERSTATUS_FAULT_BATOC			0x40
++#define	CHARGERSTATUS_FAULT_ACOC			0x20
++#define	CHARGERSTATUS_SYSOVP_STAT			0x10
++#define	CHARGERSTATUS_FAULT_VSYSUVP 	0x04
++#define	CHARGERSTATUS_FAULT_LATCHOFF	0x04
++#define	CHARGERSTATUS_FAULT_OTG_OVP		0x02
++#define	CHARGERSTATUS_FAULT_OTG_UVP		0x01
++
++#define	CHARGERSTATUS_1_REG				BQ25723REG_21
++#define	CHARGERSTATUS_IN_OTG			0x01
++#define	CHARGERSTATUS_IN_PCHRG		0x02
++#define	CHARGERSTATUS_IN_FCHRG		0x04
++#define	CHARGERSTATUS_IN_IINDPM		0x08
++#define	CHARGERSTATUS_IN_VINDPM		0x10
++#define	CHARGERSTATUS_IN_VAP  		0x20
++#define	CHARGERSTATUS_ICO_DONE		0x40
++#define	CHARGERSTATUS_AC_PRESENT	0x80
++
++#define	BQ25723REG_22					0x22
++#define	BQ25723REG_23					0x23
++#define	PROCHOTSTATUS_0_REG				BQ25723REG_22
++#define	PROCHOTSTATUS_0_MASK			0x00FF
++#define	PROCHOTSTATUS_ACOK			0x0001
++#define	PROCHOTSTATUS_BATPRES		0x0002
++#define	PROCHOTSTATUS_VSYS			0x0004
++#define	PROCHOTSTATUS_IDCHG			0x0008
++#define	PROCHOTSTATUS_INOM			0x0010
++#define	PROCHOTSTATUS_ICRIT			0x0020
++#define	PROCHOTSTATUS_COMP			0x0040
++#define	PROCHOTSTATUS_VINDPM		0x0080
++
++#define	PROCHOTSTATUS_1_REG				BQ25723REG_23
++#define	PROCHOTSTATUS_1_MASK			0x7F00
++#define	PROCHOTSTATUS_EXIT_VAP	0x0100
++#define	PROCHOTSTATUS_VAL_FAIL	0x0200
++#define	PROCHOTSTATUS_TSHUT			0x0400
++#define	PROCHOTSTATUS_CLEAR			0x0800
++#define	PROCHOTSTATUS_WIDTH			0x3000
++#define	PROCHOTSTATUS_PLUSE_EX	0x4000
++
++#define	BQ25723REG_24				0x24
++#define	BQ25723REG_25				0x25
++#define	IIN_DPM_REG						BQ25723REG_25
++#define	IIN_DPM_REG_BASE			0
++#define	IIN_DPM_REG_SHIFT			8
++#define	IIN_DPM_REG_MASK			0x7F00
++
++#define	BQ25723REG_26				0x26
++#define	BQ25723REG_27				0x27
++#define	ADCVBUS_REG						BQ25723REG_27
++#define	ADCVBUS_BASE					0
++#define	ADCVBUS_LSB						96
++#define	ADCVBUS_SC_LSB					64
++#define	ADCVBUS_SC_OFFSET				3200
++#define	ADCVBUS_SHIFT					0
++#define	ADCVBUS_MASK					0xFF
++#define	ADCPSYS_REG						BQ25723REG_26
++#define	ADCPSYS_SHIFT					0
++#define	ADCPSYS_BASE					0
++#define	ADCPSYS_LSB						12
++#define	ADCPSYS_MASK					0xFF
++
++#define	BQ25723REG_28					0x28
++#define	BQ25723REG_29					0x29
++#define	ADCIBAT_CHG_REG					BQ25723REG_29
++#define	ADCIBAT_CHG_BASE				0
++#define	ADCIBAT_CHG_SHIFT				9
++#define	ADCIBAT_CHG_MASK				0x7F
++
++#define	ADCIBAT_DSG_REG					BQ25723REG_28
++#define	ADCIBAT_DSG_BASE				0
++#define	ADCIBAT_DSG_SHIFT				9
++#define	ADCIBAT_DSG_MASK				0x7F
++
++#define	BQ25723REG_2A				0x2A
++#define	BQ25723REG_2B				0x2B
++#define	ADCIBUS_REG						BQ25723REG_2B
++#define	ADCIBUS_BASE					0
++#define	ADCIBUS_MASK					0xFF
++#define	ADCIBUS_SHIFT					0
++
++#define	ADCCMPIN_REG					BQ25723REG_2A
++#define	ADCCMPIN_BASE					0
++#define	ADCCMPIN_MASK					0xFF
++#define	ADCCMPIN_SHIFT					0
++
++#define	BQ25723REG_2C					0x2C
++#define	BQ25723REG_2D					0x2D
++#define	ADCVSYS_REG						BQ25723REG_2D
++#define	ADCVSYS_BASE					0
++#define	ADCVSYS_LSB						64
++#define	ADCVSYS_SHIFT					0
++#define	ADCVSYS_MASK					0xFF
++
++#define	ADCVBAT_REG						BQ25723REG_2C
++#define	ADCVBAT_BASE					0
++#define	ADCVBAT_LSB						64
++#define	ADCVBAT_SHIFT					0
++#define	ADCVBAT_MASK					0xFF
++
++#define	BQ25723REG_30					0x30
++#define	BQ25723REG_31					0x31
++#define	CHARGEOPTION1_1_REG				BQ25723REG_31
++
++#define	EN_IBAT_MASK					0x80
++#define	EN_IBAT_SHIFT					7
++#define	IBAT_ENABLE						1
++#define	IBAT_DISABLE					0
++#define	EN_PROCHOT_LPWR_MASK			0x60
++#define	EN_PROCHOT_LPWR_SHIFT			6
++#define	PROCHOT_LPWR_DISABLE			0
++#define	PROCHOT_LPWR_ENABLE				1
++#define	PSYS_CONFIG_MASK					0x30
++#define	EN_PSYS_SHIFT					4
++#define	PSYS_PBUS_PBAT				0
++#define	PSYS_PBUS_ONLY				1
++#define	PSYS_TURN_OFF					4
++#define	RSNS_RAC_MASK					0x08
++#define	RSNS_RAC_SHIFT					3
++#define	RSNS_RAC_10MOHM					0
++#define	RSNS_RAC_20MOHM					1
++#define	RSNS_RSR_MASK					0x04
++#define	RSNS_RSR_SHIFT					2
++#define	RSNS_RSR_10MOHM					0
++#define	RSNS_RSR_20MOHM					1
++#define	PSYS_RATIO_MASK					0x02
++#define	PSYS_RATIO_SHIFT				1
++#define	PSYS_RATIO_0P25UAW				0
++#define	PSYS_RAITO_1UAW					1
++#define	EN_FAST_5MOHM					0x01
++#define	EN_FAST_5MOHM_SHIFT				0
++#define	EN_FAST_5MOHM_ENABLE			0
++#define	EN_FAST_5MOHM_DISABLE			1
++
++#define	CHARGEOPTION1_0_REG				BQ25723REG_30
++#define	CMP_REF_MASK					0x80
++#define	CMP_REF_SHIFT					7
++#define	CMP_REF_2P4V					0
++#define	CMP_REF_1P3V					1
++#define	CMP_POL_MASK					0x40
++#define	CMP_POL_SHIFT					6
++#define	CMP_POL_LOW_ABOVE				0
++#define	CMP_POL_LOW_BELOW				1
++#define	CMP_DEG_MASK					0x30
++#define	CMP_DEG_SHIFT					4
++#define	CMP_DEG_DISABLE				0
++#define	CMP_DEG_1US						1
++#define	CMP_DEG_2MS						2
++#define	CMP_DEG_5S						3
++#define	FORCE_LATCHOFF_MASK				0x08
++#define	FORCE_LATCHOFF_SHIFT			3
++#define	FORCE_LATCHOFF_ENABLE			1
++#define	FORCE_LATCHOFF_DISABLE			0
++#define	EN_PTM_MASK				0x04
++#define	EN_PTM_SHIFT			2
++#define	PTM_ENABLE				1
++#define	PTM_DISABLE				0
++#define	EN_SHIP_DCHG_MASK				0x02
++#define	EN_SHIP_DCHG_SHIFT			1
++#define	SHIP_DCHG_ENABLE				1
++#define	SHIP_DCHG_DISABLE				0
++#define	AUTO_WAKEUP_EN_MASK				0x01
++#define	AUTO_WAKEUP_EN_SHIFT			0
++#define	AUTO_WAKEUP_ENABLE				1
++#define	AUTO_WAKEUP_DISABLE				0
++
++#define	BQ25723REG_32					0x32
++#define	BQ25723REG_33					0x33
++#define	CHARGEOPTION2_0_REG				BQ25723REG_32
++#define	EN_EXTLIM_MASK					0x80
++#define	EN_EXTLIM_SHIFT					7
++#define	EXTLIM_ENABLE					1
++#define	EXTLIM_DISABLE					0
++#define	EN_ICHG_IDCHG_MASK				0x40
++#define	EN_ICHG_IDCHG_SHIFT				6
++#define	ICHG_IDCHG_CHG					1
++#define	ICHG_IDCHG_DSG					0
++#define	Q2_OCP_MASK						0x20
++#define	Q2_OCP_SHIFT					5
++#define	Q2_OCP_300MV					0
++#define	Q2_OCP_600MV					1
++#define	ACX_OCP_MASK					0x10
++#define	ACX_OCP_SHIFT					4
++#define	ACX_OCP_150MV					0
++#define	ACX_OCP_280MV					1
++#define	EN_ACOC_MASK					0x08
++#define	EN_ACOC_SHIFT					3
++#define	ACOC_DISABLE					0
++#define	ACOC_ENABLE						1
++#define	ACOC_VTH_MASK					0x04
++#define	ACOC_VTH_SHIFT					2
++#define	ACOC_VTH_125PCT					0
++#define	ACOC_VTH_210PCT					1
++
++#define	EN_BATOC_MASK					0x02
++#define	EN_BATOC_SHIFT					1
++#define	BATOC_ENABLE					1
++#define	BATOC_DISABLE					0
++#define	BATOC_VTH_MASK					0x01
++#define	BATOC_VTH_SHIFT					0
++#define	BATOC_VTH_125PCT				0
++#define	BATOC_VTH_200PCT				1
++
++#define	CHARGEOPTION2_1_REG				BQ25723REG_33
++#define	PKPWR_TOVLD_DEG_MASK			0xC0
++#define	PKPWR_TOVLD_DEG_SHIFT			6
++#define	PKPWR_TOVLD_DEG_1MS				0
++#define	PKPWR_TOVLD_DEG_2MS				1
++#define	PKPWR_TOVLD_DEG_10MS			2
++#define	PKPWR_TOVLD_DEG_20MS			3
++#define	EN_PKPWR_IDPM_MASK				0x20
++#define	EN_PKPWR_IDPM_SHIFT				5
++#define	PKPWR_IDPM_ENABLE				1
++#define	PKPWR_IDPM_DISABLE				0
++#define	EN_PKPWR_VSYS_MASK				0x10
++#define	EN_PKPWR_VSYS_SHIFT				4
++#define	PKPWR_VSYS_ENABLE				1
++#define	PKPWR_VSYS_DISABLE				0
++#define	PKPWR_OVLD_STAT_MASK			0x08
++#define	PKPWR_RELAX_STAT_MASK			0x04
++#define	PKPWR_TMAX_MASK					0x03
++#define	PKPWR_TMAX_SHIFT				0
++#define	PKPWR_TMAX_5MS					0
++#define	PKPWR_TMAX_10MS					1
++#define	PKPWR_TMAX_20MS					2
++#define	PKPWR_TMAX_40MS					3
++
++#define	BQ25723REG_34					0x34
++#define	BQ25723REG_35					0x35
++#define	CHARGEOPTION3_0_REG				BQ25723REG_34
++
++#define	BATFET_ENZ_MASK				0x80
++#define	BATFET_ENZ_SHIFT			7
++#define	NOT_FORCE_BATFET_ENZ_OFF	0
++#define	FORCE_BATFET_ENZ_OFF			1
++#define	EN_VBUS_VAP_MASK				0x40
++#define	EN_VBUS_VAP_SHIFT			6
++#define	EN_VBUS_VAP_DISABLE		0
++#define	EN_VBUS_VAP_ENABLE		1
++#define	OTG_VAP_MODE_MASK				0x20
++#define	OTG_VAP_MODE_SHIFT			5
++#define	OTG_VAP_MODE_DISABLE		0
++#define	OTG_VAP_MODE_ENABLE			1
++#define	IL_AVG_MASK				0x18
++#define	IL_AVG__SHIFT			3
++#define	IL_AVG_6A				0
++#define	IL_AVG_10A			1
++#define	IL_AVG_15A			2
++#define	CMP_EN_MASK				0x04
++#define	CMP_EN_SHIFT			2
++#define	CMP_EN_DISABLE		0
++#define	CMP_EN_ENABLE			1
++#define	BATFETOFF_HIZ_MASK				0x02
++#define	BATFETOFF_HIZ_SHIFT				1
++#define	BATFET_HIZ_ON					0
++#define	BATFET_HIZ_OFF					1
++#define	PSYS_OTG_IDCHG_MASK				0x01
++#define	PSYS_OTG_IDCHG_SHIFT			0
++#define	PSYS_OTG_IDCHG_MINUS			0
++#define	PSYS_OTG_IDCHG_ONLY				1
++
++#define	CHARGEOPTION3_1_REG				BQ25723REG_35
++#define	EN_HIZ_MASK						0x80
++#define	EN_HIZ_SHIFT					7
++#define	HIZ_MODE_ENABLE					1
++#define	HIZ_MODE_DISABLE				0
++#define	RESET_REG_MASK					0x40
++#define	RESET_REG_SHIFT					6
++#define	RESET_REG						1
++#define	RESET_VINDPM_MASK				0x20
++#define	RESET_VINDPM_SHIFT				5
++#define	RESET_VINDPM					1
++#define	EN_OTG_MASK						0x10
++#define	EN_OTG_SHIFT					4
++#define	OTG_ENABLE						1
++#define	OTG_DISABLE						0
++#define	EN_ICO_MODE_MASK				0x08
++#define	EN_ICO_MODE_SHIFT				3
++#define	ICO_MODE_ENABLE					1
++#define	ICO_MODE_DISABLE				0
++#define	EN_PROT_CTRL_MASK				0x04
++#define	EN_PROT_CTRL_SHIFT				2
++#define	PROT_CTRL_ENABLE					1
++#define	PROT_CTRL_DISABLE				0
++#define	EN_VSYS_MIN_SOFT_SR_MASK				0x02
++#define	EN_VSYS_MIN_SOFT_SR_SHIFT				1
++#define	VSYS_MIN_SOFT_SR_ENABLE					1
++#define	VSYS_MIN_SOFT_SR_DISABLE				0
++#define	EN_OTG_BIGCAP_MASK				0x01
++#define	EN_OTG_BIGCAP_SHIFT					0
++#define	OTG_BIGCAP_ENABLE				1
++#define	OTG_BIGCAP_DISABLE				0
++
++#define	PROCHOTOPTION0_0_REG			0x36
++#define	VSYS_VTH_MASK					0xFC
++#define	VSYS_VTH_SHIFT					2
++#define	INOM_DEG_MASK					0x02
++#define	INOM_DEG_SHIFT					1
++#define	INOM_DEG_1MS					0
++#define	INOM_DEG_50MS					1
++#define	EN_LOW_PROCHOT_VINDPM_MASK		0x01
++#define	EN_LOW_PROCHOT_VINDPM_SHIFT			0
++#define	EN_LOW_PROCHOT_VINDPM_ENABLE				1
++#define	EN_LOW_PROCHOT_VINDPM_DISABLE				0
++
++#define	PROCHOTOPTION0_1_REG			0x37
++#define	ILIM2_VTH_MASK					0xF8
++#define	ILIM2_VTH_SHIFT					3
++#define	ICRIT_DEG_MASK					0x06
++#define	ICRIT_DEG_SHIFT					1
++#define	ICRIT_DEG_15US					0
++#define	ICRIT_DEG_100US					1
++#define	ICRIT_DEG_400US					2
++#define	ICRIT_DEG_800US					3
++#define	PROCHOT_VINDPM_80_90_MASK					0x06
++#define	PROCHOT_VINDPM_80_90_SHIFT					0
++#define	VINDPM_THR_80					0
++#define	VINDPM_THR_90					1
++
++#define	PROCHOT_PROFILE_VINDPM_MASK		0x40
++#define	PROCHOT_PROFILE_VINDPM_SHIFT		7
++#define	PROCHOT_PROFILE_VINDPM_ENABLE		1
++#define	PROCHOT_PROFILE_VINDPM_DISABLE	0
++
++#define	PROCHOT_PROFILE_COMP_MASK		0x40
++#define	PROCHOT_PROFILE_COMP_SHIFT		6
++#define	PROCHOT_PROFILE_COMP_ENABLE		1
++#define	PROCHOT_PROFILE_COMP_DISABLE	0
++#define	PROCHOT_PROFILE_ICRIT_MASK		0x20
++#define	PROCHOT_PROFILE_ICRIT_SHIFT		5
++#define	PROCHOT_PROFILE_ICRIT_ENABLE	1
++#define	PROCHOT_PROFILE_ICRIT_DISABLE	0
++#define	PROCHOT_PROFILE_INOM_MASK		0x10
++#define	PROCHOT_PROFILE_INOM_SHIFT		6
++#define	PROCHOT_PROFILE_INOM_ENABLE		1
++#define	PROCHOT_PROFILE_INOM_DISABLE	0
++#define	PROCHOT_PROFILE_IDCH_MASK		0x08
++#define	PROCHOT_PROFILE_IDCH_SHIFT		3
++#define	PROCHOT_PROFILE_IDCH_ENABLE		1
++#define	PROCHOT_PROFILE_IDCH_DISABLE	0
++#define	PROCHOT_PROFILE_VSYS_MASK		0x04
++#define	PROCHOT_PROFILE_VSYS_SHIFT		2
++#define	PROCHOT_PROFILE_VSYS_ENABLE		1
++#define	PROCHOT_PROFILE_VSYS_DISABLE	0
++#define	PROCHOT_PROFILE_BATPRES_MASK	0x02
++#define	PROCHOT_PROFILE_BATPRES_SHIFT	1
++#define	PROCHOT_PROFILE_BATPRES_ENABLE	1
++#define	PROCHOT_PROFILE_BATPRES_DISABLE	0
++
++#define	PROCHOT_PROFILE_ACOK_MASK		0x01
++#define	PROCHOT_PROFILE_ACOK_SHIFT		0
++#define	PROCHOT_PROFILE_ACOK_ENABLE		1
++#define	PROCHOT_PROFILE_ACOK_DISABLE	0
++
++#define PROCHOTOPTION1_1_REG			0x39
++#define	IDCHG_VTH_MASK					0xFC
++#define	IDCHG_VTH_SHIFT					2
++#define	IDCHG_VTH_LSB					512
++#define	IDCHG_VTH_BASE					0
++
++#define PROCHOTOPTION1_0_REG			0x38
++
++#define	IDCHG_VTH_DEG_MASK				0x03
++#define	IDCHG_VTH_DEG_SHIFT				0
++#define	IDCHG_VTH_DEG_1P6MS				0
++#define	IDCHG_VTH_DEG_100US				0
++#define	IDCHG_VTH_DEG_6MS				0
++#define	IDCHG_VTH_DEG_12MS				0
++
++#define	ADCOPTION_0_REG					0x3A
++#define	EN_ADC_CMPIN_MASK				0x80
++#define	EN_ADC_CMPIN_SHIFT				7
++#define	ADC_CMPIN_ENABLE				1
++#define	ADC_CMPIN_DISABLE				0
++#define	EN_ADC_VBUS_MASK				0x40
++#define	EN_ADC_VBUS_SHIFT				6
++#define	ADC_VBUS_ENABLE					1
++#define	ADC_VBUS_DISABLE				0
++#define	EN_ADC_PSYS_MASK				0x20
++#define	EN_ADC_PSYS_SHIFT				5
++#define	ADC_PSYS_ENABLE					1
++#define	ADC_PSYS_DISABLE				0
++#define	EN_ADC_IIN_MASK					0x10
++#define	EN_ADC_IIN_SHIFT				4
++#define	ADC_IIN_ENABLE					1
++#define	ADC_IIN_DISABLE					0
++#define	EN_ADC_IDCHG_MASK				0x08
++#define	EN_ADC_IDCHG_SHIFT				3
++#define	ADC_IDCHG_ENABLE				1
++#define	ADC_IDCHG_DISABLE				0
++#define	EN_ADC_ICHG_MASK				0x04
++#define	EN_ADC_ICHG_SHIFT				2
++#define	ADC_ICHG_ENABLE					1
++#define	ADC_ICHG_DISABLE				0
++#define	EN_ADC_VSYS_MASK				0x02
++#define	EN_ADC_VSYS_SHIFT				1
++#define	ADC_VSYS_ENABLE					1
++#define	ADC_VSYS_DISABLE				0
++#define	EN_ADC_VBAT_MASK				0x01
++#define	EN_ADC_VBAT_SHIFT				0
++#define	ADC_VBAT_ENABLE					1
++#define	ADC_VBAT_DISABLE				0
++
++#define	ADCOPTION_1_REG					0x3B
++#define	ADC_CONV_MASK					0x80
++#define	ADC_CONV_SHIFT					7
++#define	ADC_CONV_ONESHOT				0
++#define	ADC_CONV_CONTINUOUS				1
++#define	ADC_START_MASK					0x40
++#define	ADC_START_SHIFT					6
++#define	ADC_START						1
++#define	ADC_STOP						0
++#define	ADC_FULLSCALE_MASK				0x20
++#define	ADC_FULLSCALE_SHIFT				5
++#define	ADC_FULLSCALE_2P04V				0
++#define	ADC_FULLSCALE_3P06V				1
++
++#define	BQ25723REG_3C					0x3C
++#define	BQ25723REG_3D					0x3D
++#define	CHARGEOPTION4_1_REG				BQ25723REG_3D
++#define	VSYS_UVP_MASK				0xE0
++#define	VSYS_UVP_SHIFT			5
++#define	EN_DITHER_MASK				0x18
++#define	EN_DITHER_SHIFT				3
++#define	VSYS_UVP_NO_HICCUP_MASK				0x04
++#define	VSYS_UVP_NO_HICCUP_SHIFT				2
++#define	VSYS_UVP_NO_HICCUP_DISABLE			1
++#define	VSYS_UVP_NO_HICCUP_ENABLE				0
++#define	PROCHOT_PROFILE_VBUS_VAP_MASK				0x02
++#define	PROCHOT_PROFILE_VBUS_VAP_SHIFT				1
++#define	VBUS_VAP_PROCHOT_PROFILE_DISABLE			0
++#define	VBUS_VAP_PROCHOT_PROFILE_ENABLE				1
++#define	STAT_VBUS_VAP_MASK				0x01
++#define	STAT_VBUS_VAP_SHIFT				0
++#define	VBUS_VAP_STATUS_NOT_TRIGGERED				0
++#define	VBUS_VAP_STATUS_TRIGGERED				1
++
++#define	CHARGEOPTION4_0_REG				BQ25723REG_3C
++#define	IDCHG_DEG2_MASK				0xC0   /*BAT_DISCHARGE_CURRENT_LIMIT*/
++#define	IDCHG_DEG2_SHIFT			6
++#define	IDCHG_TH2_MASK				0x38   /*BAT_DISCHARGE_CURRENT_LIMIT*/
++#define	IDCHG_TH2_SHIFT				3
++#define	PROCHOT_PROFILE_IDCHG2_MASK				0x04
++#define	PROCHOT_PROFILE_IDCHG2_SHIFT				2
++#define	PROCHOT_PROFILE_DISABLE				0
++#define	PROCHOT_PROFILE_ENABLE				1
++#define	STAT_IDCHG2_MASK				0x02
++#define	STAT_IDCHG2_SHIFT				1
++#define	IGCHG2_NOT_TRIGGERED		0
++#define	IGCHG2_TRIGGERED				1
++#define	STAT_PTM_MASK						0x01
++#define	STAT_PTM_SHIFT					0
++#define	NOT_IN_PTM_OPERATION		0
++#define	IN_PTM_OPERATION				1
++
++#define	BQ25723REG_3E					0x3E
++#define	BQ25723REG_3F					0x3F
++#define	VMIN_ACTIVE_PROTECTION_1_REG				BQ25723REG_3F
++#define	VBUS_VSP_TH_MASK					0xFE
++#define	VBUS_VSP_TH_SHIFT					1
++
++#define	VMIN_ACTIVE_PROTECTION_0_REG				BQ25723REG_3E
++#define	VSYS_TH2_MASK					0xFC
++#define	VSYS_TH2_SHIFT				2
++#define	EN_VSYSTH2_FOLLOW_VSYTH1_MASK				0x02
++#define	EN_VSYSTH2_FOLLOW_VSYTH1_SHIFT			1
++#define	VSYSTH2_FOLLOW_VSYTH1_SHIFT_DISABLE			0
++#define	VSYSTH2_FOLLOW_VSYTH1_SHIFT_ENABLE			1
++#define	EN_FRS_MASK				0x01
++#define	EN_FRS_SHIFT			0
++#define	FAST_ROLE_SWAP_DISABLE			0
++#define	FAST_ROLE_SWAP_ENABLE			1
++
++#define	MANUFACTUREID_REG				0x2E
++#define	DEVICEID_REG 					0x2F
++
++#define	BQ25723_LASTREG					0x3F
++#endif
+diff --git a/include/linux/power_supply.h b/include/linux/power_supply.h
+index ff99236e75be..423b680ae8f9 100644
+--- a/include/linux/power_supply.h
++++ b/include/linux/power_supply.h
+@@ -352,6 +352,29 @@ struct power_supply_resistance_temp_table {
+ 	int resistance;	/* internal resistance percent */
+ };
+ 
++struct power_supply_charge_current {
++	int sdp_limit;
++	int sdp_cur;
++	int dcp_limit;
++	int dcp_cur;
++	int cdp_limit;
++	int cdp_cur;
++	int aca_limit;
++	int aca_cur;
++	int unknown_limit;
++	int unknown_cur;
++	int fchg_limit;
++	int fchg_cur;
++	int flash_limit;
++	int flash_cur;
++	int wl_bpp_cur;
++	int wl_bpp_limit;
++	int wl_epp_cur;
++	int wl_epp_limit;
++	int highdcp_limit;
++	int highdcp_cur;
++};
++
+ #define POWER_SUPPLY_OCV_TEMP_MAX 20
+ 
+ /*
+@@ -378,6 +401,7 @@ struct power_supply_battery_info {
+ 	int ocv_table_size[POWER_SUPPLY_OCV_TEMP_MAX];
+ 	struct power_supply_resistance_temp_table *resist_table;
+ 	int resist_table_size;
++	struct power_supply_charge_current cur;
+ 
+ 	ANDROID_KABI_RESERVE(1);
+ };
+-- 
+2.25.1
+

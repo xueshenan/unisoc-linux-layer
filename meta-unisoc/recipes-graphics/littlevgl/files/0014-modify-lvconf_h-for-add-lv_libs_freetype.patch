@@ -1,0 +1,29 @@
+diff --git a/lv_conf.h b/lv_conf.h
+index 7114fd21..d358b31d 100755
+--- a/lv_conf.h
++++ b/lv_conf.h
+@@ -694,6 +694,24 @@ typedef void * lv_obj_user_data_t;
+ /*Window (dependencies: lv_cont, lv_btn, lv_label, lv_img, lv_page)*/
+ #define LV_USE_WIN      1
+ 
++/*=====================
++ * 3rd party libraries
++ *=====================*/
++
++/*FreeType library*/
++#define LV_USE_FREETYPE      1
++#if LV_USE_FREETYPE
++    #define LV_USE_FT_CACHE_MANAGER 1
++    #if LV_USE_FT_CACHE_MANAGER >= 0
++        /*Memory used by FreeType to cache characters [bytes] (-1: no caching)*/
++        #define LV_FREETYPE_CACHE_SIZE (16 * 1024)
++        /* Maximum number of opened FT_Face/FT_Size objects managed by this cache instance. */
++        /* (0:use system defaults) */
++        #define LV_FREETYPE_CACHE_FT_FACES 0
++        #define LV_FREETYPE_CACHE_FT_SIZES 0
++    #endif
++#endif
++
+ /*==================
+  * Non-user section
+  *==================*/

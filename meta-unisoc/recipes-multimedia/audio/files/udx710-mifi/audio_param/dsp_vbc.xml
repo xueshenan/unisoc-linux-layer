@@ -1,0 +1,450 @@
+<dsp_vbc set="DSP VBC Profile Select" upload="DSP VBC Profile Update" time="2019-07-26 14:14:01" struct_size="0x6c4" num_mode="0x8">
+    <Audio>
+        <Handset>
+            <NB1 mode="0">
+                <reserve0 offset="0" bits="4800" t="u4800" id="0x0" visible="false" val="0x0" />
+                <st_control_0 id="0x258" t="u32">
+                    <reserved00 offset="30" bits="2" visible="false" val="0x0" />
+                    <audio_addst_sel_r offset="28" bits="2" visible="false" val="0x1" />
+                    <reserved01 offset="26" bits="2" visible="false" val="0x0" />
+                    <audio_addst_sel_l offset="24" bits="2" visible="false" val="0x1" />
+                    <reserved02 offset="22" bits="2" visible="false" val="0x0" />
+                    <voice_addst_sel_r offset="20" bits="2" visible="false" val="0x1" />
+                    <reserved03 offset="18" bits="2" visible="false" val="0x0" />
+                    <voice_addst_sel_l offset="16" bits="2" visible="false" val="0x1" />
+                    <reserved04 offset="15" bits="1" visible="false" val="0x0" />
+                    <st_data_in_sel offset="12" bits="3" visible="false" val="0x0" />
+                    <reserved05 offset="11" bits="1" visible="false" val="0x0" />
+                    <st_drc_mode offset="10" bits="1" visible="true" val="0x00" />
+                    <st_drc_en_r offset="9" bits="1" visible="true" val="0x01" />
+                    <st_drc_en_l offset="8" bits="1" visible="true" val="0x01" />
+                    <reserved06 offset="6" bits="2" visible="false" val="0x0" />
+                    <st_hpf_en_r offset="5" bits="1" visible="true" val="0x01" />
+                    <st_hpf_en_l offset="4" bits="1" visible="true" val="0x01" />
+                    <reserved07 offset="2" bits="2" visible="false" val="0x0" />
+                    <st_en_r offset="1" bits="1" visible="true" val="0x01" />
+                    <st_en_l offset="0" bits="1" visible="true" val="0x01" />
+                </st_control_0>
+                <st_control_1 id="0x25c" t="u32">
+                    <reserved00 offset="31" bits="1" visible="false" val="0x0" />
+                    <st_dg_r offset="24" bits="7" visible="false" val="0x18" />
+                    <reserved01 offset="23" bits="1" visible="false" val="0x0" />
+                    <st_dg_l offset="16" bits="7" visible="false" val="0x18" />
+                    <st_hpf_n_r offset="12" bits="4" visible="true" val="0x08" />
+                    <st_hpf_n_l offset="8" bits="4" visible="true" val="0x08" />
+                    <st_mixer_out_sel_r offset="7" bits="1" visible="false" val="0x0" />
+                    <st_mixer_mux_sel_r offset="4" bits="3" visible="false" val="0x0" />
+                    <st_mixer_out_sel_l offset="3" bits="1" visible="false" val="0x0" />
+                    <st_mixer_mux_sel_l offset="0" bits="3" visible="false" val="0x0" />
+                </st_control_1>
+                <st_drc_rise id="0x260" t="u32" offset="0" bits="32" visible="true" val="0x2000" />
+                <st_drc_fall id="0x264" t="u32" offset="0" bits="32" visible="true" val="0x04fd" />
+                <st_drc_limit id="0x268" t="u32" offset="0" bits="32" visible="true" val="0x00" />
+                <st_drc_threshold id="0x26c" t="u32" offset="0" bits="32" visible="true" val="0xffffffe2" />
+                <st_drc_ratio id="0x270" t="u32" offset="0" bits="32" visible="true" val="0x6666" />
+                <st_drc_CG_var id="0x274" t="u32" offset="0" bits="32" visible="true" val="0xa3" />
+                <st_drc_attack_rate id="0x278" t="u32" offset="0" bits="32" visible="true" val="0x66c8" />
+                <st_drc_attack_rate_ex id="0x27c" t="u32" offset="0" bits="32" visible="true" val="0x3364" />
+                <st_drc_hold id="0x280" t="u32" offset="0" bits="32" visible="true" val="0x0960" />
+                <st_drc_release_rate id="0x284" t="u32" offset="0" bits="32" visible="true" val="0x0106" />
+                <st_drc_release_rate_ex id="0x288" t="u32" offset="0" bits="32" visible="true" val="0x20" />
+                <st_drc_expand_limit id="0x28c" t="u32" offset="0" bits="32" visible="true" val="0xfffffda8" />
+                <st_drc_expand_threshold id="0x290" t="u32" offset="0" bits="32" visible="true" val="0xfffffe70" />
+                <st_drc_expand_ratio id="0x294" t="u32" offset="0" bits="32" visible="true" val="0x1000" />
+                <st_drc_expand_hold id="0x298" t="u32" offset="0" bits="32" visible="true" val="0xfffff830" />
+                <st_drc_expand_levelL id="0x29c" t="u32" offset="0" bits="32" visible="true" val="0xe5" />
+                <st_drc_expand_levelH id="0x2a0" t="u32" offset="0" bits="32" visible="true" val="0x00" />
+                <reserve01 offset="0" bits="8448" t="u8448" id="0x2a4" visible="false" val="0x0" />
+            </NB1>
+            <NB2 mode="1">
+                <reserve0 offset="0" bits="4800" t="u4800" id="0x6c4" visible="false" val="0x0" />
+                <st_control_0 id="0x91c" t="u32">
+                    <reserved00 offset="30" bits="2" visible="false" val="0x0" />
+                    <audio_addst_sel_r offset="28" bits="2" visible="false" val="0x1" />
+                    <reserved01 offset="26" bits="2" visible="false" val="0x0" />
+                    <audio_addst_sel_l offset="24" bits="2" visible="false" val="0x1" />
+                    <reserved02 offset="22" bits="2" visible="false" val="0x0" />
+                    <voice_addst_sel_r offset="20" bits="2" visible="false" val="0x1" />
+                    <reserved03 offset="18" bits="2" visible="false" val="0x0" />
+                    <voice_addst_sel_l offset="16" bits="2" visible="false" val="0x1" />
+                    <reserved04 offset="15" bits="1" visible="false" val="0x0" />
+                    <st_data_in_sel offset="12" bits="3" visible="false" val="0x0" />
+                    <reserved05 offset="11" bits="1" visible="false" val="0x0" />
+                    <st_drc_mode offset="10" bits="1" visible="true" val="0x00" />
+                    <st_drc_en_r offset="9" bits="1" visible="true" val="0x01" />
+                    <st_drc_en_l offset="8" bits="1" visible="true" val="0x01" />
+                    <reserved06 offset="6" bits="2" visible="false" val="0x0" />
+                    <st_hpf_en_r offset="5" bits="1" visible="true" val="0x01" />
+                    <st_hpf_en_l offset="4" bits="1" visible="true" val="0x01" />
+                    <reserved07 offset="2" bits="2" visible="false" val="0x0" />
+                    <st_en_r offset="1" bits="1" visible="true" val="0x01" />
+                    <st_en_l offset="0" bits="1" visible="true" val="0x01" />
+                </st_control_0>
+                <st_control_1 id="0x920" t="u32">
+                    <reserved00 offset="31" bits="1" visible="false" val="0x0" />
+                    <st_dg_r offset="24" bits="7" visible="false" val="0x18" />
+                    <reserved01 offset="23" bits="1" visible="false" val="0x0" />
+                    <st_dg_l offset="16" bits="7" visible="false" val="0x18" />
+                    <st_hpf_n_r offset="12" bits="4" visible="true" val="0x08" />
+                    <st_hpf_n_l offset="8" bits="4" visible="true" val="0x08" />
+                    <st_mixer_out_sel_r offset="7" bits="1" visible="false" val="0x0" />
+                    <st_mixer_mux_sel_r offset="4" bits="3" visible="false" val="0x0" />
+                    <st_mixer_out_sel_l offset="3" bits="1" visible="false" val="0x0" />
+                    <st_mixer_mux_sel_l offset="0" bits="3" visible="false" val="0x0" />
+                </st_control_1>
+                <st_drc_rise id="0x924" t="u32" offset="0" bits="32" visible="true" val="0x2000" />
+                <st_drc_fall id="0x928" t="u32" offset="0" bits="32" visible="true" val="0x04fd" />
+                <st_drc_limit id="0x92c" t="u32" offset="0" bits="32" visible="true" val="0x00" />
+                <st_drc_threshold id="0x930" t="u32" offset="0" bits="32" visible="true" val="0xffffffe2" />
+                <st_drc_ratio id="0x934" t="u32" offset="0" bits="32" visible="true" val="0x6666" />
+                <st_drc_CG_var id="0x938" t="u32" offset="0" bits="32" visible="true" val="0xa3" />
+                <st_drc_attack_rate id="0x93c" t="u32" offset="0" bits="32" visible="true" val="0x66c8" />
+                <st_drc_attack_rate_ex id="0x940" t="u32" offset="0" bits="32" visible="true" val="0x3364" />
+                <st_drc_hold id="0x944" t="u32" offset="0" bits="32" visible="true" val="0x0960" />
+                <st_drc_release_rate id="0x948" t="u32" offset="0" bits="32" visible="true" val="0x0106" />
+                <st_drc_release_rate_ex id="0x94c" t="u32" offset="0" bits="32" visible="true" val="0x20" />
+                <st_drc_expand_limit id="0x950" t="u32" offset="0" bits="32" visible="true" val="0xfffffda8" />
+                <st_drc_expand_threshold id="0x954" t="u32" offset="0" bits="32" visible="true" val="0xfffffe70" />
+                <st_drc_expand_ratio id="0x958" t="u32" offset="0" bits="32" visible="true" val="0x1000" />
+                <st_drc_expand_hold id="0x95c" t="u32" offset="0" bits="32" visible="true" val="0xfffff830" />
+                <st_drc_expand_levelL id="0x960" t="u32" offset="0" bits="32" visible="true" val="0xe5" />
+                <st_drc_expand_levelH id="0x964" t="u32" offset="0" bits="32" visible="true" val="0x00" />
+                <reserve01 offset="0" bits="8448" t="u8448" id="0x968" visible="false" val="0x0" />
+            </NB2>
+            <WB1 mode="2">
+                <reserve0 offset="0" bits="4800" t="u4800" id="0xd88" visible="false" val="0x0" />
+                <st_control_0 id="0xfe0" t="u32">
+                    <reserved00 offset="30" bits="2" visible="false" val="0x0" />
+                    <audio_addst_sel_r offset="28" bits="2" visible="false" val="0x1" />
+                    <reserved01 offset="26" bits="2" visible="false" val="0x0" />
+                    <audio_addst_sel_l offset="24" bits="2" visible="false" val="0x1" />
+                    <reserved02 offset="22" bits="2" visible="false" val="0x0" />
+                    <voice_addst_sel_r offset="20" bits="2" visible="false" val="0x1" />
+                    <reserved03 offset="18" bits="2" visible="false" val="0x0" />
+                    <voice_addst_sel_l offset="16" bits="2" visible="false" val="0x1" />
+                    <reserved04 offset="15" bits="1" visible="false" val="0x0" />
+                    <st_data_in_sel offset="12" bits="3" visible="false" val="0x0" />
+                    <reserved05 offset="11" bits="1" visible="false" val="0x0" />
+                    <st_drc_mode offset="10" bits="1" visible="true" val="0x00" />
+                    <st_drc_en_r offset="9" bits="1" visible="true" val="0x01" />
+                    <st_drc_en_l offset="8" bits="1" visible="true" val="0x01" />
+                    <reserved06 offset="6" bits="2" visible="false" val="0x0" />
+                    <st_hpf_en_r offset="5" bits="1" visible="true" val="0x01" />
+                    <st_hpf_en_l offset="4" bits="1" visible="true" val="0x01" />
+                    <reserved07 offset="2" bits="2" visible="false" val="0x0" />
+                    <st_en_r offset="1" bits="1" visible="true" val="0x01" />
+                    <st_en_l offset="0" bits="1" visible="true" val="0x01" />
+                </st_control_0>
+                <st_control_1 id="0xfe4" t="u32">
+                    <reserved00 offset="31" bits="1" visible="false" val="0x0" />
+                    <st_dg_r offset="24" bits="7" visible="false" val="0x18" />
+                    <reserved01 offset="23" bits="1" visible="false" val="0x0" />
+                    <st_dg_l offset="16" bits="7" visible="false" val="0x18" />
+                    <st_hpf_n_r offset="12" bits="4" visible="true" val="0x08" />
+                    <st_hpf_n_l offset="8" bits="4" visible="true" val="0x08" />
+                    <st_mixer_out_sel_r offset="7" bits="1" visible="false" val="0x0" />
+                    <st_mixer_mux_sel_r offset="4" bits="3" visible="false" val="0x0" />
+                    <st_mixer_out_sel_l offset="3" bits="1" visible="false" val="0x0" />
+                    <st_mixer_mux_sel_l offset="0" bits="3" visible="false" val="0x0" />
+                </st_control_1>
+                <st_drc_rise id="0xfe8" t="u32" offset="0" bits="32" visible="true" val="0x2000" />
+                <st_drc_fall id="0xfec" t="u32" offset="0" bits="32" visible="true" val="0x04fd" />
+                <st_drc_limit id="0xff0" t="u32" offset="0" bits="32" visible="true" val="0x00" />
+                <st_drc_threshold id="0xff4" t="u32" offset="0" bits="32" visible="true" val="0xffffffe2" />
+                <st_drc_ratio id="0xff8" t="u32" offset="0" bits="32" visible="true" val="0x6666" />
+                <st_drc_CG_var id="0xffc" t="u32" offset="0" bits="32" visible="true" val="0xa3" />
+                <st_drc_attack_rate id="0x1000" t="u32" offset="0" bits="32" visible="true" val="0x66c8" />
+                <st_drc_attack_rate_ex id="0x1004" t="u32" offset="0" bits="32" visible="true" val="0x3364" />
+                <st_drc_hold id="0x1008" t="u32" offset="0" bits="32" visible="true" val="0x0960" />
+                <st_drc_release_rate id="0x100c" t="u32" offset="0" bits="32" visible="true" val="0x0106" />
+                <st_drc_release_rate_ex id="0x1010" t="u32" offset="0" bits="32" visible="true" val="0x20" />
+                <st_drc_expand_limit id="0x1014" t="u32" offset="0" bits="32" visible="true" val="0xfffffda8" />
+                <st_drc_expand_threshold id="0x1018" t="u32" offset="0" bits="32" visible="true" val="0xfffffe70" />
+                <st_drc_expand_ratio id="0x101c" t="u32" offset="0" bits="32" visible="true" val="0x1000" />
+                <st_drc_expand_hold id="0x1020" t="u32" offset="0" bits="32" visible="true" val="0xfffff830" />
+                <st_drc_expand_levelL id="0x1024" t="u32" offset="0" bits="32" visible="true" val="0xe5" />
+                <st_drc_expand_levelH id="0x1028" t="u32" offset="0" bits="32" visible="true" val="0x00" />
+                <reserve01 offset="0" bits="8448" t="u8448" id="0x102c" visible="false" val="0x0" />
+            </WB1>
+            <WB2 mode="3">
+                <reserve0 offset="0" bits="4800" t="u4800" id="0x144c" visible="false" val="0x0" />
+                <st_control_0 id="0x16a4" t="u32">
+                    <reserved00 offset="30" bits="2" visible="false" val="0x0" />
+                    <audio_addst_sel_r offset="28" bits="2" visible="false" val="0x1" />
+                    <reserved01 offset="26" bits="2" visible="false" val="0x0" />
+                    <audio_addst_sel_l offset="24" bits="2" visible="false" val="0x1" />
+                    <reserved02 offset="22" bits="2" visible="false" val="0x0" />
+                    <voice_addst_sel_r offset="20" bits="2" visible="false" val="0x1" />
+                    <reserved03 offset="18" bits="2" visible="false" val="0x0" />
+                    <voice_addst_sel_l offset="16" bits="2" visible="false" val="0x1" />
+                    <reserved04 offset="15" bits="1" visible="false" val="0x0" />
+                    <st_data_in_sel offset="12" bits="3" visible="false" val="0x0" />
+                    <reserved05 offset="11" bits="1" visible="false" val="0x0" />
+                    <st_drc_mode offset="10" bits="1" visible="true" val="0x00" />
+                    <st_drc_en_r offset="9" bits="1" visible="true" val="0x01" />
+                    <st_drc_en_l offset="8" bits="1" visible="true" val="0x01" />
+                    <reserved06 offset="6" bits="2" visible="false" val="0x0" />
+                    <st_hpf_en_r offset="5" bits="1" visible="true" val="0x01" />
+                    <st_hpf_en_l offset="4" bits="1" visible="true" val="0x01" />
+                    <reserved07 offset="2" bits="2" visible="false" val="0x0" />
+                    <st_en_r offset="1" bits="1" visible="true" val="0x01" />
+                    <st_en_l offset="0" bits="1" visible="true" val="0x01" />
+                </st_control_0>
+                <st_control_1 id="0x16a8" t="u32">
+                    <reserved00 offset="31" bits="1" visible="false" val="0x0" />
+                    <st_dg_r offset="24" bits="7" visible="false" val="0x18" />
+                    <reserved01 offset="23" bits="1" visible="false" val="0x0" />
+                    <st_dg_l offset="16" bits="7" visible="false" val="0x18" />
+                    <st_hpf_n_r offset="12" bits="4" visible="true" val="0x08" />
+                    <st_hpf_n_l offset="8" bits="4" visible="true" val="0x08" />
+                    <st_mixer_out_sel_r offset="7" bits="1" visible="false" val="0x0" />
+                    <st_mixer_mux_sel_r offset="4" bits="3" visible="false" val="0x0" />
+                    <st_mixer_out_sel_l offset="3" bits="1" visible="false" val="0x0" />
+                    <st_mixer_mux_sel_l offset="0" bits="3" visible="false" val="0x0" />
+                </st_control_1>
+                <st_drc_rise id="0x16ac" t="u32" offset="0" bits="32" visible="true" val="0x2000" />
+                <st_drc_fall id="0x16b0" t="u32" offset="0" bits="32" visible="true" val="0x04fd" />
+                <st_drc_limit id="0x16b4" t="u32" offset="0" bits="32" visible="true" val="0x00" />
+                <st_drc_threshold id="0x16b8" t="u32" offset="0" bits="32" visible="true" val="0xffffffe2" />
+                <st_drc_ratio id="0x16bc" t="u32" offset="0" bits="32" visible="true" val="0x6666" />
+                <st_drc_CG_var id="0x16c0" t="u32" offset="0" bits="32" visible="true" val="0xa3" />
+                <st_drc_attack_rate id="0x16c4" t="u32" offset="0" bits="32" visible="true" val="0x66c8" />
+                <st_drc_attack_rate_ex id="0x16c8" t="u32" offset="0" bits="32" visible="true" val="0x3364" />
+                <st_drc_hold id="0x16cc" t="u32" offset="0" bits="32" visible="true" val="0x0960" />
+                <st_drc_release_rate id="0x16d0" t="u32" offset="0" bits="32" visible="true" val="0x0106" />
+                <st_drc_release_rate_ex id="0x16d4" t="u32" offset="0" bits="32" visible="true" val="0x20" />
+                <st_drc_expand_limit id="0x16d8" t="u32" offset="0" bits="32" visible="true" val="0xfffffda8" />
+                <st_drc_expand_threshold id="0x16dc" t="u32" offset="0" bits="32" visible="true" val="0xfffffe70" />
+                <st_drc_expand_ratio id="0x16e0" t="u32" offset="0" bits="32" visible="true" val="0x1000" />
+                <st_drc_expand_hold id="0x16e4" t="u32" offset="0" bits="32" visible="true" val="0xfffff830" />
+                <st_drc_expand_levelL id="0x16e8" t="u32" offset="0" bits="32" visible="true" val="0xe5" />
+                <st_drc_expand_levelH id="0x16ec" t="u32" offset="0" bits="32" visible="true" val="0x00" />
+                <reserve01 offset="0" bits="8448" t="u8448" id="0x16f0" visible="false" val="0x0" />
+            </WB2>
+            <SWB1 mode="4">
+                <reserve0 offset="0" bits="4800" t="u4800" id="0x1b10" visible="false" val="0x0" />
+                <st_control_0 id="0x1d68" t="u32">
+                    <reserved00 offset="30" bits="2" visible="false" val="0x0" />
+                    <audio_addst_sel_r offset="28" bits="2" visible="false" val="0x1" />
+                    <reserved01 offset="26" bits="2" visible="false" val="0x0" />
+                    <audio_addst_sel_l offset="24" bits="2" visible="false" val="0x1" />
+                    <reserved02 offset="22" bits="2" visible="false" val="0x0" />
+                    <voice_addst_sel_r offset="20" bits="2" visible="false" val="0x1" />
+                    <reserved03 offset="18" bits="2" visible="false" val="0x0" />
+                    <voice_addst_sel_l offset="16" bits="2" visible="false" val="0x1" />
+                    <reserved04 offset="15" bits="1" visible="false" val="0x0" />
+                    <st_data_in_sel offset="12" bits="3" visible="false" val="0x0" />
+                    <reserved05 offset="11" bits="1" visible="false" val="0x0" />
+                    <st_drc_mode offset="10" bits="1" visible="true" val="0x00" />
+                    <st_drc_en_r offset="9" bits="1" visible="true" val="0x01" />
+                    <st_drc_en_l offset="8" bits="1" visible="true" val="0x01" />
+                    <reserved06 offset="6" bits="2" visible="false" val="0x0" />
+                    <st_hpf_en_r offset="5" bits="1" visible="true" val="0x01" />
+                    <st_hpf_en_l offset="4" bits="1" visible="true" val="0x01" />
+                    <reserved07 offset="2" bits="2" visible="false" val="0x0" />
+                    <st_en_r offset="1" bits="1" visible="true" val="0x01" />
+                    <st_en_l offset="0" bits="1" visible="true" val="0x01" />
+                </st_control_0>
+                <st_control_1 id="0x1d6c" t="u32">
+                    <reserved00 offset="31" bits="1" visible="false" val="0x0" />
+                    <st_dg_r offset="24" bits="7" visible="false" val="0x18" />
+                    <reserved01 offset="23" bits="1" visible="false" val="0x0" />
+                    <st_dg_l offset="16" bits="7" visible="false" val="0x18" />
+                    <st_hpf_n_r offset="12" bits="4" visible="true" val="0x08" />
+                    <st_hpf_n_l offset="8" bits="4" visible="true" val="0x08" />
+                    <st_mixer_out_sel_r offset="7" bits="1" visible="false" val="0x0" />
+                    <st_mixer_mux_sel_r offset="4" bits="3" visible="false" val="0x0" />
+                    <st_mixer_out_sel_l offset="3" bits="1" visible="false" val="0x0" />
+                    <st_mixer_mux_sel_l offset="0" bits="3" visible="false" val="0x0" />
+                </st_control_1>
+                <st_drc_rise id="0x1d70" t="u32" offset="0" bits="32" visible="true" val="0x2000" />
+                <st_drc_fall id="0x1d74" t="u32" offset="0" bits="32" visible="true" val="0x04fd" />
+                <st_drc_limit id="0x1d78" t="u32" offset="0" bits="32" visible="true" val="0x00" />
+                <st_drc_threshold id="0x1d7c" t="u32" offset="0" bits="32" visible="true" val="0xffffffe2" />
+                <st_drc_ratio id="0x1d80" t="u32" offset="0" bits="32" visible="true" val="0x6666" />
+                <st_drc_CG_var id="0x1d84" t="u32" offset="0" bits="32" visible="true" val="0xa3" />
+                <st_drc_attack_rate id="0x1d88" t="u32" offset="0" bits="32" visible="true" val="0x66c8" />
+                <st_drc_attack_rate_ex id="0x1d8c" t="u32" offset="0" bits="32" visible="true" val="0x3364" />
+                <st_drc_hold id="0x1d90" t="u32" offset="0" bits="32" visible="true" val="0x0960" />
+                <st_drc_release_rate id="0x1d94" t="u32" offset="0" bits="32" visible="true" val="0x0106" />
+                <st_drc_release_rate_ex id="0x1d98" t="u32" offset="0" bits="32" visible="true" val="0x20" />
+                <st_drc_expand_limit id="0x1d9c" t="u32" offset="0" bits="32" visible="true" val="0xfffffda8" />
+                <st_drc_expand_threshold id="0x1da0" t="u32" offset="0" bits="32" visible="true" val="0xfffffe70" />
+                <st_drc_expand_ratio id="0x1da4" t="u32" offset="0" bits="32" visible="true" val="0x1000" />
+                <st_drc_expand_hold id="0x1da8" t="u32" offset="0" bits="32" visible="true" val="0xfffff830" />
+                <st_drc_expand_levelL id="0x1dac" t="u32" offset="0" bits="32" visible="true" val="0xe5" />
+                <st_drc_expand_levelH id="0x1db0" t="u32" offset="0" bits="32" visible="true" val="0x00" />
+                <reserve01 offset="0" bits="8448" t="u8448" id="0x1db4" visible="false" val="0x0" />
+            </SWB1>
+            <FB1 mode="5">
+                <reserve0 offset="0" bits="4800" t="u4800" id="0x21d4" visible="false" val="0x0" />
+                <st_control_0 id="0x242c" t="u32">
+                    <reserved00 offset="30" bits="2" visible="false" val="0x0" />
+                    <audio_addst_sel_r offset="28" bits="2" visible="false" val="0x1" />
+                    <reserved01 offset="26" bits="2" visible="false" val="0x0" />
+                    <audio_addst_sel_l offset="24" bits="2" visible="false" val="0x1" />
+                    <reserved02 offset="22" bits="2" visible="false" val="0x0" />
+                    <voice_addst_sel_r offset="20" bits="2" visible="false" val="0x1" />
+                    <reserved03 offset="18" bits="2" visible="false" val="0x0" />
+                    <voice_addst_sel_l offset="16" bits="2" visible="false" val="0x1" />
+                    <reserved04 offset="15" bits="1" visible="false" val="0x0" />
+                    <st_data_in_sel offset="12" bits="3" visible="false" val="0x0" />
+                    <reserved05 offset="11" bits="1" visible="false" val="0x0" />
+                    <st_drc_mode offset="10" bits="1" visible="true" val="0x00" />
+                    <st_drc_en_r offset="9" bits="1" visible="true" val="0x01" />
+                    <st_drc_en_l offset="8" bits="1" visible="true" val="0x01" />
+                    <reserved06 offset="6" bits="2" visible="false" val="0x0" />
+                    <st_hpf_en_r offset="5" bits="1" visible="true" val="0x01" />
+                    <st_hpf_en_l offset="4" bits="1" visible="true" val="0x01" />
+                    <reserved07 offset="2" bits="2" visible="false" val="0x0" />
+                    <st_en_r offset="1" bits="1" visible="true" val="0x01" />
+                    <st_en_l offset="0" bits="1" visible="true" val="0x01" />
+                </st_control_0>
+                <st_control_1 id="0x2430" t="u32">
+                    <reserved00 offset="31" bits="1" visible="false" val="0x0" />
+                    <st_dg_r offset="24" bits="7" visible="false" val="0x18" />
+                    <reserved01 offset="23" bits="1" visible="false" val="0x0" />
+                    <st_dg_l offset="16" bits="7" visible="false" val="0x18" />
+                    <st_hpf_n_r offset="12" bits="4" visible="true" val="0x08" />
+                    <st_hpf_n_l offset="8" bits="4" visible="true" val="0x08" />
+                    <st_mixer_out_sel_r offset="7" bits="1" visible="false" val="0x0" />
+                    <st_mixer_mux_sel_r offset="4" bits="3" visible="false" val="0x0" />
+                    <st_mixer_out_sel_l offset="3" bits="1" visible="false" val="0x0" />
+                    <st_mixer_mux_sel_l offset="0" bits="3" visible="false" val="0x0" />
+                </st_control_1>
+                <st_drc_rise id="0x2434" t="u32" offset="0" bits="32" visible="true" val="0x2000" />
+                <st_drc_fall id="0x2438" t="u32" offset="0" bits="32" visible="true" val="0x04fd" />
+                <st_drc_limit id="0x243c" t="u32" offset="0" bits="32" visible="true" val="0x00" />
+                <st_drc_threshold id="0x2440" t="u32" offset="0" bits="32" visible="true" val="0xffffffe2" />
+                <st_drc_ratio id="0x2444" t="u32" offset="0" bits="32" visible="true" val="0x6666" />
+                <st_drc_CG_var id="0x2448" t="u32" offset="0" bits="32" visible="true" val="0xa3" />
+                <st_drc_attack_rate id="0x244c" t="u32" offset="0" bits="32" visible="true" val="0x66c8" />
+                <st_drc_attack_rate_ex id="0x2450" t="u32" offset="0" bits="32" visible="true" val="0x3364" />
+                <st_drc_hold id="0x2454" t="u32" offset="0" bits="32" visible="true" val="0x0960" />
+                <st_drc_release_rate id="0x2458" t="u32" offset="0" bits="32" visible="true" val="0x0106" />
+                <st_drc_release_rate_ex id="0x245c" t="u32" offset="0" bits="32" visible="true" val="0x20" />
+                <st_drc_expand_limit id="0x2460" t="u32" offset="0" bits="32" visible="true" val="0xfffffda8" />
+                <st_drc_expand_threshold id="0x2464" t="u32" offset="0" bits="32" visible="true" val="0xfffffe70" />
+                <st_drc_expand_ratio id="0x2468" t="u32" offset="0" bits="32" visible="true" val="0x1000" />
+                <st_drc_expand_hold id="0x246c" t="u32" offset="0" bits="32" visible="true" val="0xfffff830" />
+                <st_drc_expand_levelL id="0x2470" t="u32" offset="0" bits="32" visible="true" val="0xe5" />
+                <st_drc_expand_levelH id="0x2474" t="u32" offset="0" bits="32" visible="true" val="0x00" />
+                <reserve01 offset="0" bits="8448" t="u8448" id="0x2478" visible="false" val="0x0" />
+            </FB1>
+            <VOIP1 mode="6">
+                <reserve0 offset="0" bits="4800" t="u4800" id="0x2898" visible="false" val="0x0" />
+                <st_control_0 id="0x2af0" t="u32">
+                    <reserved00 offset="30" bits="2" visible="false" val="0x0" />
+                    <audio_addst_sel_r offset="28" bits="2" visible="false" val="0x1" />
+                    <reserved01 offset="26" bits="2" visible="false" val="0x0" />
+                    <audio_addst_sel_l offset="24" bits="2" visible="false" val="0x1" />
+                    <reserved02 offset="22" bits="2" visible="false" val="0x0" />
+                    <voice_addst_sel_r offset="20" bits="2" visible="false" val="0x1" />
+                    <reserved03 offset="18" bits="2" visible="false" val="0x0" />
+                    <voice_addst_sel_l offset="16" bits="2" visible="false" val="0x1" />
+                    <reserved04 offset="15" bits="1" visible="false" val="0x0" />
+                    <st_data_in_sel offset="12" bits="3" visible="false" val="0x0" />
+                    <reserved05 offset="11" bits="1" visible="false" val="0x0" />
+                    <st_drc_mode offset="10" bits="1" visible="true" val="0x00" />
+                    <st_drc_en_r offset="9" bits="1" visible="true" val="0x01" />
+                    <st_drc_en_l offset="8" bits="1" visible="true" val="0x01" />
+                    <reserved06 offset="6" bits="2" visible="false" val="0x0" />
+                    <st_hpf_en_r offset="5" bits="1" visible="true" val="0x01" />
+                    <st_hpf_en_l offset="4" bits="1" visible="true" val="0x01" />
+                    <reserved07 offset="2" bits="2" visible="false" val="0x0" />
+                    <st_en_r offset="1" bits="1" visible="true" val="0x01" />
+                    <st_en_l offset="0" bits="1" visible="true" val="0x01" />
+                </st_control_0>
+                <st_control_1 id="0x2af4" t="u32">
+                    <reserved00 offset="31" bits="1" visible="false" val="0x0" />
+                    <st_dg_r offset="24" bits="7" visible="false" val="0x18" />
+                    <reserved01 offset="23" bits="1" visible="false" val="0x0" />
+                    <st_dg_l offset="16" bits="7" visible="false" val="0x18" />
+                    <st_hpf_n_r offset="12" bits="4" visible="true" val="0x08" />
+                    <st_hpf_n_l offset="8" bits="4" visible="true" val="0x08" />
+                    <st_mixer_out_sel_r offset="7" bits="1" visible="false" val="0x0" />
+                    <st_mixer_mux_sel_r offset="4" bits="3" visible="false" val="0x0" />
+                    <st_mixer_out_sel_l offset="3" bits="1" visible="false" val="0x0" />
+                    <st_mixer_mux_sel_l offset="0" bits="3" visible="false" val="0x0" />
+                </st_control_1>
+                <st_drc_rise id="0x2af8" t="u32" offset="0" bits="32" visible="true" val="0x2000" />
+                <st_drc_fall id="0x2afc" t="u32" offset="0" bits="32" visible="true" val="0x04fd" />
+                <st_drc_limit id="0x2b00" t="u32" offset="0" bits="32" visible="true" val="0x00" />
+                <st_drc_threshold id="0x2b04" t="u32" offset="0" bits="32" visible="true" val="0xffffffe2" />
+                <st_drc_ratio id="0x2b08" t="u32" offset="0" bits="32" visible="true" val="0x6666" />
+                <st_drc_CG_var id="0x2b0c" t="u32" offset="0" bits="32" visible="true" val="0xa3" />
+                <st_drc_attack_rate id="0x2b10" t="u32" offset="0" bits="32" visible="true" val="0x66c8" />
+                <st_drc_attack_rate_ex id="0x2b14" t="u32" offset="0" bits="32" visible="true" val="0x3364" />
+                <st_drc_hold id="0x2b18" t="u32" offset="0" bits="32" visible="true" val="0x0960" />
+                <st_drc_release_rate id="0x2b1c" t="u32" offset="0" bits="32" visible="true" val="0x0106" />
+                <st_drc_release_rate_ex id="0x2b20" t="u32" offset="0" bits="32" visible="true" val="0x20" />
+                <st_drc_expand_limit id="0x2b24" t="u32" offset="0" bits="32" visible="true" val="0xfffffda8" />
+                <st_drc_expand_threshold id="0x2b28" t="u32" offset="0" bits="32" visible="true" val="0xfffffe70" />
+                <st_drc_expand_ratio id="0x2b2c" t="u32" offset="0" bits="32" visible="true" val="0x1000" />
+                <st_drc_expand_hold id="0x2b30" t="u32" offset="0" bits="32" visible="true" val="0xfffff830" />
+                <st_drc_expand_levelL id="0x2b34" t="u32" offset="0" bits="32" visible="true" val="0xe5" />
+                <st_drc_expand_levelH id="0x2b38" t="u32" offset="0" bits="32" visible="true" val="0x00" />
+                <reserve01 offset="0" bits="8448" t="u8448" id="0x2b3c" visible="false" val="0x0" />
+            </VOIP1>
+        </Handset>
+    </Audio>
+    <Loopback>
+        <Handset>
+            <Loop1 mode="7">
+                <reserve0 offset="0" bits="4800" t="u4800" id="0x2f5c" visible="false" val="0x0" />
+                <st_control_0 id="0x31b4" t="u32">
+                    <reserved00 offset="30" bits="2" visible="false" val="0x0" />
+                    <audio_addst_sel_r offset="28" bits="2" visible="false" val="0x1" />
+                    <reserved01 offset="26" bits="2" visible="false" val="0x0" />
+                    <audio_addst_sel_l offset="24" bits="2" visible="false" val="0x1" />
+                    <reserved02 offset="22" bits="2" visible="false" val="0x0" />
+                    <voice_addst_sel_r offset="20" bits="2" visible="false" val="0x1" />
+                    <reserved03 offset="18" bits="2" visible="false" val="0x0" />
+                    <voice_addst_sel_l offset="16" bits="2" visible="false" val="0x1" />
+                    <reserved04 offset="15" bits="1" visible="false" val="0x0" />
+                    <st_data_in_sel offset="12" bits="3" visible="false" val="0x0" />
+                    <reserved05 offset="11" bits="1" visible="false" val="0x0" />
+                    <st_drc_mode offset="10" bits="1" visible="true" val="0x00" />
+                    <st_drc_en_r offset="9" bits="1" visible="true" val="0x01" />
+                    <st_drc_en_l offset="8" bits="1" visible="true" val="0x01" />
+                    <reserved06 offset="6" bits="2" visible="false" val="0x0" />
+                    <st_hpf_en_r offset="5" bits="1" visible="true" val="0x01" />
+                    <st_hpf_en_l offset="4" bits="1" visible="true" val="0x01" />
+                    <reserved07 offset="2" bits="2" visible="false" val="0x0" />
+                    <st_en_r offset="1" bits="1" visible="true" val="0x01" />
+                    <st_en_l offset="0" bits="1" visible="true" val="0x01" />
+                </st_control_0>
+                <st_control_1 id="0x31b8" t="u32">
+                    <reserved00 offset="31" bits="1" visible="false" val="0x0" />
+                    <st_dg_r offset="24" bits="7" visible="false" val="0x18" />
+                    <reserved01 offset="23" bits="1" visible="false" val="0x0" />
+                    <st_dg_l offset="16" bits="7" visible="false" val="0x18" />
+                    <st_hpf_n_r offset="12" bits="4" visible="true" val="0x08" />
+                    <st_hpf_n_l offset="8" bits="4" visible="true" val="0x08" />
+                    <st_mixer_out_sel_r offset="7" bits="1" visible="false" val="0x0" />
+                    <st_mixer_mux_sel_r offset="4" bits="3" visible="false" val="0x0" />
+                    <st_mixer_out_sel_l offset="3" bits="1" visible="false" val="0x0" />
+                    <st_mixer_mux_sel_l offset="0" bits="3" visible="false" val="0x0" />
+                </st_control_1>
+                <st_drc_rise id="0x31bc" t="u32" offset="0" bits="32" visible="true" val="0x2000" />
+                <st_drc_fall id="0x31c0" t="u32" offset="0" bits="32" visible="true" val="0x04fd" />
+                <st_drc_limit id="0x31c4" t="u32" offset="0" bits="32" visible="true" val="0x00" />
+                <st_drc_threshold id="0x31c8" t="u32" offset="0" bits="32" visible="true" val="0xffffffe2" />
+                <st_drc_ratio id="0x31cc" t="u32" offset="0" bits="32" visible="true" val="0x6666" />
+                <st_drc_CG_var id="0x31d0" t="u32" offset="0" bits="32" visible="true" val="0xa3" />
+                <st_drc_attack_rate id="0x31d4" t="u32" offset="0" bits="32" visible="true" val="0x66c8" />
+                <st_drc_attack_rate_ex id="0x31d8" t="u32" offset="0" bits="32" visible="true" val="0x3364" />
+                <st_drc_hold id="0x31dc" t="u32" offset="0" bits="32" visible="true" val="0x0960" />
+                <st_drc_release_rate id="0x31e0" t="u32" offset="0" bits="32" visible="true" val="0x0106" />
+                <st_drc_release_rate_ex id="0x31e4" t="u32" offset="0" bits="32" visible="true" val="0x20" />
+                <st_drc_expand_limit id="0x31e8" t="u32" offset="0" bits="32" visible="true" val="0xfffffda8" />
+                <st_drc_expand_threshold id="0x31ec" t="u32" offset="0" bits="32" visible="true" val="0xfffffe70" />
+                <st_drc_expand_ratio id="0x31f0" t="u32" offset="0" bits="32" visible="true" val="0x1000" />
+                <st_drc_expand_hold id="0x31f4" t="u32" offset="0" bits="32" visible="true" val="0xfffff830" />
+                <st_drc_expand_levelL id="0x31f8" t="u32" offset="0" bits="32" visible="true" val="0xe5" />
+                <st_drc_expand_levelH id="0x31fc" t="u32" offset="0" bits="32" visible="true" val="0x00" />
+                <reserve01 offset="0" bits="8448" t="u8448" id="0x3200" visible="false" val="0x0" />
+            </Loop1>
+        </Handset>
+    </Loopback>
+</dsp_vbc>

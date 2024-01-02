@@ -1,0 +1,821 @@
+From fd49590a1d652e54fabbd5b3afc46e18a1ffbeed Mon Sep 17 00:00:00 2001
+From: fujia <fujia@bingtangtech.com>
+Date: Tue, 1 Aug 2023 13:46:27 +0800
+Subject: [PATCH] update pinmap and lcm config
+
+---
+ board/spreadtrum/ums9620_2h10/pinmap.c        | 152 +++---
+ drivers/video/sprd/lcd/Makefile               |   1 +
+ drivers/video/sprd/lcd/lcd_rm67295_mipi_fhd.c | 478 ++++++++++++++++++
+ drivers/video/sprd/lcd/panel_cfg.h            |   5 +
+ include/configs/ums9620_2h10.h                |   6 +
+ 5 files changed, 566 insertions(+), 76 deletions(-)
+ create mode 100755 drivers/video/sprd/lcd/lcd_rm67295_mipi_fhd.c
+
+diff --git a/board/spreadtrum/ums9620_2h10/pinmap.c b/board/spreadtrum/ums9620_2h10/pinmap.c
+index 74ef6f5..772d3bb 100755
+--- a/board/spreadtrum/ums9620_2h10/pinmap.c
++++ b/board/spreadtrum/ums9620_2h10/pinmap.c
+@@ -82,7 +82,7 @@ static pinmap_t pinmap[]={
+ {REG_PIN_DNS_D1,                        BITS_PIN_AF(0)},
+ {REG_MISC_PIN_DNS_D1,                   BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AUDCP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//DNS_D1
+ {REG_PIN_LCM0_RSTN,                     BITS_PIN_AF(3)},
+-{REG_MISC_PIN_LCM0_RSTN,                BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//LCM_RSTN
++{REG_MISC_PIN_LCM0_RSTN,                BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//LCM_RSTN
+ {REG_PIN_DSI0_TE,                       BITS_PIN_AF(0)},
+ {REG_MISC_PIN_DSI0_TE,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//LCM_FMARK
+ {REG_PIN_PWMA,                          BITS_PIN_AF(0)},
+@@ -91,10 +91,10 @@ static pinmap_t pinmap[]={
+ {REG_MISC_PIN_EXTINT0,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//CTP_INT
+ {REG_PIN_EXTINT1,                       BITS_PIN_AF(3)},
+ {REG_MISC_PIN_EXTINT1,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//CTP_RST
+-{REG_PIN_SDA3,                          BITS_PIN_AF(3)},
+-{REG_MISC_PIN_SDA3,                     BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//NC
+-{REG_PIN_SCL3,                          BITS_PIN_AF(3)},
+-{REG_MISC_PIN_SCL3,                     BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//NC
++{REG_PIN_SDA3,                          BITS_PIN_AF(0)},
++{REG_MISC_PIN_SDA3,                     BITS_PIN_DS(3)|BIT_PIN_WPUS|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_Z},//NC
++{REG_PIN_SCL3,                          BITS_PIN_AF(0)},
++{REG_MISC_PIN_SCL3,                     BITS_PIN_DS(3)|BIT_PIN_WPUS|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_Z},//NC
+ {REG_PIN_DCDC_ARM1_EN,                  BITS_PIN_AF(0)},
+ {REG_MISC_PIN_DCDC_ARM1_EN,             BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_ALL|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//VDDCPU1_EN
+ {REG_PIN_PTEST,                         BITS_PIN_AF(0)},
+@@ -143,26 +143,26 @@ static pinmap_t pinmap[]={
+ {REG_MISC_PIN_CHG_TYPE,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_ALL|BIT_PIN_SLP_NUL|BIT_PIN_SLP_IE},//CHG_TYPE
+ {REG_PIN_SIM_DET0,                      BITS_PIN_AF(0)},
+ {REG_MISC_PIN_SIM_DET0,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_NONE|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//SIM_DET0
+-{REG_PIN_SIM_DET1,                      BITS_PIN_AF(0)},
++{REG_PIN_SIM_DET1,                      BITS_PIN_AF(3)},
+ {REG_MISC_PIN_SIM_DET1,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_NONE|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//SIM_DET1
+ {REG_PIN_TF_DET,                        BITS_PIN_AF(0)},
+ {REG_MISC_PIN_TF_DET,                   BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//TF_DET
+ {REG_PIN_BAT_DET,                       BITS_PIN_AF(0)},
+ {REG_MISC_PIN_BAT_DET,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//BAT_DET
+-{REG_PIN_SCL4,                          BITS_PIN_AF(3)},
+-{REG_MISC_PIN_SCL4,                     BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//NC
+-{REG_PIN_SDA4,                          BITS_PIN_AF(3)},
+-{REG_MISC_PIN_SDA4,                     BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//NC
+-{REG_PIN_CLK_AUX1,                      BITS_PIN_AF(0)},
+-{REG_MISC_PIN_CLK_AUX1,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//CLK_AUX1
+-{REG_PIN_IIS1DI,                        BITS_PIN_AF(2)},
++{REG_PIN_SCL4,                          BITS_PIN_AF(0)},
++{REG_MISC_PIN_SCL4,                     BITS_PIN_DS(1)|BIT_PIN_WPUS|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_Z},//NC
++{REG_PIN_SDA4,                          BITS_PIN_AF(0)},
++{REG_MISC_PIN_SDA4,                     BITS_PIN_DS(1)|BIT_PIN_WPUS|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_Z},//NC
++{REG_PIN_CLK_AUX1,                      BITS_PIN_AF(3)},
++{REG_MISC_PIN_CLK_AUX1,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_OE},//CLK_AUX1
++{REG_PIN_IIS1DI,                        BITS_PIN_AF(3)},
+ {REG_MISC_PIN_IIS1DI,                   BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_IE},//FTID_INT
+ {REG_PIN_IIS1DO,                        BITS_PIN_AF(3)},
+ {REG_MISC_PIN_IIS1DO,                   BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//FTID_RSTN
+ {REG_PIN_IIS1CLK,                       BITS_PIN_AF(3)},
+-{REG_MISC_PIN_IIS1CLK,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//CAMERA_FLASH_EN
++{REG_MISC_PIN_IIS1CLK,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_NONE|BIT_PIN_SLP_NUL|BIT_PIN_SLP_IE},//CAMERA_FLASH_EN
+ {REG_PIN_IIS1LRCK,                      BITS_PIN_AF(3)},
+-{REG_MISC_PIN_IIS1LRCK,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//camera_torch_en
++{REG_MISC_PIN_IIS1LRCK,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//camera_torch_en
+ {REG_PIN_SIMCLK0,                       BITS_PIN_AF(0)},
+ {REG_MISC_PIN_SIMCLK0,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_NONE|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//SIM0_CLK
+ {REG_PIN_SIMDA0,                        BITS_PIN_AF(0)},
+@@ -173,8 +173,8 @@ static pinmap_t pinmap[]={
+ {REG_MISC_PIN_SIMCLK1,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_NONE|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//SIM1_CLK
+ {REG_PIN_SIMDA1,                        BITS_PIN_AF(0)},
+ {REG_MISC_PIN_SIMDA1,                   BITS_PIN_DS(1)|BIT_PIN_WPUS|BIT_PIN_NUL|BIT_PIN_SLP_NONE|BIT_PIN_SLP_NUL|BIT_PIN_SLP_Z},//SIM1_DA
+-{REG_PIN_SIMRST1,                       BITS_PIN_AF(0)},
+-{REG_MISC_PIN_SIMRST1,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_NONE|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//SIM1_RST
++{REG_PIN_SIMRST1,                       BITS_PIN_AF(3)},
++{REG_MISC_PIN_SIMRST1,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//SIM1_RST
+ {REG_PIN_SD0_CMD,                       BITS_PIN_AF(0)},
+ {REG_MISC_PIN_SD0_CMD,                  BITS_PIN_DS(7)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//TF_SD0_CMD
+ {REG_PIN_SD0_D_0,                       BITS_PIN_AF(0)},
+@@ -187,28 +187,28 @@ static pinmap_t pinmap[]={
+ {REG_MISC_PIN_SD0_D_2,                  BITS_PIN_DS(7)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//TF_SD0_D2
+ {REG_PIN_SD0_D_3,                       BITS_PIN_AF(0)},
+ {REG_MISC_PIN_SD0_D_3,                  BITS_PIN_DS(7)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//TF_SD0_D3
+-{REG_PIN_SD2_CMD,                       BITS_PIN_AF(1)},
+-{REG_MISC_PIN_SD2_CMD,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//LCM_SPI_MISO
+-{REG_PIN_SD2_D0,                        BITS_PIN_AF(1)},
+-{REG_MISC_PIN_SD2_D0,                   BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//LCM_SPI_MOSI
+-{REG_PIN_SD2_D1,                        BITS_PIN_AF(3)},
+-{REG_MISC_PIN_SD2_D1,                   BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//CAMERA_FLASH_CHIPEN
+-{REG_PIN_SD2_CLK,                       BITS_PIN_AF(1)},
+-{REG_MISC_PIN_SD2_CLK,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//LCM_SPI_CLK
+-{REG_PIN_SD2_D2,                        BITS_PIN_AF(3)},
+-{REG_MISC_PIN_SD2_D2,                   BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//UCP1301_RSTN
+-{REG_PIN_SD2_D3,                        BITS_PIN_AF(1)},
+-{REG_MISC_PIN_SD2_D3,                   BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//LCM_SPI_CS
++{REG_PIN_SD2_CMD,                       BITS_PIN_AF(0)},
++{REG_MISC_PIN_SD2_CMD,                  BITS_PIN_DS(4)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//WF_SD2_CMD
++{REG_PIN_SD2_D0,                        BITS_PIN_AF(0)},
++{REG_MISC_PIN_SD2_D0,                   BITS_PIN_DS(3)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//WF_SD2_D0
++{REG_PIN_SD2_D1,                        BITS_PIN_AF(0)},
++{REG_MISC_PIN_SD2_D1,                   BITS_PIN_DS(3)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//WF_SD2_D1
++{REG_PIN_SD2_CLK,                       BITS_PIN_AF(0)},
++{REG_MISC_PIN_SD2_CLK,                  BITS_PIN_DS(4)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//WF_SD2_CLK
++{REG_PIN_SD2_D2,                        BITS_PIN_AF(0)},
++{REG_MISC_PIN_SD2_D2,                   BITS_PIN_DS(3)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//WF_SD2_D2
++{REG_PIN_SD2_D3,                        BITS_PIN_AF(0)},
++{REG_MISC_PIN_SD2_D3,                   BITS_PIN_DS(3)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//WF_SD2_D3
+ {REG_PIN_IIS3DI,                        BITS_PIN_AF(3)},
+ {REG_MISC_PIN_IIS3DI,                   BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//LCM_SOURCE_AVEEEN
+ {REG_PIN_IIS3DO,                        BITS_PIN_AF(3)},
+ {REG_MISC_PIN_IIS3DO,                   BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//LCM_SOURCE_AVDDEN
+ {REG_PIN_IIS3LRCK,                      BITS_PIN_AF(3)},
+-{REG_MISC_PIN_IIS3LRCK,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//BQ25970_INTacticelow
++{REG_MISC_PIN_IIS3LRCK,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//BQ25970_INTacticelow
+ {REG_PIN_IIS3CLK,                       BITS_PIN_AF(3)},
+ {REG_MISC_PIN_IIS3CLK,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//TOF_XSHUT
+-{REG_PIN_CLK_AUX2,                      BITS_PIN_AF(0)},
+-{REG_MISC_PIN_CLK_AUX2,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//CLK_AUX2
++{REG_PIN_CLK_AUX2,                      BITS_PIN_AF(3)},
++{REG_MISC_PIN_CLK_AUX2,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//CLK_AUX2
+ {REG_PIN_RFCTL_0,                       BITS_PIN_AF(0)},
+ {REG_MISC_PIN_RFCTL_0,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_ALL_CP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//RFCTL_0
+ {REG_PIN_RFCTL_1,                       BITS_PIN_AF(0)},
+@@ -307,16 +307,16 @@ static pinmap_t pinmap[]={
+ {REG_MISC_PIN_VDSP_TCK,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_Z},//BOARD_ID1
+ {REG_PIN_VDSP_RTCK,                     BITS_PIN_AF(3)},
+ {REG_MISC_PIN_VDSP_RTCK,                BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_Z},//BOARD_ID2
+-{REG_PIN_DMIC_CLK2,                     BITS_PIN_AF(0)},
++{REG_PIN_DMIC_CLK2,                     BITS_PIN_AF(3)},
+ {REG_MISC_PIN_DMIC_CLK2,                BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//PDM_CLK2
+-{REG_PIN_DMIC_DATA2,                    BITS_PIN_AF(0)},
+-{REG_MISC_PIN_DMIC_DATA2,               BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_IE},//PDM_DATA2
++{REG_PIN_DMIC_DATA2,                    BITS_PIN_AF(3)},
++{REG_MISC_PIN_DMIC_DATA2,               BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//PDM_DATA2
+ {REG_PIN_DMIC_CLK0,                     BITS_PIN_AF(3)},
+ {REG_MISC_PIN_DMIC_CLK0,                BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//CHG_INT
+ {REG_PIN_DMIC_DATA0,                    BITS_PIN_AF(3)},
+-{REG_MISC_PIN_DMIC_DATA0,               BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//NC
++{REG_MISC_PIN_DMIC_DATA0,               BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_OE},//NC
+ {REG_PIN_DMIC_CLK1,                     BITS_PIN_AF(3)},
+-{REG_MISC_PIN_DMIC_CLK1,                BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//CHG_EN_N
++{REG_MISC_PIN_DMIC_CLK1,                BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_OE},//CHG_EN_N
+ {REG_PIN_DMIC_DATA1,                    BITS_PIN_AF(3)},
+ {REG_MISC_PIN_DMIC_DATA1,               BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//CHG_FLAG_N
+ {REG_PIN_U2TXD,                         BITS_PIN_AF(0)},
+@@ -331,10 +331,10 @@ static pinmap_t pinmap[]={
+ {REG_MISC_PIN_U7TXD,                    BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//BB_U7TXD
+ {REG_PIN_U7RXD,                         BITS_PIN_AF(0)},
+ {REG_MISC_PIN_U7RXD,                    BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//BB_U7RXD
+-{REG_PIN_U6TXD,                         BITS_PIN_AF(0)},
+-{REG_MISC_PIN_U6TXD,                    BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//BB_U6TXD
+-{REG_PIN_U6RXD,                         BITS_PIN_AF(0)},
+-{REG_MISC_PIN_U6RXD,                    BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//BB_U6RXD
++{REG_PIN_U6TXD,                         BITS_PIN_AF(3)},
++{REG_MISC_PIN_U6TXD,                    BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_OE},//BB_U6TXD
++{REG_PIN_U6RXD,                         BITS_PIN_AF(3)},
++{REG_MISC_PIN_U6RXD,                    BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_OE},//BB_U6RXD
+ {REG_PIN_MTCK_ARM,                      BITS_PIN_AF(0)},
+ {REG_MISC_PIN_MTCK_ARM,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_NONE|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//MTCK
+ {REG_PIN_MTMS_ARM,                      BITS_PIN_AF(0)},
+@@ -355,8 +355,8 @@ static pinmap_t pinmap[]={
+ {REG_MISC_PIN_CMMCLK1,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//CAM_MCLK1
+ {REG_PIN_CMMCLK2,                       BITS_PIN_AF(0)},
+ {REG_MISC_PIN_CMMCLK2,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//CAM_MCLK2
+-{REG_PIN_CMMCLK3,                       BITS_PIN_AF(3)},
+-{REG_MISC_PIN_CMMCLK3,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//NC
++{REG_PIN_CMMCLK3,                       BITS_PIN_AF(0)},
++{REG_MISC_PIN_CMMCLK3,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//NC
+ {REG_PIN_CMRST0,                        BITS_PIN_AF(3)},
+ {REG_MISC_PIN_CMRST0,                   BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//CAM_RST0
+ {REG_PIN_CMRST1,                        BITS_PIN_AF(3)},
+@@ -400,29 +400,29 @@ static pinmap_t pinmap[]={
+ {REG_PIN_SPI3_CSN,                      BITS_PIN_AF(3)},
+ {REG_MISC_PIN_SPI3_CSN,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_IE},//CAMERA_FLASH_SYNC
+ {REG_PIN_SPI3_CLK,                      BITS_PIN_AF(3)},
+-{REG_MISC_PIN_SPI3_CLK,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//COLOR_SENSOR_INT
++{REG_MISC_PIN_SPI3_CLK,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//COLOR_SENSOR_INT
+ {REG_PIN_SPI3_DI,                       BITS_PIN_AF(3)},
+-{REG_MISC_PIN_SPI3_DI,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//EAR_CTL1
++{REG_MISC_PIN_SPI3_DI,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//EAR_CTL1
+ {REG_PIN_SPI3_DO,                       BITS_PIN_AF(3)},
+-{REG_MISC_PIN_SPI3_DO,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//EAR_CTL2
++{REG_MISC_PIN_SPI3_DO,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//EAR_CTL2
+ {REG_PIN_SPI0_CSN,                      BITS_PIN_AF(0)},
+ {REG_MISC_PIN_SPI0_CSN,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//FTID_SPI_CS
+ {REG_PIN_SPI0_DO,                       BITS_PIN_AF(0)},
+-{REG_MISC_PIN_SPI0_DO,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//FTID_SPI_DI
++{REG_MISC_PIN_SPI0_DO,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_OE},//FTID_SPI_DI
+ {REG_PIN_SPI0_DI,                       BITS_PIN_AF(0)},
+-{REG_MISC_PIN_SPI0_DI,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//FTID_SPI_DO
++{REG_MISC_PIN_SPI0_DI,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_IE},//FTID_SPI_DO
+ {REG_PIN_SPI0_CLK,                      BITS_PIN_AF(0)},
+-{REG_MISC_PIN_SPI0_CLK,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//FTID_SPI_CLK
++{REG_MISC_PIN_SPI0_CLK,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_OE},//FTID_SPI_CLK
+ {REG_PIN_SCL2,                          BITS_PIN_AF(0)},
+ {REG_MISC_PIN_SCL2,                     BITS_PIN_DS(1)|BIT_PIN_WPUS|BIT_PIN_WPU|BIT_PIN_SLP_CM4|BIT_PIN_SLP_WPU|BIT_PIN_SLP_Z},//I2C2_SCL
+ {REG_PIN_SDA2,                          BITS_PIN_AF(0)},
+ {REG_MISC_PIN_SDA2,                     BITS_PIN_DS(1)|BIT_PIN_WPUS|BIT_PIN_WPU|BIT_PIN_SLP_CM4|BIT_PIN_SLP_WPU|BIT_PIN_SLP_Z},//I2C2_SDA
+-{REG_PIN_KEYOUT1,                       BITS_PIN_AF(2)},
+-{REG_MISC_PIN_KEYOUT1,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_CM4|BIT_PIN_SLP_WPU|BIT_PIN_SLP_Z},//PROX_INT
+-{REG_PIN_KEYOUT0,                       BITS_PIN_AF(2)},
+-{REG_MISC_PIN_KEYOUT0,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_CM4|BIT_PIN_SLP_WPD|BIT_PIN_SLP_IE},//AG_INT0
+-{REG_PIN_KEYOUT2,                       BITS_PIN_AF(2)},
+-{REG_MISC_PIN_KEYOUT2,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_CM4|BIT_PIN_SLP_WPD|BIT_PIN_SLP_IE},//AG_INT1
++{REG_PIN_KEYOUT1,                       BITS_PIN_AF(3)},
++{REG_MISC_PIN_KEYOUT1,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//PROX_INT
++{REG_PIN_KEYOUT0,                       BITS_PIN_AF(3)},
++{REG_MISC_PIN_KEYOUT0,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//AG_INT0
++{REG_PIN_KEYOUT2,                       BITS_PIN_AF(3)},
++{REG_MISC_PIN_KEYOUT2,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_OE},//AG_INT1
+ {REG_PIN_EXTINT9,                       BITS_PIN_AF(3)},
+ {REG_MISC_PIN_EXTINT9,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//FS_EIS
+ {REG_PIN_EXTINT10,                      BITS_PIN_AF(3)},
+@@ -432,31 +432,31 @@ static pinmap_t pinmap[]={
+ {REG_PIN_KEYIN1,                        BITS_PIN_AF(3)},
+ {REG_MISC_PIN_KEYIN1,                   BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//KETIN1
+ {REG_PIN_KEYIN2,                        BITS_PIN_AF(3)},
+-{REG_MISC_PIN_KEYIN2,                   BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//LCM_ID
++{REG_MISC_PIN_KEYIN2,                   BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//LCM_ID
+ {REG_PIN_SPI2_CSN,                      BITS_PIN_AF(3)},
+-{REG_MISC_PIN_SPI2_CSN,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//NC
++{REG_MISC_PIN_SPI2_CSN,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_OE},//NC
+ {REG_PIN_SPI2_DO,                       BITS_PIN_AF(3)},
+-{REG_MISC_PIN_SPI2_DO,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//NC
++{REG_MISC_PIN_SPI2_DO,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//NC
+ {REG_PIN_SPI2_DI,                       BITS_PIN_AF(3)},
+-{REG_MISC_PIN_SPI2_DI,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//NC
++{REG_MISC_PIN_SPI2_DI,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_OE},//NC
+ {REG_PIN_SPI2_CLK,                      BITS_PIN_AF(3)},
+-{REG_MISC_PIN_SPI2_CLK,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//NC
+-{REG_PIN_SD1_CMD,                       BITS_PIN_AF(0)},
+-{REG_MISC_PIN_SD1_CMD,                  BITS_PIN_DS(4)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//WF_SD1_CMD
++{REG_MISC_PIN_SPI2_CLK,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_OE},//NC
++{REG_PIN_SD1_CMD,                       BITS_PIN_AF(3)},
++{REG_MISC_PIN_SD1_CMD,                  BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_OE},//WF_SD1_CMD
+ {REG_PIN_SD1_D0,                        BITS_PIN_AF(0)},
+-{REG_MISC_PIN_SD1_D0,                   BITS_PIN_DS(3)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//WF_SD1_D0
+-{REG_PIN_SD1_D1,                        BITS_PIN_AF(0)},
+-{REG_MISC_PIN_SD1_D1,                   BITS_PIN_DS(3)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//WF_SD1_D1
+-{REG_PIN_SD1_CLK,                       BITS_PIN_AF(0)},
+-{REG_MISC_PIN_SD1_CLK,                  BITS_PIN_DS(4)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//WF_SD1_CLK
+-{REG_PIN_SD1_D2,                        BITS_PIN_AF(0)},
+-{REG_MISC_PIN_SD1_D2,                   BITS_PIN_DS(3)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//WF_SD1_D2
+-{REG_PIN_SD1_D3,                        BITS_PIN_AF(0)},
+-{REG_MISC_PIN_SD1_D3,                   BITS_PIN_DS(3)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_Z},//WF_SD1_D3
+-{REG_PIN_U5TXD,                         BITS_PIN_AF(1)},
+-{REG_MISC_PIN_U5TXD,                    BITS_PIN_DS(1)|BIT_PIN_WPUS|BIT_PIN_WPU|BIT_PIN_SLP_CM4|BIT_PIN_SLP_WPU|BIT_PIN_SLP_Z},//I2C5_SCL
+-{REG_PIN_U5RXD,                         BITS_PIN_AF(1)},
+-{REG_MISC_PIN_U5RXD,                    BITS_PIN_DS(1)|BIT_PIN_WPUS|BIT_PIN_WPU|BIT_PIN_SLP_CM4|BIT_PIN_SLP_WPU|BIT_PIN_SLP_Z},//I2C5_SDA
++{REG_MISC_PIN_SD1_D0,                   BITS_PIN_DS(3)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_OE},//WF_SD1_D0
++{REG_PIN_SD1_D1,                        BITS_PIN_AF(3)},
++{REG_MISC_PIN_SD1_D1,                   BITS_PIN_DS(3)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_OE},//WF_SD1_D1
++{REG_PIN_SD1_CLK,                       BITS_PIN_AF(3)},
++{REG_MISC_PIN_SD1_CLK,                  BITS_PIN_DS(4)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_OE},//WF_SD1_CLK
++{REG_PIN_SD1_D2,                        BITS_PIN_AF(3)},
++{REG_MISC_PIN_SD1_D2,                   BITS_PIN_DS(3)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//WF_SD1_D2
++{REG_PIN_SD1_D3,                        BITS_PIN_AF(3)},
++{REG_MISC_PIN_SD1_D3,                   BITS_PIN_DS(3)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_OE},//WF_SD1_D3
++{REG_PIN_U5TXD,                         BITS_PIN_AF(3)},
++{REG_MISC_PIN_U5TXD,                    BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_OE},//I2C5_SCL
++{REG_PIN_U5RXD,                         BITS_PIN_AF(3)},
++{REG_MISC_PIN_U5RXD,                    BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPU|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPU|BIT_PIN_SLP_IE},//I2C5_SDA
+ {REG_PIN_CLK_AUX0,                      BITS_PIN_AF(0)},
+ {REG_MISC_PIN_CLK_AUX0,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//WCN_32K_IN
+ {REG_PIN_U0TXD,                         BITS_PIN_AF(0)},
+@@ -476,7 +476,7 @@ static pinmap_t pinmap[]={
+ {REG_PIN_IIS0LRCK,                      BITS_PIN_AF(0)},
+ {REG_MISC_PIN_IIS0LRCK,                 BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_IE},//BT_PCM_SYNC
+ {REG_PIN_PWMC,                          BITS_PIN_AF(3)},
+-{REG_MISC_PIN_PWMC,                     BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//WF_HOST_WAKE
++{REG_MISC_PIN_PWMC,                     BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_WPD|BIT_PIN_SLP_AP|BIT_PIN_SLP_WPD|BIT_PIN_SLP_OE},//WF_HOST_WAKE
+ {REG_PIN_IIS4DO,                        BITS_PIN_AF(3)},
+ {REG_MISC_PIN_IIS4DO,                   BITS_PIN_DS(1)|BIT_PIN_NULL|BIT_PIN_NUL|BIT_PIN_SLP_AP|BIT_PIN_SLP_NUL|BIT_PIN_SLP_OE},//WB_CHIP_EN
+ {REG_PIN_IIS4DI,                        BITS_PIN_AF(3)},
+diff --git a/drivers/video/sprd/lcd/Makefile b/drivers/video/sprd/lcd/Makefile
+index 8a1f588..ce162a9 100644
+--- a/drivers/video/sprd/lcd/Makefile
++++ b/drivers/video/sprd/lcd/Makefile
+@@ -21,3 +21,4 @@ obj-$(CONFIG_LCD_JD9366D_TRULY_MIPI_HDP) += lcd_jd9366d_truly_mipi_hdp.o
+ obj-$(CONFIG_LCD_RM67191_EDO_MIPI_FHD) += lcd_rm67191_edo_mipi_fhd.o
+ obj-$(CONFIG_LCD_R61350_TRULY_MIPI_HD) += lcd_r61350_truly_mipi_hd.o
+ obj-$(CONFIG_LCD_TD4310_TRULY_MIPI_FHD) += lcd_td4310_truly_mipi_fhd.o
++obj-$(CONFIG_LCD_RM67295_MIPI_FHD) += lcd_rm67295_mipi_fhd.o
+diff --git a/drivers/video/sprd/lcd/lcd_rm67295_mipi_fhd.c b/drivers/video/sprd/lcd/lcd_rm67295_mipi_fhd.c
+new file mode 100755
+index 0000000..5188309
+--- /dev/null
++++ b/drivers/video/sprd/lcd/lcd_rm67295_mipi_fhd.c
+@@ -0,0 +1,478 @@
++/*
++ * Copyright (C) 2017 Spreadtrum Communications Inc.
++ *
++ * This software is licensed under the terms of the GNU General Public
++ * License version 2, as published by the Free Software Foundation, and
++ * may be copied, distributed, and modified under those terms.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
++
++#include "../sprd_panel.h"
++#include "../sprd_dsi.h"
++#include "../dsi/mipi_dsi_api.h"
++#include "../sprd_dphy.h"
++#include "i2c.h"
++#include "gpio_plus.h"
++
++
++static uint8_t init_data[] = {
++	0x23, 0x00, 0x00, 0x02, 0xFE,0x04,
++	0x23, 0x00, 0x00, 0x02, 0x01,0x08,
++	0x23, 0x00, 0x00, 0x02, 0x0e,0x10,
++	0x23, 0x00, 0x00, 0x02, 0x0A,0xE6,
++	0x23, 0x00, 0x00, 0x02, 0x0B,0x8C,
++	0x23, 0x00, 0x00, 0x02, 0x0D,0xA0,
++	0x23, 0x00, 0x00, 0x02, 0x0F,0x40,
++	0x23, 0x00, 0x00, 0x02, 0x16,0x19,
++	0x23, 0x00, 0x00, 0x02, 0x29,0x93,
++	0x23, 0x00, 0x00, 0x02, 0x2A,0x93,
++	0x23, 0x00, 0x00, 0x02, 0x2F,0x02,
++	0x23, 0x00, 0x00, 0x02, 0x31,0x02,
++	0x23, 0x00, 0x00, 0x02, 0x33,0x05,
++	0x23, 0x00, 0x00, 0x02, 0x37,0x2F,
++	0x23, 0x00, 0x00, 0x02, 0x38,0x2F,
++	0x23, 0x00, 0x00, 0x02, 0x3A,0x1E,
++	0x23, 0x00, 0x00, 0x02, 0x3B,0x1E,
++	0x23, 0x00, 0x00, 0x02, 0x3D,0x1D,
++	0x23, 0x00, 0x00, 0x02, 0x3F,0x80,
++	0x23, 0x00, 0x00, 0x02, 0x40,0x48,
++	0x23, 0x00, 0x00, 0x02, 0x41,0xE0,
++	0x23, 0x00, 0x00, 0x02, 0x4F,0x2F,
++	0x23, 0x00, 0x00, 0x02, 0x50,0x1e,		
++	0x23, 0x00, 0x00, 0x02, 0x51,0x0A,		
++	0x23, 0x00, 0x00, 0x02, 0xE2,0x00,		
++	0x23, 0x00, 0x00, 0x02, 0xFE,0x07,		
++	0x23, 0x00, 0x00, 0x02, 0x03,0x40,
++	0x23, 0x00, 0x00, 0x02, 0x05,0x00,
++	0x23, 0x00, 0x00, 0x02, 0x07,0x1E,
++	0x23, 0x00, 0x00, 0x02, 0x5B,0x85,
++	0x23, 0x00, 0x00, 0x02, 0xFE,0x06,
++	0x23, 0x00, 0x00, 0x02, 0x00,0xEC,
++	0x23, 0x00, 0x00, 0x02, 0x05,0x08,
++	0x23, 0x00, 0x00, 0x02, 0x07,0xE2,
++	0x23, 0x00, 0x00, 0x02, 0x08,0xEC,
++	0x23, 0x00, 0x00, 0x02, 0x0D,0x02,
++	0x23, 0x00, 0x00, 0x02, 0x0F,0xE2,
++	0x23, 0x00, 0x00, 0x02, 0x32,0xEC,
++	0x23, 0x00, 0x00, 0x02, 0x37,0x05,
++	0x23, 0x00, 0x00, 0x02, 0x39,0xA0,
++	0x23, 0x00, 0x00, 0x02, 0x3A,0xEC,
++	0x23, 0x00, 0x00, 0x02, 0x41,0x04,
++	0x23, 0x00, 0x00, 0x02, 0x43,0xA0,
++	0x23, 0x00, 0x00, 0x02, 0x44,0xEC,
++	0x23, 0x00, 0x00, 0x02, 0x49,0x08,
++	0x23, 0x00, 0x00, 0x02, 0x4B,0xE2,
++	0x23, 0x00, 0x00, 0x02, 0x4C,0xEC,
++	0x23, 0x00, 0x00, 0x02, 0x51,0x02,
++	0x23, 0x00, 0x00, 0x02, 0x53,0xE2,
++	0x23, 0x00, 0x00, 0x02, 0x75,0xEC,
++	0x23, 0x00, 0x00, 0x02, 0x7A,0x05,
++	0x23, 0x00, 0x00, 0x02, 0x7C,0xA0,
++	0x23, 0x00, 0x00, 0x02, 0x7D,0xEC,
++	0x23, 0x00, 0x00, 0x02, 0x82,0x04,
++	0x23, 0x00, 0x00, 0x02, 0x84,0xA0,
++	0x23, 0x00, 0x00, 0x02, 0x85,0xEC,
++	0x23, 0x00, 0x00, 0x02, 0x86,0x0F,
++	0x23, 0x00, 0x00, 0x02, 0x87,0xFF,
++	0x23, 0x00, 0x00, 0x02, 0x88,0x00,
++	0x23, 0x00, 0x00, 0x02, 0x8A,0x02,
++	0x23, 0x00, 0x00, 0x02, 0x8C,0xA0,
++	0x23, 0x00, 0x00, 0x02, 0x8D,0xEA,
++	0x23, 0x00, 0x00, 0x02, 0x8E,0x0F,
++	0x23, 0x00, 0x00, 0x02, 0x8F,0xFF,
++	0x23, 0x00, 0x00, 0x02, 0x90,0x06,
++	0x23, 0x00, 0x00, 0x02, 0x91,0x00,
++	0x23, 0x00, 0x00, 0x02, 0x92,0x05,
++	0x23, 0x00, 0x00, 0x02, 0x93,0xF0,
++	0x23, 0x00, 0x00, 0x02, 0x94,0x28,
++	0x23, 0x00, 0x00, 0x02, 0x95,0xEC,
++	0x23, 0x00, 0x00, 0x02, 0x96,0x0F,
++	0x23, 0x00, 0x00, 0x02, 0x97,0xFF,
++	0x23, 0x00, 0x00, 0x02, 0x98,0x00,
++	0x23, 0x00, 0x00, 0x02, 0x9A,0x02,
++	0x23, 0x00, 0x00, 0x02, 0x9C,0xA0,
++	0x23, 0x00, 0x00, 0x02, 0xAC,0x04,		
++	0x23, 0x00, 0x00, 0x02, 0xB1,0x12,		
++	0x23, 0x00, 0x00, 0x02, 0xB2,0x17,		
++	0x23, 0x00, 0x00, 0x02, 0xB3,0x17,		
++	0x23, 0x00, 0x00, 0x02, 0xB4,0x17,		
++	0x23, 0x00, 0x00, 0x02, 0xB5,0x17,		
++	0x23, 0x00, 0x00, 0x02, 0xB6,0x11,		
++	0x23, 0x00, 0x00, 0x02, 0xB7,0x08,
++	0x23, 0x00, 0x00, 0x02, 0xB8,0x09,
++	0x23, 0x00, 0x00, 0x02, 0xB9,0x06,
++	0x23, 0x00, 0x00, 0x02, 0xBA,0x07,
++	0x23, 0x00, 0x00, 0x02, 0xBB,0x17,
++	0x23, 0x00, 0x00, 0x02, 0xBC,0x17,
++	0x23, 0x00, 0x00, 0x02, 0xBD,0x17,
++	0x23, 0x00, 0x00, 0x02, 0xBE,0x17,
++	0x23, 0x00, 0x00, 0x02, 0xBF,0x17,
++	0x23, 0x00, 0x00, 0x02, 0xC0,0x17,		
++	0x23, 0x00, 0x00, 0x02, 0xC1,0x17,
++	0x23, 0x00, 0x00, 0x02, 0xC2,0x17,
++	0x23, 0x00, 0x00, 0x02, 0xC3,0x17,
++	0x23, 0x00, 0x00, 0x02, 0xC4,0x0F,
++	0x23, 0x00, 0x00, 0x02, 0xC5,0x0E,
++	0x23, 0x00, 0x00, 0x02, 0xC6,0x00,		
++	0x23, 0x00, 0x00, 0x02, 0xC7,0x01,
++	0x23, 0x00, 0x00, 0x02, 0xC8,0x10,
++	0x23, 0x00, 0x00, 0x02, 0xFE,0x0E,
++	0x23, 0x00, 0x00, 0x02, 0x12,0x37,
++	0x23, 0x00, 0x00, 0x02, 0xFE,0x0A,
++	0x23, 0x00, 0x00, 0x02, 0x25,0x66,
++	0x23, 0x00, 0x00, 0x02, 0xFE,0x0D,
++	0x23, 0x00, 0x00, 0x02, 0x72,0x09,
++	0x23, 0x00, 0x00, 0x02, 0xFE,0x0D,
++	0x23, 0x00, 0x00, 0x02, 0x03,0x20,
++	0x23, 0x00, 0x00, 0x02, 0x20,0x00,
++	0x23, 0x00, 0x00, 0x02, 0x21,0x00,
++	0x23, 0x00, 0x00, 0x02, 0x1D,0x89,
++	0x23, 0x00, 0x00, 0x02, 0xFE,0x40,
++	0x23, 0x00, 0x00, 0x02, 0x0E,0x10,
++	
++	0x23, 0x00, 0x00, 0x02, 0xFE, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x00, 0x00, 
++	0x23, 0x00, 0x00, 0x02, 0x01, 0x00, 
++	0x23, 0x00, 0x00, 0x02, 0x02, 0x01, 
++	0x23, 0x00, 0x00, 0x02, 0x03, 0xf9, 
++	0x23, 0x00, 0x00, 0x02, 0x04, 0x01, 
++	0x23, 0x00, 0x00, 0x02, 0x05, 0xff, 
++	0x23, 0x00, 0x00, 0x02, 0x06, 0x02, 
++	0x23, 0x00, 0x00, 0x02, 0x07, 0x9d, 
++	0x23, 0x00, 0x00, 0x02, 0x08, 0x02, 
++	0x23, 0x00, 0x00, 0x02, 0x09, 0xff, 
++	0x23, 0x00, 0x00, 0x02, 0x0a, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x0b, 0x25, 
++	0x23, 0x00, 0x00, 0x02, 0x0c, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x0d, 0x42, 
++	0x23, 0x00, 0x00, 0x02, 0x0e, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x0f, 0x6f, 
++	0x23, 0x00, 0x00, 0x02, 0x10, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x11, 0x94, 
++	0x23, 0x00, 0x00, 0x02, 0x12, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x13, 0xaf, 
++	0x23, 0x00, 0x00, 0x02, 0x14, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x15, 0xc9, 
++	0x23, 0x00, 0x00, 0x02, 0x16, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x17, 0xf5, 
++	0x23, 0x00, 0x00, 0x02, 0x18, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0x19, 0x21, 
++	0x23, 0x00, 0x00, 0x02, 0x1a, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0x1b, 0x4d, 
++	0x23, 0x00, 0x00, 0x02, 0x1c, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0x1d, 0x70, 
++	0x23, 0x00, 0x00, 0x02, 0x1e, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0x1f, 0x93, 
++	0x23, 0x00, 0x00, 0x02, 0x20, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0x21, 0xb6, 
++	0x23, 0x00, 0x00, 0x02, 0x22, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0x23, 0xdb, 
++	0x23, 0x00, 0x00, 0x02, 0x24, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x25, 0x00, 
++	0x23, 0x00, 0x00, 0x02, 0x26, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x27, 0x16, 
++	0x23, 0x00, 0x00, 0x02, 0x28, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x29, 0x25, 
++	0x23, 0x00, 0x00, 0x02, 0x2a, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x2b, 0x34, 
++	0x23, 0x00, 0x00, 0x02, 0x30, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x31, 0x43, 
++	0x23, 0x00, 0x00, 0x02, 0x32, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x33, 0x54, 
++	0x23, 0x00, 0x00, 0x02, 0x34, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x35, 0x66, 
++	0x23, 0x00, 0x00, 0x02, 0x36, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x37, 0x78, 
++	0x23, 0x00, 0x00, 0x02, 0x38, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x39, 0x8a, 
++	0x23, 0x00, 0x00, 0x02, 0x3a, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x3b, 0x92, 
++	0x23, 0x00, 0x00, 0x02, 0x40, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x41, 0x9b, 
++	0x23, 0x00, 0x00, 0x02, 0x42, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x43, 0xa1, 
++	0x23, 0x00, 0x00, 0x02, 0x44, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x45, 0xa5, 
++	0x23, 0x00, 0x00, 0x02, 0x46, 0x00, 
++	0x23, 0x00, 0x00, 0x02, 0x47, 0x00, 
++	0x23, 0x00, 0x00, 0x02, 0x48, 0x02, 
++	0x23, 0x00, 0x00, 0x02, 0x49, 0x8a, 
++	0x23, 0x00, 0x00, 0x02, 0x4a, 0x02, 
++	0x23, 0x00, 0x00, 0x02, 0x4b, 0x91, 
++	0x23, 0x00, 0x00, 0x02, 0x4c, 0x02, 
++	0x23, 0x00, 0x00, 0x02, 0x4d, 0xec, 
++	0x23, 0x00, 0x00, 0x02, 0x4e, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x4f, 0x1a, 
++	0x23, 0x00, 0x00, 0x02, 0x50, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x51, 0x3a, 
++	0x23, 0x00, 0x00, 0x02, 0x52, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x53, 0x52, 
++	0x23, 0x00, 0x00, 0x02, 0x54, 0x00, 
++	0x23, 0x00, 0x00, 0x02, 0x55, 0x00, 
++	0x23, 0x00, 0x00, 0x02, 0x56, 0x00, 
++	0x23, 0x00, 0x00, 0x02, 0x57, 0x00, 
++	0x23, 0x00, 0x00, 0x02, 0x58, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x59, 0x7d, 
++	0x23, 0x00, 0x00, 0x02, 0x5a, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x5b, 0xa1, 
++	0x23, 0x00, 0x00, 0x02, 0x5c, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x5d, 0xbb, 
++	0x23, 0x00, 0x00, 0x02, 0x5e, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x5f, 0xd5, 
++	0x23, 0x00, 0x00, 0x02, 0x60, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0x61, 0x01, 
++	0x23, 0x00, 0x00, 0x02, 0x62, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0x63, 0x2e, 
++	0x23, 0x00, 0x00, 0x02, 0x64, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0x65, 0x5b, 
++	0x23, 0x00, 0x00, 0x02, 0x66, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0x67, 0x7f, 
++	0x23, 0x00, 0x00, 0x02, 0x68, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0x69, 0xa3, 
++	0x23, 0x00, 0x00, 0x02, 0x6a, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0x6b, 0xc6, 
++	0x23, 0x00, 0x00, 0x02, 0x6c, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0x6d, 0xea, 
++	0x23, 0x00, 0x00, 0x02, 0x6e, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x6f, 0x0e, 
++	0x23, 0x00, 0x00, 0x02, 0x70, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x71, 0x24, 
++	0x23, 0x00, 0x00, 0x02, 0x72, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x73, 0x33, 
++	0x23, 0x00, 0x00, 0x02, 0x74, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x75, 0x42, 
++	0x23, 0x00, 0x00, 0x02, 0x76, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x77, 0x51, 
++	0x23, 0x00, 0x00, 0x02, 0x78, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x79, 0x63, 
++	0x23, 0x00, 0x00, 0x02, 0x7a, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x7b, 0x75, 
++	0x23, 0x00, 0x00, 0x02, 0x7c, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x7d, 0x87, 
++	0x23, 0x00, 0x00, 0x02, 0x7e, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x7f, 0x99, 
++	0x23, 0x00, 0x00, 0x02, 0x80, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x81, 0xa1, 
++	0x23, 0x00, 0x00, 0x02, 0x82, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x83, 0xaa, 
++	0x23, 0x00, 0x00, 0x02, 0x84, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x85, 0xaf, 
++	0x23, 0x00, 0x00, 0x02, 0x86, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0x87, 0xb0, 
++	0x23, 0x00, 0x00, 0x02, 0x88, 0x00, 
++	0x23, 0x00, 0x00, 0x02, 0x89, 0x00, 
++	0x23, 0x00, 0x00, 0x02, 0x8a, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x8b, 0x2d, 
++	0x23, 0x00, 0x00, 0x02, 0x8c, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x8d, 0x36, 
++	0x23, 0x00, 0x00, 0x02, 0x8e, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x8f, 0x67, 
++	0x23, 0x00, 0x00, 0x02, 0x90, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x91, 0x84, 
++	0x23, 0x00, 0x00, 0x02, 0x92, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x93, 0x9e, 
++	0x23, 0x00, 0x00, 0x02, 0x94, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x95, 0xb5, 
++	0x23, 0x00, 0x00, 0x02, 0x96, 0x03, 
++	0x23, 0x00, 0x00, 0x02, 0x97, 0xe0, 
++	0x23, 0x00, 0x00, 0x02, 0x98, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0x99, 0x08, 
++	0x23, 0x00, 0x00, 0x02, 0x9a, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0x9b, 0x26, 
++	0x23, 0x00, 0x00, 0x02, 0x9c, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0x9d, 0x44, 
++	0x23, 0x00, 0x00, 0x02, 0x9e, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0x9f, 0x7c, 
++	0x23, 0x00, 0x00, 0x02, 0xa4, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0xa5, 0xb6, 
++	0x23, 0x00, 0x00, 0x02, 0xa6, 0x04, 
++	0x23, 0x00, 0x00, 0x02, 0xa7, 0xf0, 
++	0x23, 0x00, 0x00, 0x02, 0xac, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0xad, 0x1b, 
++	0x23, 0x00, 0x00, 0x02, 0xae, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0xaf, 0x46, 
++	0x23, 0x00, 0x00, 0x02, 0xb0, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0xb1, 0x71, 
++	0x23, 0x00, 0x00, 0x02, 0xb2, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0xb3, 0x9f, 
++	0x23, 0x00, 0x00, 0x02, 0xb4, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0xb5, 0xcd, 
++	0x23, 0x00, 0x00, 0x02, 0xb6, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0xb7, 0xe6, 
++	0x23, 0x00, 0x00, 0x02, 0xb8, 0x05, 
++	0x23, 0x00, 0x00, 0x02, 0xb9, 0xfc, 
++	0x23, 0x00, 0x00, 0x02, 0xba, 0x06, 
++	0x23, 0x00, 0x00, 0x02, 0xbb, 0x12, 
++	0x23, 0x00, 0x00, 0x02, 0xbc, 0x06, 
++	0x23, 0x00, 0x00, 0x02, 0xbd, 0x28, 
++	0x23, 0x00, 0x00, 0x02, 0xbe, 0x06, 
++	0x23, 0x00, 0x00, 0x02, 0xbf, 0x40, 
++	0x23, 0x00, 0x00, 0x02, 0xc0, 0x06, 
++	0x23, 0x00, 0x00, 0x02, 0xc1, 0x58, 
++	0x23, 0x00, 0x00, 0x02, 0xc2, 0x06, 
++	0x23, 0x00, 0x00, 0x02, 0xc3, 0x70, 
++	0x23, 0x00, 0x00, 0x02, 0xc4, 0x06, 
++	0x23, 0x00, 0x00, 0x02, 0xc5, 0x88, 
++	0x23, 0x00, 0x00, 0x02, 0xc6, 0x06, 
++	0x23, 0x00, 0x00, 0x02, 0xc7, 0x94, 
++	0x23, 0x00, 0x00, 0x02, 0xc8, 0x06, 
++	0x23, 0x00, 0x00, 0x02, 0xc9, 0xa0, 
++	0x23, 0x00, 0x00, 0x02, 0xca, 0x06, 
++	0x23, 0x00, 0x00, 0x02, 0xcb, 0xa9, 
++	0x23, 0x00, 0x00, 0x02, 0xcc, 0x06, 
++	0x23, 0x00, 0x00, 0x02, 0xcd, 0xae, 
++
++	0x23, 0x00, 0x00, 0x02, 0xFE,0x00,
++	0x23, 0x00, 0x00, 0x02, 0x51,0x88,
++	0x23, 0x00, 0x00, 0x02, 0x35,0x00,
++	0x23, 0x78, 0x00, 0x02, 0x11,0x00,
++	0x23, 0x0a, 0x00, 0x02, 0x29,0x00,
++	CMD_END
++};
++
++static int mipi_dsi_send_cmds(struct sprd_dsi *dsi, void *data)
++{
++	uint16_t len;
++	struct dsi_cmd_desc *cmds = data;
++
++	if ((cmds == NULL) || (dsi == NULL))
++		return -1;
++
++	for (; cmds->data_type != CMD_END;) {
++		len = (cmds->wc_h << 8) | cmds->wc_l;
++		mipi_dsi_gen_write(dsi, cmds->payload, len);
++		if (cmds->wait)
++			msleep(cmds->wait);
++		cmds = (struct dsi_cmd_desc *)(cmds->payload + len);
++	}
++	return 0;
++}
++
++static int rm67295_init(void)
++{
++	struct sprd_dsi *dsi = &dsi_device;
++	struct sprd_dphy *dphy = &dphy_device;
++
++	mipi_dsi_lp_cmd_enable(dsi, true);
++	mipi_dsi_send_cmds(dsi, init_data);
++	mipi_dsi_set_work_mode(dsi, SPRD_MIPI_MODE_VIDEO);
++	mipi_dsi_state_reset(dsi);
++	mipi_dphy_hs_clk_en(dphy, true);
++
++	return 0;
++}
++
++static int rm67295_readid(void)
++{
++	struct sprd_dsi *dsi = &dsi_device;
++	uint8_t read_buf[4] = {0};
++
++	mipi_dsi_lp_cmd_enable(dsi, true);
++	mipi_dsi_set_max_return_size(dsi, 3);
++	mipi_dsi_dcs_read(dsi, 0x04, read_buf, 3);
++    pr_err("rm67295 read id failed:0x%x,0x%x,0x%x,0x%x\n",read_buf[0],read_buf[1],read_buf[2],read_buf[3]);
++	if((0xe1 == read_buf[0]) && (0x80 == read_buf[1]) && (0x00 == read_buf[2])) {
++		pr_info("rm67295 read id success!\n");
++		return 0;
++        }
++	#if 0//def CONFIG_SC2703_LCD_POWERON
++		pr_info("ssd2092 need boost avdd/avee to 5.5v\n");
++		lcd_use_sc2703l_to_power_boost();
++    #endif
++	//pr_err("rm67295 read id failed!\n");
++	return 0;
++}
++
++static int rm67295_power(int on)
++{
++#ifdef CONFIG_MIPI_TO_HDMI_SWITCH
++        sprd_gpio_request(NULL,53);
++        sprd_gpio_direction_output(NULL,53,1);
++        mdelay(10);
++		sprd_gpio_request(NULL,6);
++        sprd_gpio_direction_output(NULL,6,1);
++        mdelay(10);
++        sprd_gpio_request(NULL,54);
++        sprd_gpio_direction_output(NULL,54,1);
++        mdelay(10);
++#endif
++	if (on) {
++		sprd_gpio_request(CONFIG_LCM_VDD_EN_1V8);
++		sprd_gpio_direction_output(CONFIG_LCM_VDD_EN_1V8, 1);
++		mdelay(5);
++#ifdef CONFIG_LCM_GPIO_AVDDEN
++                sprd_gpio_request(CONFIG_LCM_GPIO_AVDDEN);
++                sprd_gpio_direction_output(CONFIG_LCM_GPIO_AVDDEN, 1);
++                mdelay(10);
++#endif
++#ifdef CONFIG_LCM_GPIO_AVEEEN
++                sprd_gpio_request(CONFIG_LCM_GPIO_AVEEEN);
++                sprd_gpio_direction_output(CONFIG_LCM_GPIO_AVEEEN, 1);
++                mdelay(20);
++#endif
++		sprd_gpio_request(CONFIG_TP_GPIO_RSTN);
++		sprd_gpio_direction_output(CONFIG_TP_GPIO_RSTN, 1);
++		mdelay(5);
++		sprd_gpio_direction_output(CONFIG_TP_GPIO_RSTN, 0);
++		mdelay(5);
++		sprd_gpio_direction_output(CONFIG_TP_GPIO_RSTN, 1);
++
++		pr_info("td4320 power on  %d  \n",CONFIG_LCM_GPIO_RSTN);
++
++		sprd_gpio_request(CONFIG_LCM_GPIO_RSTN);
++		sprd_gpio_direction_output(CONFIG_LCM_GPIO_RSTN, 1);
++		mdelay(5);
++		sprd_gpio_direction_output(CONFIG_LCM_GPIO_RSTN, 0);
++		mdelay(5);
++		sprd_gpio_direction_output(CONFIG_LCM_GPIO_RSTN, 1);
++		mdelay(20);
++	} else {
++		sprd_gpio_direction_output(CONFIG_LCM_GPIO_RSTN, 0);
++		mdelay(5);
++	}
++
++	return 0;
++}
++
++static struct panel_ops rm67295_ops = {
++	.init = rm67295_init,
++	.read_id = rm67295_readid,
++	.power = rm67295_power,
++};
++
++static struct panel_info rm67295_info = {
++	/* common parameters */
++	.lcd_name = "lcd_rm67295_edo_mipi_fhd",
++	.type = SPRD_PANEL_TYPE_MIPI,
++	.bpp = 24,
++//	.fps = 60,
++	.width = 720,
++	.height = 1280,
++
++	/* DPI specific parameters */
++	.pixel_clk = 64000000, /*Hz*/
++	.rgb_timing = {
++		.hfp = 31,
++		.hbp = 36,
++		.hsync = 4,
++		.vfp = 8,
++		.vbp = 16,
++		.vsync = 4,
++	},
++
++	/* MIPI DSI specific parameters */
++	.phy_freq =500000,
++	.lane_num = 4,
++	.work_mode = SPRD_MIPI_MODE_VIDEO,
++	.burst_mode = PANEL_VIDEO_BURST_MODE,
++	.nc_clk_en = false,
++};
++
++struct panel_driver rm67295_edo_driver = {
++	.info = &rm67295_info,
++	.ops = &rm67295_ops,
++};
+diff --git a/drivers/video/sprd/lcd/panel_cfg.h b/drivers/video/sprd/lcd/panel_cfg.h
+index 297b5ea..c6a692b 100755
+--- a/drivers/video/sprd/lcd/panel_cfg.h
++++ b/drivers/video/sprd/lcd/panel_cfg.h
+@@ -37,6 +37,7 @@ extern struct panel_driver rm67191_edo_driver;
+ extern struct panel_driver r61350_truly_driver;
+ extern struct panel_driver td4310_truly_driver;
+ 
++extern struct panel_driver rm67295_edo_driver;
+ static struct panel_cfg supported_panel[] = {
+ #ifdef CONFIG_LCD_FT8006P_EASYQUICK_MIPI_HDP
+ 	{
+@@ -168,6 +169,10 @@ static struct panel_cfg supported_panel[] = {
+ 	{
+ 		.lcd_id = 0x4310,
+ 		.drv = &td4310_truly_driver,
++#ifdef CONFIG_LCD_RM67295_MIPI_FHD
++	{
++		.lcd_id = 0x00800e,
++		.drv = &rm67295_edo_driver,
+ 	},
+ #endif
+ /* warning: the dummy lcd must be the last item in this array */
+diff --git a/include/configs/ums9620_2h10.h b/include/configs/ums9620_2h10.h
+index 67b08d9..7d9846a 100644
+--- a/include/configs/ums9620_2h10.h
++++ b/include/configs/ums9620_2h10.h
+@@ -366,6 +366,12 @@
+ #define CONFIG_DSIH_SPRD_CTRL_RXP0
+ #define CONFIG_DPHY_SPRD_QOGIRN6PRO
+ #define CONFIG_LCD_NT35596_BOE_MIPI_FHD
++#define CONFIG_LCD_RM67295_MIPI_FHD
++#define CONFIG_LCM_GPIO_RSTN 11
++#define CONFIG_LCM_GPIO_AVDDEN 192
++#define CONFIG_LCM_GPIO_AVEEEN 191
++#define CONFIG_TP_GPIO_RSTN 14
++#define CONFIG_LCM_VDD_EN_1V8 194
+ #define CONFIG_SYS_WHITE_ON_BLACK
+ #define LCD_BPP LCD_COLOR16
+ #define CONFIG_MIPI_DRIVE_CAPABILITY 7
+-- 
+2.25.1
+

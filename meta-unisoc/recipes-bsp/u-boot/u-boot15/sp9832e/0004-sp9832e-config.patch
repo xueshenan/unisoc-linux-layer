@@ -1,0 +1,133 @@
+diff --git a/include/configs/sp9832e_1h10.h b/include/configs/sp9832e_1h10.h
+index 24fdbc9..89d1dc6 100644
+--- a/include/configs/sp9832e_1h10.h
++++ b/include/configs/sp9832e_1h10.h
+@@ -24,11 +24,11 @@
+ #define CONFIG_SPL_BAK
+ #define CONFIG_MISC_INIT_R                     /* call misc_init_r()	      */
+ #define CONFIG_BOARD_LATE_INIT         /* call board_late_init() */
+-//#define CONFIG_SUPPORT_RAW_INITRD
++/*#define CONFIG_SUPPORT_RAW_INITRD */
+ 
+ /* Cache Definitions */
+-//#define CONFIG_SYS_DCACHE_OFF
+-//#define CONFIG_SYS_ICACHE_OFF
++/*#define CONFIG_SYS_DCACHE_OFF */
++/*#define CONFIG_SYS_ICACHE_OFF */
+ 
+ #define CONFIG_IDENT_STRING		"sharklE"
+ 
+@@ -36,6 +36,7 @@
+ 	(CONFIG_SYS_SDRAM_END - 0x10000 - GENERATED_GBL_DATA_SIZE)
+ 
+ /* Flat Device Tree Definitions */
++#undef CONFIG_OF_LIBFDT
+ #define CONFIG_OF_LIBFDT
+ 
+ 
+@@ -123,11 +124,11 @@
+ #define CONFIG_CMD_IMI
+ #define CONFIG_CMD_MEMORY
+ #define CONFIG_CMD_MII
+-//#define CONFIG_CMD_NET
++/*#define CONFIG_CMD_NET */
+ #define CONFIG_CMD_PING
+ #define CONFIG_CMD_SAVEENV
+ #define CONFIG_CMD_RUN
+-//#define CONFIG_CMD_BOOTD
++/*#define CONFIG_CMD_BOOTD */
+ #define CONFIG_CMD_ECHO
+ #define CONFIG_CMD_SOURCE
+ #define CONFIG_CMD_FAT
+@@ -205,18 +206,18 @@
+ #define CONFIG_BOOTARGS MEM_INIT_PARA" loglevel=7 console=ttyS0,115200n8 init=/init " MTDPARTS_DEFAULT
+ 
+ /*auto boot with normal mode*/
+-//#define CONFIG_AUTOBOOT
++/*#define CONFIG_AUTOBOOT */
+ 
+ /*boot with modem*/
+ #define BOOT_NATIVE_LINUX_MODEM  1
+ 
+-//#define CONFIG_MINI_TRUSTZONE
++/*#define CONFIG_MINI_TRUSTZONE */
+ 
+ #define CONFIG_SUPPORT_LTE
+ #define CONFIG_ADVANCED_LTE
+ 
+-//#define CONFIG_SUPPORT_WLTE
+-//#define CONFIG_SUPPORT_GSM
++/*#define CONFIG_SUPPORT_WLTE */
++/*#define CONFIG_SUPPORT_GSM */
+ 
+ #define LTE_AGDSP_SIZE  0x00260000
+ #define LTE_AGDSP_ADDR (0x89600000 - LTE_AGDSP_SIZE)
+@@ -239,7 +240,7 @@
+ 
+ /*log config*/
+ #define CONFIG_SPRD_LOG
+-//#define CONFIG_LOG_2_SD
++/*#define CONFIG_LOG_2_SD */
+ #define CONFIG_LOG_2_EMMC
+ 
+ /*eMMC boot*/
+@@ -263,9 +264,9 @@
+ #define USB3_PHY_TUNE1 0x919e9dec
+ #define USB3_PHY_TUNE2 0x0f0560fe
+ #define CONFIG_USB_PHY_SHARKLE
+-//#define CALIBRATION_FLAG_CP0           0x88AF0000
++/*#define CALIBRATION_FLAG_CP0           0x88AF0000 */
+ #define CALIBRATION_FLAG_CP1	0x8d7d0000
+-//#define CONFIG_DWC_OTG
++/*#define CONFIG_DWC_OTG */
+ #define CONFIG_MODEM_CALIBERATE
+ #define CALIBRATE_ENUM_MS 15000
+ #define CALIBRATE_IO_MS 2000
+@@ -286,7 +287,7 @@
+ #define PWR_KEY_DETECT_CNT  2
+ #define ALARM_LEAD_SET_MS 0 /* time set for alarm boot in advancd */
+ #define LOW_BAT_VOL            3500 /*phone battery voltage low than this value will not boot up*/
+-#define LOW_BAT_VOL_CHG        3300    //3.3V charger connect
++#define LOW_BAT_VOL_CHG        3300    /*3.3V charger connect */
+ 
+ 
+ /*for device tree*/
+@@ -295,7 +296,7 @@
+ #define DT_SOC_VER     0x20000
+ 
+ 
+-#define SIMLOCK_ADR      (0x891FE800+0x4)   //0x4 just for data header
++#define SIMLOCK_ADR      (0x891FE800+0x4)   /*0x4 just for data header */
+ 
+ #define KERNEL_ADR      0x80080000
+ #define DT_ADR          0x85400000
+@@ -351,21 +352,21 @@
+ #define UID_DOUBLE 0
+ 
+ /*7S reset config*/
+-#define CONFIG_7S_RST_MODULE_EN		1	//0:disable module; 1:enable module
++#define CONFIG_7S_RST_MODULE_EN		1	/*0:disable module; 1:enable module */
+ 
+ #ifdef DEBUG
+-#define CONFIG_7S_RST_SW_MODE	1	//0:hw reset,1:arm reset,power keep on	//soft for debug version
++#define CONFIG_7S_RST_SW_MODE	1	/*0:hw reset,1:arm reset,power keep on	//soft for debug version */
+ #else
+-#define CONFIG_7S_RST_SW_MODE	0	//0:hw reset,1:arm reset,power keep on	//hard for user version
++#define CONFIG_7S_RST_SW_MODE	0	/*0:hw reset,1:arm reset,power keep on	//hard for user version */
+ #endif
+ 
+-#define CONFIG_7S_RST_SHORT_MODE	1	//0:long press then release key to trigger;1:press key some time to trigger
+-#define CONFIG_7S_RST_2KEY_MODE		1	//0:1Key--Normal mode; 1:2KEY
+-#define CONFIG_7S_RST_THRESHOLD		7	//7S, hold key down for this time to trigger
++#define CONFIG_7S_RST_SHORT_MODE	1	/*0:long press then release key to trigger;1:press key some time to trigger */
++#define CONFIG_7S_RST_2KEY_MODE		1	/*0:1Key--Normal mode; 1:2KEY */
++#define CONFIG_7S_RST_THRESHOLD		7	/*7S, hold key down for this time to trigger */
+ 
+  /*SMPL config*/
+-//#define CONFIG_SMPL_EN
+-#define CONFIG_SMPL_THRESHOLD 	0		//one step is 0.25S
++/*#define CONFIG_SMPL_EN */
++#define CONFIG_SMPL_THRESHOLD 	0		/*one step is 0.25S */
+ 
+ /* Chip Driver Macro Definitions End*/
+ /*active arm7 ram before access to it*/

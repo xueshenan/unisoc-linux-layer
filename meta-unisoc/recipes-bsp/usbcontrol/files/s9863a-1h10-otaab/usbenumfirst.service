@@ -1,0 +1,13 @@
+[Unit]
+Description=Android Debug Bridge
+After=initscript.service
+
+[Service]
+Type=simple
+Restart=on-failure
+ExecStart= /bin/sh -c 'cp /etc/usbenum/usbenum.ini /mnt/data/usbenum.ini'
+ExecStart= /bin/sh -c '/usr/bin/usbenum.sh debug'
+StandardOutput=null
+
+[Install]
+WantedBy=basic.target

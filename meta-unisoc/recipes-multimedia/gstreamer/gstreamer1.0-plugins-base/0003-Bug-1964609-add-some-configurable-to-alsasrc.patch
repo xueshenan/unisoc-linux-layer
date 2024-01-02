@@ -1,0 +1,153 @@
+diff --git a/ext/alsa/gstalsasrc.c b/ext/alsa/gstalsasrc.c
+index dc30e74..0874aba 100755
+--- a/ext/alsa/gstalsasrc.c
++++ b/ext/alsa/gstalsasrc.c
+@@ -57,6 +57,9 @@
+ #define DEFAULT_PROP_DEVICE		"default"
+ #define DEFAULT_PROP_DEVICE_NAME	""
+ #define DEFAULT_PROP_CARD_NAME	        ""
++#define DEFAULT_PROP_NONBLOCK_MODE 0
++#define DEFAULT_PROP_PERIOD_SIZE 0
++#define DEFAULT_PROP_BUFFER_SIZE 0
+ 
+ enum
+ {
+@@ -64,6 +67,9 @@ enum
+   PROP_DEVICE,
+   PROP_DEVICE_NAME,
+   PROP_CARD_NAME,
++  PROP_NONBLOCK,
++  PROP_PERIOD_SIZE,
++  PROP_BUFFER_SIZE,
+   PROP_LAST
+ };
+ 
+@@ -171,6 +177,24 @@ gst_alsasrc_class_init (GstAlsaSrcClass * klass)
+       g_param_spec_string ("card-name", "Card name",
+           "Human-readable name of the sound card",
+           DEFAULT_PROP_CARD_NAME, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
++
++  g_object_class_install_property (gobject_class, PROP_NONBLOCK,
++      g_param_spec_int64 ("nonblock", "Nonblock",
++          "Nonblocking mode",
++          DEFAULT_PROP_NONBLOCK_MODE, G_MAXINT64, DEFAULT_PROP_NONBLOCK_MODE,
++          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
++
++  g_object_class_install_property (gobject_class, PROP_PERIOD_SIZE,
++      g_param_spec_int64 ("period-size", "Period size",
++          "Distance between interrupts is # frames",
++          DEFAULT_PROP_PERIOD_SIZE, G_MAXINT64, DEFAULT_PROP_PERIOD_SIZE,
++          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
++
++  g_object_class_install_property (gobject_class, PROP_BUFFER_SIZE,
++      g_param_spec_int64 ("buffer-size", "Buffer size",
++          "Buffer duration is # frames",
++          DEFAULT_PROP_BUFFER_SIZE, G_MAXINT64, DEFAULT_PROP_BUFFER_SIZE,
++          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ }
+ 
+ static void
+@@ -189,6 +213,15 @@ gst_alsasrc_set_property (GObject * object, guint prop_id,
+         src->device = g_strdup (DEFAULT_PROP_DEVICE);
+       }
+       break;
++    case PROP_NONBLOCK:
++      src->nonblock = g_value_get_int64 (value);
++      break;
++    case PROP_PERIOD_SIZE:
++      src->period_size = g_value_get_int64 (value);
++      break;
++    case PROP_BUFFER_SIZE:
++      src->buffer_size = g_value_get_int64 (value);
++      break;
+     default:
+       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+       break;
+@@ -217,6 +250,15 @@ gst_alsasrc_get_property (GObject * object, guint prop_id,
+           gst_alsa_find_card_name (GST_OBJECT_CAST (src),
+               src->device, SND_PCM_STREAM_CAPTURE));
+       break;
++    case PROP_NONBLOCK:
++      g_value_set_int64 (value, src->nonblock);
++      break;
++    case PROP_PERIOD_SIZE:
++      g_value_set_int64 (value, src->period_size);
++      break;
++    case PROP_BUFFER_SIZE:
++      g_value_set_int64 (value, src->buffer_size);
++      break;
+     default:
+       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+       break;
+@@ -389,16 +431,28 @@ set_hwparams (GstAlsaSrc * alsa)
+ #endif
+ 
+   if (alsa->buffer_time != -1) {
+-    /* set the buffer time */
+-    CHECK (snd_pcm_hw_params_set_buffer_time_near (alsa->handle, params,
+-            &alsa->buffer_time, NULL), buffer_time);
+-    GST_DEBUG_OBJECT (alsa, "buffer time %u", alsa->buffer_time);
++    /* set the buffer time or buffer size */
++    if (alsa->buffer_size != 0) {
++      CHECK (snd_pcm_hw_params_set_buffer_size_near (alsa->handle, params,
++              &alsa->buffer_size), buffer_size);
++      GST_DEBUG_OBJECT (alsa, "buffer size %u", alsa->buffer_size);
++    } else {
++      CHECK (snd_pcm_hw_params_set_buffer_time_near (alsa->handle, params,
++              &alsa->buffer_time, NULL), buffer_time);
++      GST_DEBUG_OBJECT (alsa, "buffer time %u", alsa->buffer_time);
++    }
+   }
+   if (alsa->period_time != -1) {
+-    /* set the period time */
+-    CHECK (snd_pcm_hw_params_set_period_time_near (alsa->handle, params,
+-            &alsa->period_time, NULL), period_time);
+-    GST_DEBUG_OBJECT (alsa, "period time %u", alsa->period_time);
++    /* set the period time or period size */
++    if (alsa->period_size != 0) {
++      CHECK (snd_pcm_hw_params_set_period_size_near (alsa->handle, params,
++              &alsa->period_size, 0), period_size);
++      GST_DEBUG_OBJECT (alsa, "period size %u", alsa->period_size);
++    } else {
++      CHECK (snd_pcm_hw_params_set_period_time_near (alsa->handle, params,
++              &alsa->period_time, NULL), period_time);
++      GST_DEBUG_OBJECT (alsa, "period time %u", alsa->period_time);
++    }
+   }
+ 
+   /* write the parameters to device */
+@@ -410,6 +464,12 @@ set_hwparams (GstAlsaSrc * alsa)
+   CHECK (snd_pcm_hw_params_get_period_size (params, &alsa->period_size, NULL),
+       period_size);
+ 
++  CHECK (snd_pcm_hw_params_get_buffer_time (params, &alsa->buffer_time, NULL),
++      buffer_time);
++
++  CHECK (snd_pcm_hw_params_get_buffer_time (params, &alsa->period_time, NULL),
++      period_time);
++
+   snd_pcm_hw_params_free (params);
+   return 0;
+ 
+@@ -762,7 +822,7 @@ gst_alsasrc_prepare (GstAudioSrc * asrc, GstAudioRingBufferSpec * spec)
+   if (!alsasrc_parse_spec (alsa, spec))
+     goto spec_parse;
+ 
+-  CHECK (snd_pcm_nonblock (alsa->handle, 0), non_block);
++  CHECK (snd_pcm_nonblock (alsa->handle, alsa->nonblock), non_block);
+ 
+   CHECK (set_hwparams (alsa), hw_params_failed);
+   CHECK (set_swparams (alsa), sw_params_failed);
+diff --git a/ext/alsa/gstalsasrc.h b/ext/alsa/gstalsasrc.h
+index 57e2701..7dbd11d 100755
+--- a/ext/alsa/gstalsasrc.h
++++ b/ext/alsa/gstalsasrc.h
+@@ -70,6 +70,8 @@ struct _GstAlsaSrc {
+   snd_pcm_uframes_t     buffer_size;
+   snd_pcm_uframes_t     period_size;
+ 
++  guint                 nonblock;
++
+   GMutex                alsa_lock;
+ };
+ 

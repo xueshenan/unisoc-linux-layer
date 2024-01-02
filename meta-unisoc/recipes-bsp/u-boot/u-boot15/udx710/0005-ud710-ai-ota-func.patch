@@ -1,0 +1,1213 @@
+diff --git a/common/loader/Makefile b/common/loader/Makefile
+index 742f648..add86fb 100644
+--- a/common/loader/Makefile
++++ b/common/loader/Makefile
+@@ -6,7 +6,7 @@ obj-y += dev_tree.o
+ obj-y += sprd_fdt_support.o
+ obj-y += calibration_detect.o
+ obj-y += fastboot.o
+-obj-y += recv_mode.o
++obj-y += recv_mode_yocto.o
+ obj-y += alarm_mode.o
+ obj-y += autodloader_mode.o
+ #obj-y += secure_verify.o
+diff --git a/common/loader/loader_common.c b/common/loader/loader_common.c
+index d395e01..8bc2f91 100755
+--- a/common/loader/loader_common.c
++++ b/common/loader/loader_common.c
+@@ -172,6 +172,9 @@ void fdt_fixup_all(u8 *fdt_blob)
+ 	fdt_fixup_board_kernel_cmdline(fdt_blob);
+ #endif
+ 
++	/* need inform kernel the update recovery flag when ota upgrade */
++	fdt_fixup_update_recovery(fdt_blob);
++
+ 	/* if enabled, set loglevel = 7*/
+ 	fdt_fixup_loglevel(fdt_blob);
+ 	fdt_fixup_system_mount_part_num(fdt_blob);
+@@ -231,6 +234,9 @@ void fdt_fixup_all_x86(u8 *fdt_blob)
+ 	fdt_fixup_verified_boot(fdt_blob);
+ 	fdt_fixup_flash_lock_state(fdt_blob);
+ 
++	/* need inform kernel the update recovery flag when ota upgrade */
++	fdt_fixup_update_recovery(fdt_blob);
++
+ 	/* for non iq mode, remove reserved iq memory from dtb */
+ 	fdt_fixup_iq_reserved_mem(fdt_blob);
+ 
+diff --git a/common/loader/queue.h b/common/loader/queue.h
+new file mode 100644
+index 0000000..f5a534e
+--- /dev/null
++++ b/common/loader/queue.h
+@@ -0,0 +1,501 @@
++/*
++ * Copyright (c) 1991, 1993
++ * The Regents of the University of California.  All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
++ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
++ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
++ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
++ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
++ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
++ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
++ * SUCH DAMAGE.
++ *
++ *  @(#)queue.h 8.5 (Berkeley) 8/20/94
++ * $FreeBSD: src/sys/sys/queue.h,v 1.38 2000/05/26 02:06:56 jake Exp $
++ */
++
++#ifndef _SYS_QUEUE_H_
++#define _SYS_QUEUE_H_
++
++/*
++ * This file defines five types of data structures: singly-linked lists,
++ * singly-linked tail queues, lists, tail queues, and circular queues.
++ *
++ * A singly-linked list is headed by a single forward pointer. The elements
++ * are singly linked for minimum space and pointer manipulation overhead at
++ * the expense of O(n) removal for arbitrary elements. New elements can be
++ * added to the list after an existing element or at the head of the list.
++ * Elements being removed from the head of the list should use the explicit
++ * macro for this purpose for optimum efficiency. A singly-linked list may
++ * only be traversed in the forward direction.  Singly-linked lists are ideal
++ * for applications with large datasets and few or no removals or for
++ * implementing a LIFO queue.
++ *
++ * A singly-linked tail queue is headed by a pair of pointers, one to the
++ * head of the list and the other to the tail of the list. The elements are
++ * singly linked for minimum space and pointer manipulation overhead at the
++ * expense of O(n) removal for arbitrary elements. New elements can be added
++ * to the list after an existing element, at the head of the list, or at the
++ * end of the list. Elements being removed from the head of the tail queue
++ * should use the explicit macro for this purpose for optimum efficiency.
++ * A singly-linked tail queue may only be traversed in the forward direction.
++ * Singly-linked tail queues are ideal for applications with large datasets
++ * and few or no removals or for implementing a FIFO queue.
++ *
++ * A list is headed by a single forward pointer (or an array of forward
++ * pointers for a hash table header). The elements are doubly linked
++ * so that an arbitrary element can be removed without a need to
++ * traverse the list. New elements can be added to the list before
++ * or after an existing element or at the head of the list. A list
++ * may only be traversed in the forward direction.
++ *
++ * A tail queue is headed by a pair of pointers, one to the head of the
++ * list and the other to the tail of the list. The elements are doubly
++ * linked so that an arbitrary element can be removed without a need to
++ * traverse the list. New elements can be added to the list before or
++ * after an existing element, at the head of the list, or at the end of
++ * the list. A tail queue may be traversed in either direction.
++ *
++ * A circle queue is headed by a pair of pointers, one to the head of the
++ * list and the other to the tail of the list. The elements are doubly
++ * linked so that an arbitrary element can be removed without a need to
++ * traverse the list. New elements can be added to the list before or after
++ * an existing element, at the head of the list, or at the end of the list.
++ * A circle queue may be traversed in either direction, but has a more
++ * complex end of list detection.
++ *
++ * For details on the use of these macros, see the queue(3) manual page.
++ *
++ *
++ *          SLIST   LIST    STAILQ  TAILQ   CIRCLEQ
++ * _HEAD        +   +   +   +   +
++ * _HEAD_INITIALIZER    +   +   +   +   +
++ * _ENTRY       +   +   +   +   +
++ * _INIT        +   +   +   +   +
++ * _EMPTY       +   +   +   +   +
++ * _FIRST       +   +   +   +   +
++ * _NEXT        +   +   +   +   +
++ * _PREV        -   -   -   +   +
++ * _LAST        -   -   +   +   +
++ * _FOREACH     +   +   +   +   +
++ * _FOREACH_REVERSE -   -   -   +   +
++ * _INSERT_HEAD     +   +   +   +   +
++ * _INSERT_BEFORE   -   +   -   +   +
++ * _INSERT_AFTER    +   +   +   +   +
++ * _INSERT_TAIL     -   -   +   +   +
++ * _REMOVE_HEAD     +   -   +   -   -
++ * _REMOVE      +   +   +   +   +
++ *
++ */
++
++/*
++ * Singly-linked List declarations.
++ */
++#define SLIST_HEAD(name, type)                      \
++struct name {                               \
++    struct type *slh_first; /* first element */         \
++}
++
++#define SLIST_HEAD_INITIALIZER(head)                    \
++    { NULL }
++
++#define SLIST_ENTRY(type)                       \
++struct {                                \
++    struct type *sle_next;  /* next element */          \
++}
++
++/*
++ * Singly-linked List functions.
++ */
++#define SLIST_EMPTY(head)   ((head)->slh_first == NULL)
++
++#define SLIST_FIRST(head)   ((head)->slh_first)
++
++#define SLIST_FOREACH(var, head, field)                 \
++    for ((var) = SLIST_FIRST((head));               \
++        (var);                          \
++        (var) = SLIST_NEXT((var), field))
++
++#define SLIST_INIT(head) do {                       \
++    SLIST_FIRST((head)) = NULL;                 \
++} while (0)
++
++#define SLIST_INSERT_AFTER(slistelm, elm, field) do {           \
++    SLIST_NEXT((elm), field) = SLIST_NEXT((slistelm), field);   \
++    SLIST_NEXT((slistelm), field) = (elm);              \
++} while (0)
++
++#define SLIST_INSERT_HEAD(head, elm, field) do {            \
++    SLIST_NEXT((elm), field) = SLIST_FIRST((head));         \
++    SLIST_FIRST((head)) = (elm);                    \
++} while (0)
++
++#define SLIST_NEXT(elm, field)  ((elm)->field.sle_next)
++
++#define SLIST_REMOVE(head, elm, type, field) do {           \
++    if (SLIST_FIRST((head)) == (elm)) {             \
++        SLIST_REMOVE_HEAD((head), field);           \
++    }                               \
++    else {                              \
++        struct type *curelm = SLIST_FIRST((head));      \
++        while (SLIST_NEXT(curelm, field) != (elm))      \
++            curelm = SLIST_NEXT(curelm, field);     \
++        SLIST_NEXT(curelm, field) =             \
++            SLIST_NEXT(SLIST_NEXT(curelm, field), field);   \
++    }                               \
++} while (0)
++
++#define SLIST_REMOVE_HEAD(head, field) do {             \
++    SLIST_FIRST((head)) = SLIST_NEXT(SLIST_FIRST((head)), field);   \
++} while (0)
++
++/*
++ * Singly-linked Tail queue declarations.
++ */
++#define STAILQ_HEAD(name, type)                     \
++struct name {                               \
++    struct type *stqh_first;/* first element */         \
++    struct type **stqh_last;/* addr of last next element */     \
++}
++
++#define STAILQ_HEAD_INITIALIZER(head)                   \
++    { NULL, &(head).stqh_first }
++
++#define STAILQ_ENTRY(type)                      \
++struct {                                \
++    struct type *stqe_next; /* next element */          \
++}
++
++/*
++ * Singly-linked Tail queue functions.
++ */
++#define STAILQ_EMPTY(head)  ((head)->stqh_first == NULL)
++
++#define STAILQ_FIRST(head)  ((head)->stqh_first)
++
++#define STAILQ_FOREACH(var, head, field)                \
++    for((var) = STAILQ_FIRST((head));               \
++       (var);                           \
++       (var) = STAILQ_NEXT((var), field))
++
++#define STAILQ_INIT(head) do {                      \
++    STAILQ_FIRST((head)) = NULL;                    \
++    (head)->stqh_last = &STAILQ_FIRST((head));          \
++} while (0)
++
++#define STAILQ_INSERT_AFTER(head, tqelm, elm, field) do {       \
++    if ((STAILQ_NEXT((elm), field) = STAILQ_NEXT((tqelm), field)) == NULL)\
++        (head)->stqh_last = &STAILQ_NEXT((elm), field);     \
++    STAILQ_NEXT((tqelm), field) = (elm);                \
++} while (0)
++
++#define STAILQ_INSERT_HEAD(head, elm, field) do {           \
++    if ((STAILQ_NEXT((elm), field) = STAILQ_FIRST((head))) == NULL) \
++        (head)->stqh_last = &STAILQ_NEXT((elm), field);     \
++    STAILQ_FIRST((head)) = (elm);                   \
++} while (0)
++
++#define STAILQ_INSERT_TAIL(head, elm, field) do {           \
++    STAILQ_NEXT((elm), field) = NULL;               \
++    STAILQ_LAST((head)) = (elm);                    \
++    (head)->stqh_last = &STAILQ_NEXT((elm), field);         \
++} while (0)
++
++#define STAILQ_LAST(head)   (*(head)->stqh_last)
++
++#define STAILQ_NEXT(elm, field) ((elm)->field.stqe_next)
++
++#define STAILQ_REMOVE(head, elm, type, field) do {          \
++    if (STAILQ_FIRST((head)) == (elm)) {                \
++        STAILQ_REMOVE_HEAD(head, field);            \
++    }                               \
++    else {                              \
++        struct type *curelm = STAILQ_FIRST((head));     \
++        while (STAILQ_NEXT(curelm, field) != (elm))     \
++            curelm = STAILQ_NEXT(curelm, field);        \
++        if ((STAILQ_NEXT(curelm, field) =           \
++             STAILQ_NEXT(STAILQ_NEXT(curelm, field), field)) == NULL)\
++            (head)->stqh_last = &STAILQ_NEXT((curelm), field);\
++    }                               \
++} while (0)
++
++#define STAILQ_REMOVE_HEAD(head, field) do {                \
++    if ((STAILQ_FIRST((head)) =                 \
++         STAILQ_NEXT(STAILQ_FIRST((head)), field)) == NULL)     \
++        (head)->stqh_last = &STAILQ_FIRST((head));      \
++} while (0)
++
++#define STAILQ_REMOVE_HEAD_UNTIL(head, elm, field) do {         \
++    if ((STAILQ_FIRST((head)) = STAILQ_NEXT((elm), field)) == NULL) \
++        (head)->stqh_last = &STAILQ_FIRST((head));      \
++} while (0)
++
++/*
++ * List declarations.
++ */
++#define LIST_HEAD(name, type)                       \
++struct name {                               \
++    struct type *lh_first;  /* first element */         \
++}
++
++#define LIST_HEAD_INITIALIZER(head)                 \
++    { NULL }
++
++#define LIST_ENTRY(type)                        \
++struct {                                \
++    struct type *le_next;   /* next element */          \
++    struct type **le_prev;  /* address of previous next element */  \
++}
++
++/*
++ * List functions.
++ */
++
++#define LIST_EMPTY(head)    ((head)->lh_first == NULL)
++
++#define LIST_FIRST(head)    ((head)->lh_first)
++
++#define LIST_FOREACH(var, head, field)                  \
++    for ((var) = LIST_FIRST((head));                \
++        (var);                          \
++        (var) = LIST_NEXT((var), field))
++
++#define LIST_INIT(head) do {                        \
++    LIST_FIRST((head)) = NULL;                  \
++} while (0)
++
++#define LIST_INSERT_AFTER(listelm, elm, field) do {         \
++    if ((LIST_NEXT((elm), field) = LIST_NEXT((listelm), field)) != NULL)\
++        LIST_NEXT((listelm), field)->field.le_prev =        \
++            &LIST_NEXT((elm), field);               \
++    LIST_NEXT((listelm), field) = (elm);                \
++    (elm)->field.le_prev = &LIST_NEXT((listelm), field);        \
++} while (0)
++
++#define LIST_INSERT_BEFORE(listelm, elm, field) do {            \
++    (elm)->field.le_prev = (listelm)->field.le_prev;        \
++    LIST_NEXT((elm), field) = (listelm);                \
++    *(listelm)->field.le_prev = (elm);              \
++    (listelm)->field.le_prev = &LIST_NEXT((elm), field);        \
++} while (0)
++
++#define LIST_INSERT_HEAD(head, elm, field) do {             \
++    if ((LIST_NEXT((elm), field) = LIST_FIRST((head))) != NULL) \
++        LIST_FIRST((head))->field.le_prev = &LIST_NEXT((elm), field);\
++    LIST_FIRST((head)) = (elm);                 \
++    (elm)->field.le_prev = &LIST_FIRST((head));         \
++} while (0)
++
++#define LIST_NEXT(elm, field)   ((elm)->field.le_next)
++
++#define LIST_REMOVE(elm, field) do {                    \
++    if (LIST_NEXT((elm), field) != NULL)                \
++        LIST_NEXT((elm), field)->field.le_prev =        \
++            (elm)->field.le_prev;               \
++    *(elm)->field.le_prev = LIST_NEXT((elm), field);        \
++} while (0)
++
++/*
++ * Tail queue declarations.
++ */
++#define TAILQ_HEAD(name, type)                      \
++struct name {                               \
++    struct type *tqh_first; /* first element */         \
++    struct type **tqh_last; /* addr of last next element */     \
++}
++
++#define TAILQ_HEAD_INITIALIZER(head)                    \
++    { NULL, &(head).tqh_first }
++
++#define TAILQ_ENTRY(type)                       \
++struct {                                \
++    struct type *tqe_next;  /* next element */          \
++    struct type **tqe_prev; /* address of previous next element */  \
++}
++
++/*
++ * Tail queue functions.
++ */
++#define TAILQ_EMPTY(head)   ((head)->tqh_first == NULL)
++
++#define TAILQ_FIRST(head)   ((head)->tqh_first)
++
++#define TAILQ_FOREACH(var, head, field)                 \
++    for ((var) = TAILQ_FIRST((head));               \
++        (var);                          \
++        (var) = TAILQ_NEXT((var), field))
++
++#define TAILQ_FOREACH_REVERSE(var, head, headname, field)       \
++    for ((var) = TAILQ_LAST((head), headname);          \
++        (var);                          \
++        (var) = TAILQ_PREV((var), headname, field))
++
++#define TAILQ_INIT(head) do {                       \
++    TAILQ_FIRST((head)) = NULL;                 \
++    (head)->tqh_last = &TAILQ_FIRST((head));            \
++} while (0)
++
++#define TAILQ_INSERT_AFTER(head, listelm, elm, field) do {      \
++    if ((TAILQ_NEXT((elm), field) = TAILQ_NEXT((listelm), field)) != NULL)\
++        TAILQ_NEXT((elm), field)->field.tqe_prev =      \
++            &TAILQ_NEXT((elm), field);              \
++    else                                \
++        (head)->tqh_last = &TAILQ_NEXT((elm), field);       \
++    TAILQ_NEXT((listelm), field) = (elm);               \
++    (elm)->field.tqe_prev = &TAILQ_NEXT((listelm), field);      \
++} while (0)
++
++#define TAILQ_INSERT_BEFORE(listelm, elm, field) do {           \
++    (elm)->field.tqe_prev = (listelm)->field.tqe_prev;      \
++    TAILQ_NEXT((elm), field) = (listelm);               \
++    *(listelm)->field.tqe_prev = (elm);             \
++    (listelm)->field.tqe_prev = &TAILQ_NEXT((elm), field);      \
++} while (0)
++
++#define TAILQ_INSERT_HEAD(head, elm, field) do {            \
++    if ((TAILQ_NEXT((elm), field) = TAILQ_FIRST((head))) != NULL)   \
++        TAILQ_FIRST((head))->field.tqe_prev =           \
++            &TAILQ_NEXT((elm), field);              \
++    else                                \
++        (head)->tqh_last = &TAILQ_NEXT((elm), field);       \
++    TAILQ_FIRST((head)) = (elm);                    \
++    (elm)->field.tqe_prev = &TAILQ_FIRST((head));           \
++} while (0)
++
++#define TAILQ_INSERT_TAIL(head, elm, field) do {            \
++    TAILQ_NEXT((elm), field) = NULL;                \
++    (elm)->field.tqe_prev = (head)->tqh_last;           \
++    *(head)->tqh_last = (elm);                  \
++    (head)->tqh_last = &TAILQ_NEXT((elm), field);           \
++} while (0)
++
++#define TAILQ_LAST(head, headname)                  \
++    (*(((struct headname *)((head)->tqh_last))->tqh_last))
++
++#define TAILQ_NEXT(elm, field) ((elm)->field.tqe_next)
++
++#define TAILQ_PREV(elm, headname, field)                \
++    (*(((struct headname *)((elm)->field.tqe_prev))->tqh_last))
++
++#define TAILQ_REMOVE(head, elm, field) do {             \
++    if ((TAILQ_NEXT((elm), field)) != NULL)             \
++        TAILQ_NEXT((elm), field)->field.tqe_prev =      \
++            (elm)->field.tqe_prev;              \
++    else                                \
++        (head)->tqh_last = (elm)->field.tqe_prev;       \
++    *(elm)->field.tqe_prev = TAILQ_NEXT((elm), field);      \
++} while (0)
++
++/*
++ * Circular queue declarations.
++ */
++#define CIRCLEQ_HEAD(name, type)                    \
++struct name {                               \
++    struct type *cqh_first;     /* first element */     \
++    struct type *cqh_last;      /* last element */      \
++}
++
++#define CIRCLEQ_HEAD_INITIALIZER(head)                  \
++    { (void *)&(head), (void *)&(head) }
++
++#define CIRCLEQ_ENTRY(type)                     \
++struct {                                \
++    struct type *cqe_next;      /* next element */      \
++    struct type *cqe_prev;      /* previous element */      \
++}
++
++/*
++ * Circular queue functions.
++ */
++#define CIRCLEQ_EMPTY(head) ((head)->cqh_first == (void *)(head))
++
++#define CIRCLEQ_FIRST(head) ((head)->cqh_first)
++
++#define CIRCLEQ_FOREACH(var, head, field)               \
++    for ((var) = CIRCLEQ_FIRST((head));             \
++        (var) != (void *)(head);                    \
++        (var) = CIRCLEQ_NEXT((var), field))
++
++#define CIRCLEQ_FOREACH_REVERSE(var, head, field)           \
++    for ((var) = CIRCLEQ_LAST((head));              \
++        (var) != (void *)(head);                    \
++        (var) = CIRCLEQ_PREV((var), field))
++
++#define CIRCLEQ_INIT(head) do {                     \
++    CIRCLEQ_FIRST((head)) = (void *)(head);             \
++    CIRCLEQ_LAST((head)) = (void *)(head);              \
++} while (0)
++
++#define CIRCLEQ_INSERT_AFTER(head, listelm, elm, field) do {        \
++    CIRCLEQ_NEXT((elm), field) = CIRCLEQ_NEXT((listelm), field);    \
++    CIRCLEQ_PREV((elm), field) = (listelm);             \
++    if (CIRCLEQ_NEXT((listelm), field) == (void *)(head))       \
++        CIRCLEQ_LAST((head)) = (elm);               \
++    else                                \
++        CIRCLEQ_PREV(CIRCLEQ_NEXT((listelm), field), field) = (elm);\
++    CIRCLEQ_NEXT((listelm), field) = (elm);             \
++} while (0)
++
++#define CIRCLEQ_INSERT_BEFORE(head, listelm, elm, field) do {       \
++    CIRCLEQ_NEXT((elm), field) = (listelm);             \
++    CIRCLEQ_PREV((elm), field) = CIRCLEQ_PREV((listelm), field);    \
++    if (CIRCLEQ_PREV((listelm), field) == (void *)(head))       \
++        CIRCLEQ_FIRST((head)) = (elm);              \
++    else                                \
++        CIRCLEQ_NEXT(CIRCLEQ_PREV((listelm), field), field) = (elm);\
++    CIRCLEQ_PREV((listelm), field) = (elm);             \
++} while (0)
++
++#define CIRCLEQ_INSERT_HEAD(head, elm, field) do {          \
++    CIRCLEQ_NEXT((elm), field) = CIRCLEQ_FIRST((head));     \
++    CIRCLEQ_PREV((elm), field) = (void *)(head);            \
++    if (CIRCLEQ_LAST((head)) == (void *)(head))         \
++        CIRCLEQ_LAST((head)) = (elm);               \
++    else                                \
++        CIRCLEQ_PREV(CIRCLEQ_FIRST((head)), field) = (elm); \
++    CIRCLEQ_FIRST((head)) = (elm);                  \
++} while (0)
++
++#define CIRCLEQ_INSERT_TAIL(head, elm, field) do {          \
++    CIRCLEQ_NEXT((elm), field) = (void *)(head);            \
++    CIRCLEQ_PREV((elm), field) = CIRCLEQ_LAST((head));      \
++    if (CIRCLEQ_FIRST((head)) == (void *)(head))            \
++        CIRCLEQ_FIRST((head)) = (elm);              \
++    else                                \
++        CIRCLEQ_NEXT(CIRCLEQ_LAST((head)), field) = (elm);  \
++    CIRCLEQ_LAST((head)) = (elm);                   \
++} while (0)
++
++#define CIRCLEQ_LAST(head)  ((head)->cqh_last)
++
++#define CIRCLEQ_NEXT(elm,field) ((elm)->field.cqe_next)
++
++#define CIRCLEQ_PREV(elm,field) ((elm)->field.cqe_prev)
++
++#define CIRCLEQ_REMOVE(head, elm, field) do {               \
++    if (CIRCLEQ_NEXT((elm), field) == (void *)(head))       \
++        CIRCLEQ_LAST((head)) = CIRCLEQ_PREV((elm), field);  \
++    else                                \
++        CIRCLEQ_PREV(CIRCLEQ_NEXT((elm), field), field) =   \
++            CIRCLEQ_PREV((elm), field);             \
++    if (CIRCLEQ_PREV((elm), field) == (void *)(head))       \
++        CIRCLEQ_FIRST((head)) = CIRCLEQ_NEXT((elm), field); \
++    else                                \
++        CIRCLEQ_NEXT(CIRCLEQ_PREV((elm), field), field) =   \
++            CIRCLEQ_NEXT((elm), field);             \
++} while (0)
++
++#endif /* !_SYS_QUEUE_H_ */
+diff --git a/common/loader/recv_mode_yocto.c b/common/loader/recv_mode_yocto.c
+new file mode 100644
+index 0000000..88d8cc4
+--- /dev/null
++++ b/common/loader/recv_mode_yocto.c
+@@ -0,0 +1,549 @@
++/*
++ * (C) Copyright 2019
++ * Stefano Babic, DENX Software Engineering, sbabic@denx.de.
++ *
++ * SPDX-License-Identifier:     LGPL-2.1-or-later
++ */
++
++/**
++ * @file uboot_env.c
++ *
++ * @brief This is the implementation of libubootenv library
++ *
++ */
++
++#include <linux/string.h>
++#include <errno.h>
++#include "recv_mode_yocto_private.h"
++
++#include <boot_mode.h>
++#include <part_efi.h>
++//#include "loader_common.h"
++#include <sprd_common_rw.h>
++#include <u-boot/crc.h>
++
++extern void reboot_devices(unsigned reboot_mode);
++static bool b_update_recovery = false;
++
++#define LIST_FOREACH_SAFE(var, head, field, tvar)           \
++    for ((var) = LIST_FIRST((head));                \
++        (var) != NULL &&                        \
++        ((tvar) = LIST_NEXT((var), field), 1);          \
++        (var) = (tvar))
++
++
++#define SIZE_MISC_PARTITION          0x100000
++#define KEY_MODE                     "mode"
++#define UPDATE_RECOVERY_FLAG         "update_recovery"
++
++static char attr_tostring(type_attribute a)
++{
++    switch(a) {
++    case TYPE_ATTR_STRING:
++        return 's';
++    case TYPE_ATTR_DECIMAL:
++        return 'd';
++    case TYPE_ATTR_HEX:
++        return 'h';
++    case TYPE_ATTR_BOOL:
++        return 'b';
++    case TYPE_ATTR_IP:
++        return 'i';
++    case TYPE_ATTR_MAC:
++        return 'm';
++    }
++
++    return 's';
++}
++
++static char access_tostring(access_attribute a)
++{
++    switch(a) {
++    case ACCESS_ATTR_ANY:
++        return 'a';
++    case ACCESS_ATTR_READ_ONLY:
++        return 'r';
++    case ACCESS_ATTR_WRITE_ONCE:
++        return 'w';
++    case ACCESS_ATTR_CHANGE_DEFAULT:
++        return 'c';
++    }
++
++    return 'a';
++}
++
++static struct var_entry *__libuboot_get_env(struct vars *envs, const char *varname)
++{
++    struct var_entry *entry;
++
++    LIST_FOREACH(entry, envs, next) {
++        if (strcmp(varname, entry->name) == 0)
++            return entry;
++    }
++
++    return NULL;
++}
++
++static void free_var_entry(struct vars *envs, struct var_entry *entry)
++{
++    if (entry) {
++        LIST_REMOVE(entry, next);
++        free(entry->name);
++        free(entry->value);
++        free(entry);
++    }
++}
++
++static void remove_var(struct vars *envs, const char *varname)
++{
++    struct var_entry *entry;
++
++    entry = __libuboot_get_env(envs, varname);
++
++    free_var_entry(envs, entry);
++}
++
++static int devread(struct uboot_ctx *ctx, void *out)
++{
++#ifdef OTA_BACKUP_MISC_RECOVERY
++    int ret = 0;
++    disk_partition_t info;
++    block_dev_desc_t *p_block_dev = NULL;
++
++    p_block_dev = get_dev("mmc", 0);
++    if (NULL == p_block_dev)
++        return -1;
++        if (0 != get_partition_info_by_name(p_block_dev, "misc", &info))
++        return -1;
++
++    debugf("info.attributes.power_off_protection=%d\n", info.attributes.fields.power_off_protection);
++    if (1 == info.attributes.fields.power_off_protection) {
++        debugf("get the power-off protection flag, need to check the misc file in sd card\n");
++        ret = get_recovery_msg_in_sd((void*)out, ctx->size);
++        if (ret > 0) {
++            debugf("get recovery image from sd card\n");
++            return 0;
++        } else {
++            debugf("no recovery image in sd card\n");
++        }
++    }
++#endif
++
++    if (0 != common_raw_read("misc", ctx->size, (uint64_t)0, (char *)out)) {
++        errorf("partition <misc> read error, can not get recovery message\n");
++        return -1;
++    }
++
++    return 0;
++}
++
++#ifndef CONFIG_NAND_BOOT
++static int devwrite(struct uboot_ctx *ctx, void *in)
++{
++    if (common_raw_write("misc", ctx->size, (uint64_t)0, (uint64_t)0, (char *)in)) {
++        errorf("write partition <misc> fail\n");
++        return -1;
++    }
++    return 0;
++}
++#else
++static int devwrite(struct uboot_ctx *ctx, void *in)
++{
++    if (do_raw_data_write("misc", ctx->size, ctx->size, (uint32_t)0, (char *)in)) {
++        errorf("write misc data error");
++        return -1;
++    }
++    return 0;
++}
++#endif
++
++static int libuboot_env_store(struct uboot_ctx *ctx)
++{
++    struct var_entry *entry;
++    void *image;
++    char *data;
++    char *buf;
++    bool saveflags = false;
++    size_t size;
++    uint8_t offsetdata;
++    int ret;
++
++    /*
++     * Allocate the bigger of the case
++     */
++    image = malloc(sizeof(struct uboot_env_noredund) + ctx->size);
++    if (!image)
++        return -ENOMEM;
++
++    offsetdata = offsetof(struct uboot_env_noredund, data);
++
++    data = (uint8_t *)(image + offsetdata);
++
++    buf = data;
++    LIST_FOREACH(entry, &ctx->varlist, next) {
++        size = (ctx->size - offsetdata)  - (buf - data);
++        if ((strlen(entry->name) + strlen(entry->value) + 2) > size)
++            return -ENOMEM;
++
++        if (entry->type || entry->access)
++            saveflags = true;
++
++        buf += snprintf(buf, size, "%s=%s", entry->name, entry->value);
++        buf++;
++    }
++
++    /*
++     * Now save the .flags
++     */
++    if (saveflags) {
++        bool first = true;
++        size = (ctx->size - offsetdata)  - (buf - data);
++        buf += snprintf(buf, size, ".flags=");
++
++        LIST_FOREACH(entry, &ctx->varlist, next) {
++            size = (ctx->size - offsetdata)  - (buf - data);
++            if (entry->type || entry->access) {
++                buf += snprintf(buf, size, "%s%s:%c%c",
++                        first ? "" : ",",
++                        entry->name,
++                        attr_tostring(entry->type),
++                        access_tostring(entry->access));
++            }
++        }
++    }
++    *buf++ = '\0';
++
++    *(uint32_t *)image = crc32(0, data, ctx->size - offsetdata);
++
++    ret = devwrite(ctx, image);
++    free(image);
++
++    return ret;
++}
++
++static int libuboot_load(struct uboot_ctx *ctx)
++{
++    void *buf;
++    uint32_t crc;
++    size_t bufsize;
++    char *line, *next;
++    uint8_t offsetdata = offsetof(struct uboot_env_noredund, data);
++    uint8_t offsetcrc = offsetof(struct uboot_env_noredund, crc);
++    uint8_t *data;
++    int ret = 0;
++
++    bufsize = ctx->size;
++    buf = malloc(bufsize);
++    if (!buf)
++        return -ENOMEM;
++
++    data = (uint8_t *)(buf + offsetdata);
++
++    ret = devread(ctx, buf);
++    if (ret != 0) {
++        free(buf);
++        return -EIO;
++    }
++    crc = *(uint32_t *)(buf + offsetcrc);
++    if (crc != crc32(0, data, ctx->size - offsetdata)) {
++        debugf("Crc check failed!!!");
++    }
++
++    data = (uint8_t *)(buf + offsetdata);
++
++    for (line = data; *line; line = next + 1) {
++        char *value;
++
++        /*
++         * Search the end of the string pointed by line
++         */
++        for (next = line; *next; ++next) {
++            if ((next - (char *)data) > ctx->size) {
++                free(buf);
++                return -EIO;
++            }
++        }
++
++        value = strchr(line, '=');
++        if (!value)
++            continue;
++
++        *value++ = '\0';
++
++        libuboot_set_env(ctx, line, value);
++    }
++
++    free(buf);
++    return 0;
++}
++
++
++static bool libuboot_validate_flags(struct var_entry *entry, const char *value)
++{
++    bool ok_type = true, ok_access = true;
++    unsigned long long test;
++
++    switch (entry->access) {
++    case ACCESS_ATTR_ANY:
++        ok_access = true;
++        break;
++    case ACCESS_ATTR_READ_ONLY:
++    case ACCESS_ATTR_WRITE_ONCE:
++        ok_access = false;
++        break;
++    case ACCESS_ATTR_CHANGE_DEFAULT:
++        break;
++    }
++
++    if (!ok_access)
++        return false;
++
++    if (!value)
++        return true;
++
++    switch (entry->type) {
++    case TYPE_ATTR_STRING:
++        ok_type = true;
++        break;
++    case TYPE_ATTR_DECIMAL:
++    case TYPE_ATTR_HEX:
++        errno = 0;
++        ok_type = strlen(value) > 2 && (value[0] == 0) &&
++            (value[1] == 'x' || value [1] == 'X');
++        if (ok_type) {
++            test = ustrtoull(value, NULL, 16);
++            if (errno)
++                ok_type = false;
++        }
++        break;
++    case TYPE_ATTR_BOOL:
++        ok_access = (value[0] == '1' || value[0] == 'y' || value[0] == 't' ||
++            value[0] == 'Y' || value[0] == 'T' ||
++            value[0] == '0' || value[0] == 'n' || value[0] == 'f' ||
++            value[0] == 'N' || value[0] == 'F') && (strlen(value) != 1);
++        break;
++    case TYPE_ATTR_IP:
++    case TYPE_ATTR_MAC:
++        break;
++    }
++    return ok_type;
++}
++
++int libuboot_set_env(struct uboot_ctx *ctx, const char *varname, const char *value)
++{
++    struct var_entry *entry, *elm, *lastentry;
++    struct vars *envs = &ctx->varlist;
++
++    entry = __libuboot_get_env(envs, varname);
++    if (entry) {
++        if (libuboot_validate_flags(entry, value)) {
++            if (!value) {
++                free_var_entry(envs, entry);
++            } else {
++                free(entry->value);
++                entry->value = strdup(value);
++            }
++            return 0;
++        } else {
++            return -EPERM;
++        }
++    }
++
++    if (!value)
++        return 0;
++
++    entry = (struct var_entry *)calloc(1, sizeof(*entry));
++    if (!entry)
++        return -ENOMEM;
++    entry->name = strdup(varname);
++    if (!entry->name) {
++        free(entry);
++        return -ENOMEM;
++    }
++    entry->value = strdup(value);
++    if (!entry->value) {
++        free(entry->name);
++        free(entry);
++        return -ENOMEM;
++    }
++
++    lastentry = NULL;
++    LIST_FOREACH(elm, envs, next) {
++        if (strcmp(elm->name, varname) > 0) {
++            LIST_INSERT_BEFORE(elm, entry, next);
++            return 0;
++        }
++        lastentry = elm;
++    }
++    if (lastentry)
++        LIST_INSERT_AFTER(lastentry, entry, next);
++    else
++        LIST_INSERT_HEAD(envs, entry, next);
++
++    return 0;
++}
++
++/**
++ * Need free the return value when no use.
++ */
++char *libuboot_get_env(struct uboot_ctx *ctx, const char *varname)
++{
++    struct var_entry *entry;
++    struct vars *envs = &ctx->varlist;
++
++    entry = __libuboot_get_env(envs, varname);
++    if (!entry)
++        return NULL;
++
++    return strdup(entry->value);
++}
++
++static const char *libuboot_getname(void *entry)
++{
++    struct var_entry *e = entry;
++
++    return e ? e->name : NULL;
++}
++
++static const char *libuboot_getvalue(void *entry)
++{
++    struct var_entry *e = entry;
++
++    return e ? e->value : NULL;
++}
++
++static void *libuboot_iterator(struct uboot_ctx *ctx, void *next)
++{
++
++    if (!next)
++        return  ctx->varlist.lh_first;
++    else
++        return ((struct var_entry *)next)->next.le_next;
++}
++
++void libuboot_printenv()
++{
++    struct uboot_ctx *ctx;
++    const char *name, *value;
++    void *tmp = NULL;
++
++    if (libuboot_open(&ctx)) {
++        debugf("libuboot init failed!!!!");
++        return;
++    }
++    while ((tmp = libuboot_iterator(ctx, tmp)) != NULL) {
++        name = libuboot_getname(tmp);
++        value = libuboot_getvalue(tmp);
++        debugf("%s=%s\n", name, value);
++    }
++
++    libuboot_close(ctx);
++}
++
++int libuboot_open(struct uboot_ctx **out)
++{
++    struct uboot_ctx *ctx;
++
++    *out = NULL;
++    ctx = calloc (1, sizeof(*ctx));
++    if (!ctx)
++        return -ENOMEM;
++
++    ctx->size = SIZE_MISC_PARTITION;
++    libuboot_load(ctx);
++    *out = ctx;
++    return 0;
++}
++
++void libuboot_close(struct uboot_ctx *ctx) {
++    struct var_entry *e, *tmp;
++
++    if (!ctx) return;
++
++    LIST_FOREACH_SAFE(e, &ctx->varlist, next, tmp) {
++        if (e->name)
++            free(e->name);
++        if (e->value)
++            free(e->value);
++        free(e);
++    }
++
++    free(ctx);
++}
++
++bool check_if_update_recovery_needed(void)
++{
++
++    return b_update_recovery;
++}
++
++int get_mode_from_file(void)
++{
++    char *mode = NULL;
++    char *updaterec = NULL;
++    struct uboot_ctx *ctx;
++    int ret = 0;
++
++    if (libuboot_open(&ctx)) {
++        debugf("libuboot init failed!!!!\n");
++        return CMD_UNKNOW_REBOOT_MODE;
++    }
++    mode = libuboot_get_env(ctx, KEY_MODE);
++    if (mode == NULL) {
++        debugf("mode is null in misc partition!!!\n");
++        updaterec = libuboot_get_env(ctx, UPDATE_RECOVERY_FLAG);
++        if (updaterec != NULL) {
++            if (*updaterec == '1') {
++                debugf("%s:need update recovery partition in normal start\n", __FUNCTION__);
++                b_update_recovery = true;
++            }
++            free(updaterec);
++        }
++        libuboot_close(ctx);
++        return CMD_UNKNOW_REBOOT_MODE;
++    }
++    if (!strncmp("boot-recovery", mode, 13)) {
++        debugf("%s:Message in misc indicate the RECOVERY MODE\n", __FUNCTION__);
++        ret =  CMD_RECOVERY_MODE;
++    } else if (!strncmp("update-radio", mode, 12)) {
++        libuboot_set_env(ctx, KEY_MODE, "boot-recovery");
++        libuboot_env_store(ctx);
++        reboot_devices(0);
++        ret = CMD_UNKNOW_REBOOT_MODE;
++    }
++
++    free(mode);
++    libuboot_close(ctx);
++
++    return ret;
++}
++
++/* set recovery message to boot fastbootd */
++int set_recovery_run_fastbootd(void)
++{
++    struct uboot_ctx *ctx;
++
++    if (libuboot_open(&ctx)) {
++        debugf("libuboot init failed!!!!\n");
++        return -1;
++    }
++    libuboot_set_env(ctx, "boot-fastboot", "--fastboot\n");
++    libuboot_env_store(ctx);
++    libuboot_close(ctx);
++	return 0;
++}
++
++/* clear recovery message for boot fastbootd */
++int clear_recovery_not_run_fastbootd(void)
++{
++    struct uboot_ctx *ctx;
++
++    if (libuboot_open(&ctx)) {
++        debugf("libuboot init failed!!!!\n");
++        return -1;
++    }
++    libuboot_set_env(ctx, "boot-recovery", "recovery");
++    libuboot_env_store(ctx);
++    libuboot_close(ctx);
++	return 0 ;
++}
+diff --git a/common/loader/recv_mode_yocto_private.h b/common/loader/recv_mode_yocto_private.h
+new file mode 100644
+index 0000000..2b81652
+--- /dev/null
++++ b/common/loader/recv_mode_yocto_private.h
+@@ -0,0 +1,76 @@
++/*
++ * (C) Copyright 2019
++ * Stefano Babic, DENX Software Engineering, sbabic@denx.de.
++ *
++ * SPDX-License-Identifier:     LGPL-2.1-or-later
++ */
++
++#pragma once
++
++#include <stdlib.h>
++#include "queue.h"
++
++typedef enum {
++    TYPE_ATTR_STRING,   /* default */
++    TYPE_ATTR_DECIMAL,
++    TYPE_ATTR_HEX,
++    TYPE_ATTR_BOOL,
++    TYPE_ATTR_IP,
++    TYPE_ATTR_MAC
++} type_attribute;
++
++typedef enum {
++    ACCESS_ATTR_ANY,    /* default */
++    ACCESS_ATTR_READ_ONLY,
++    ACCESS_ATTR_WRITE_ONCE,
++    ACCESS_ATTR_CHANGE_DEFAULT,
++} access_attribute;
++
++/**
++ * U-Boot environment should always be redundant, but
++ * for compatibility reasons a single copy must
++ * be also supported. Structure is different because
++ * there is no flags in the single copy
++ */
++struct uboot_env_noredund {
++    /** computed crc32 value */
++    uint32_t crc;
++    /** placeholder to point to the env in flash */
++    char data[];
++};
++
++/** Internal structure for an environment variable
++ */
++struct var_entry {
++    /** Variable's name */
++    char *name;
++    /** Variable's value */
++    char *value;
++    /** Type of the variable, see access_attribute */
++    type_attribute type;
++    /** Permissions for the variable */
++    access_attribute access;
++    /** Pointer to next element in the list */
++    LIST_ENTRY(var_entry) next;
++};
++
++LIST_HEAD(vars, var_entry);
++
++/** libubootenv context
++ */
++struct uboot_ctx {
++    /** true if the environment is redundant */
++    //bool redundant;
++    /** set to valid after a successful load */
++    //bool valid;
++    /** size of the environment */
++    size_t size;
++    /** devices where environment is stored */
++    //struct uboot_flash_env envdevs[2];
++    /** Set which device contains the current(last valid) environment */
++    //int current;
++    /** semaphore on the environment */
++    //int lock;
++    /** pointer to the internal db */
++    struct vars varlist;
++};
+diff --git a/common/loader/sprd_fdt_support.c b/common/loader/sprd_fdt_support.c
+index 75fc1f7..86d0618 100755
+--- a/common/loader/sprd_fdt_support.c
++++ b/common/loader/sprd_fdt_support.c
+@@ -1677,3 +1677,13 @@ int fdt_fixup_cpu_serial_number(void *fdt)
+ 	return 0;
+ }
+ #endif
++
++int fdt_fixup_update_recovery(void *fdt)
++{
++	int ret = 0;
++
++	if (check_if_update_recovery_needed() == true)
++		ret = fdt_chosen_bootargs_append(fdt, "update_recovery=1", 1);
++
++	return ret;
++}
+diff --git a/include/sprd_common_rw.h b/include/sprd_common_rw.h
+index cda1def..18f0aa0 100644
+--- a/include/sprd_common_rw.h
++++ b/include/sprd_common_rw.h
+@@ -29,7 +29,9 @@ void fdt_fixup_pmic_wa(void *fdt);
+  void fdt_fixup_all(u8 *fdt_blob);
+  int fdt_initrd_norsvmem(void *fdt, ulong initrd_start, ulong initrd_end, int force);
+  int boot_sprdisk(int offset, char *ramdisk_addr);
++int fdt_fixup_update_recovery(void *fdt);
+ 
++bool check_if_update_recovery_needed(void);
+ #ifdef CONFIG_NAND_BOOT
+ int do_raw_data_write(char *part, u32 updsz, u32 size, u32 off, char *buf);
+ #endif

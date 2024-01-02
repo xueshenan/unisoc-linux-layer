@@ -1,0 +1,9 @@
+[Unit]
+Description=Unisoc NativeMMI Service
+
+[Service]
+ExecStart=/usr/bin/charge
+
+[Install]
+WantedBy=multi-user.target
+Alias=charge.service

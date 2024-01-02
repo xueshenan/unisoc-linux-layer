@@ -1,0 +1,195 @@
+diff --git a/src/daemon/system.pa.in b/src/daemon/system.pa.in
+index edeac7f..e852edf 100755
+--- a/src/daemon/system.pa.in
++++ b/src/daemon/system.pa.in
+@@ -40,7 +40,7 @@ load-module module-udev-detect
+ #load-module module-detect
+ .endif
+ 
+-##load-module module-alsa-card device_id=0 profile_set=sprd_default.conf fragments=4 fragment_size=960 tsched_buffer_size=3840
++##load-module module-alsa-card device_id=0 profile_set=sprd_default.conf fragments=4 fragment_size=960 tsched_buffer_size=3840 mmap=false
+ load-module module-unisoc-card device_id=0 profile_set=sprd_default.conf use_ucm=false
+ 
+ ### Load several protocols
+diff --git a/src/modules/alsa/alsa-sink.c b/src/modules/alsa/alsa-sink.c
+index 5a84c84..57da8bc 100755
+--- a/src/modules/alsa/alsa-sink.c
++++ b/src/modules/alsa/alsa-sink.c
+@@ -1650,7 +1650,7 @@ static int sink_set_port_ucm_cb(pa_sink *s, pa_device_port *p) {
+     pa_assert(u);
+     pa_assert(p);
+     pa_assert(u->ucm_context);
+-
++    pa_log_debug("guangtao: sink_set_port_ucm_cb in:name:%s",p->name);
+     return pa_alsa_ucm_set_port(u->ucm_context, p, true);
+ }
+ 
+@@ -1663,6 +1663,7 @@ static int sink_set_port_cb(pa_sink *s, pa_device_port *p) {
+     pa_assert(u->mixer_handle);
+ 
+     data = PA_DEVICE_PORT_DATA(p);
++    pa_log_debug("guangtao: sink_set_port_cb in:name:%s",data->path->name);
+     pa_assert_se(u->mixer_path = data->path);
+     mixer_volume_init(u);
+ 
+@@ -2195,8 +2196,8 @@ pa_sink *pa_alsa_sink_new(pa_module *m, pa_modargs *ma, const char*driver, pa_ca
+     uint32_t nfrags, frag_size, buffer_size, tsched_size, tsched_watermark, rewind_safeguard;
+     snd_pcm_uframes_t period_frames, buffer_frames, tsched_frames;
+     size_t frame_size;
+-    //bool use_mmap = true;
+-    bool use_mmap = false;
++    bool use_mmap = true;
++    //bool use_mmap = false;
+     bool use_tsched = true;
+     bool ignore_dB = false;
+     bool namereg_fail = false;
+@@ -2231,7 +2232,7 @@ pa_sink *pa_alsa_sink_new(pa_module *m, pa_modargs *ma, const char*driver, pa_ca
+                 pa_assert(pa_channel_map_compatible(&mapping->channel_map, &ss));
+         }
+     }
+-
++pa_log_info("guangtao pa_alsa_sink_new use_mmap d%",use_mmap);
+     /* Override with modargs if provided */
+     if (pa_modargs_get_sample_spec_and_channel_map(ma, &ss, &map, PA_CHANNEL_MAP_ALSA) < 0) {
+         pa_log("Failed to parse sample specification and channel map");
+diff --git a/src/modules/alsa/alsa-source.c b/src/modules/alsa/alsa-source.c
+index 28b7d5a..adace10 100755
+--- a/src/modules/alsa/alsa-source.c
++++ b/src/modules/alsa/alsa-source.c
+@@ -1900,8 +1900,8 @@ pa_source *pa_alsa_source_new(pa_module *m, pa_modargs *ma, const char*driver, p
+     uint32_t nfrags, frag_size, buffer_size, tsched_size, tsched_watermark;
+     snd_pcm_uframes_t period_frames, buffer_frames, tsched_frames;
+     size_t frame_size;
+-    bool use_mmap = false;
+-    //bool use_mmap = true;
++    //bool use_mmap = false;
++    bool use_mmap = true;
+     bool use_tsched = true;
+     bool ignore_dB = false;
+     bool namereg_fail = false;
+@@ -1935,7 +1935,7 @@ pa_source *pa_alsa_source_new(pa_module *m, pa_modargs *ma, const char*driver, p
+                 pa_assert(pa_channel_map_compatible(&mapping->channel_map, &ss));
+         }
+     }
+-
++pa_log_info("guangtao pa_alsa_source_new use_mmap d%",use_mmap);
+     /* Override with modargs if provided */
+     if (pa_modargs_get_sample_spec_and_channel_map(ma, &ss, &map, PA_CHANNEL_MAP_ALSA) < 0) {
+         pa_log("Failed to parse sample specification and channel map");
+diff --git a/src/modules/alsa/module-alsa-card.c b/src/modules/alsa/module-alsa-card.c
+index 1e1090f..468b025 100755
+--- a/src/modules/alsa/module-alsa-card.c
++++ b/src/modules/alsa/module-alsa-card.c
+@@ -125,6 +125,8 @@ struct userdata {
+     bool use_ucm;
+     pa_alsa_ucm_config ucm;
+ 
++    void *voice_ucm;
++
+ };
+ 
+ struct profile_data {
+@@ -193,7 +195,9 @@ static void add_disabled_profile(pa_hashmap *profiles) {
+ 
+     pa_hashmap_put(profiles, p->name, p);
+ }
+-
++extern void * ucm_voice_open();
++extern int ucm_voice_close(void *);
++//void *voice_ucm= NULL;
+ static int card_set_profile(pa_card *c, pa_card_profile *new_profile) {
+     struct userdata *u;
+     struct profile_data *nd, *od;
+@@ -201,6 +205,7 @@ static int card_set_profile(pa_card *c, pa_card_profile *new_profile) {
+     pa_alsa_mapping *am;
+     pa_queue *sink_inputs = NULL, *source_outputs = NULL;
+     int ret = 0;
++    
+ 
+     pa_assert(c);
+     pa_assert(new_profile);
+@@ -246,6 +251,33 @@ static int card_set_profile(pa_card *c, pa_card_profile *new_profile) {
+             ret = -1;
+             goto finish;
+         }
++         pa_log_info("guangtao pa_alsa_ucm_set_profile %s",nd->profile->name);
++        if(nd->profile&&
++           (pa_streq(nd->profile->name,"Voice_Call"))&&
++           (nd->profile->name != od->profile->name))
++        {
++            pa_log_info("guangtao Voice_Call profiles need open voice call in");
++            if(u->voice_ucm)
++            {
++                pa_log_info("guangtao Voice_Call profiles  open voice call fail");
++            }else
++            {
++                u->voice_ucm=ucm_voice_open();
++                pa_log_info("guangtao Voice_Call profiles need open voice call out");
++            }
++        }
++         if(nd->profile&&
++           (pa_streq(od->profile->name,"Voice_Call"))&&
++           (nd->profile->name != od->profile->name))
++        {
++            pa_log_info("guangtao Voice_Call profiles need close voice call in");
++            if(u->voice_ucm)
++            {
++                ucm_voice_close(u->voice_ucm);
++                pa_log_info("guangtao Voice_Call profiles  close voice call ok");
++            }
++            
++        }
+     }
+ 
+     if (nd->profile && nd->profile->output_mappings)
+diff --git a/src/modules/module-device-manager.c b/src/modules/module-device-manager.c
+index 0b24796..65a8c17 100755
+--- a/src/modules/module-device-manager.c
++++ b/src/modules/module-device-manager.c
+@@ -948,7 +948,7 @@ static pa_hook_result_t route_sink_headphone_port(struct userdata *u,bool is_hea
+         }else if(s && s->name && mystrstr(s->name, "HiFi") &&
+                 s->driver && mystrstr(s->driver, "module-alsa-card")){
+                 
+-                pa_log_debug("route_sink_headphone_port alsa card is_headphone:%d", is_headphone);
++                pa_log_debug("route_sink_headphone_port alsa card HiFi is_headphone:%d", is_headphone);
+                 s->save_volume = false;
+ 
+                 if (is_headphone) {
+@@ -956,6 +956,17 @@ static pa_hook_result_t route_sink_headphone_port(struct userdata *u,bool is_hea
+                 } else {
+                     pa_sink_set_port(s, "[Out] Speaker", true);
+                 }
++        }else if(s && s->name && mystrstr(s->name, "Voice_Call") &&
++                s->driver && mystrstr(s->driver, "module-alsa-card")){
++                
++                pa_log_debug("route_sink_headphone_port alsa card Voice_Call is_headphone:%d", is_headphone);
++                s->save_volume = false;
++
++                if (is_headphone) {
++                    pa_sink_set_port(s, "[Out] HeadPhone", true);
++                } else {
++                    pa_sink_set_port(s, "[Out] Earpiece", true);
++                }
+         }
+     }
+     return PA_HOOK_OK;
+@@ -985,7 +996,18 @@ static pa_hook_result_t route_source_headphone_port(struct userdata *u,bool is_h
+         }else if(s && s->name && mystrstr(s->name, "HiFi") &&
+                 s->driver && mystrstr(s->driver, "module-alsa-card")){
+                 
+-                pa_log_debug("route_source_headphone_port alsa card is_headphone:%d", is_headphone);
++                pa_log_debug("route_source_headphone_port alsa card HiFi is_headphone:%d", is_headphone);
++                s->save_volume = false;
++
++                if (is_headphone) {
++                    pa_source_set_port(s, "[In] Headset-mic", true);
++                } else {
++                    pa_source_set_port(s, "[In] Mainmic", true);
++                }
++        }else if(s && s->name && mystrstr(s->name, "Voice_Call") &&
++                s->driver && mystrstr(s->driver, "module-alsa-card")){
++                
++                pa_log_debug("route_source_headphone_port alsa card Voice_Call is_headphone:%d", is_headphone);
+                 s->save_volume = false;
+ 
+                 if (is_headphone) {

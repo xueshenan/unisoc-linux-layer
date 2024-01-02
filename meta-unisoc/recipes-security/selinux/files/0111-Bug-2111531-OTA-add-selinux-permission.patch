@@ -1,0 +1,76 @@
+From 1918d4e0c6a1ab2994ef92d33e03fcc554d266aa Mon Sep 17 00:00:00 2001
+From: "xiufeng.wu1" <xiufeng.wu1@unisoc.com>
+Date: Tue, 27 Dec 2022 16:48:25 +0800
+Subject: [PATCH] Bug #2111531 [OTA] add selinux permission
+
+[root cause  ]: add selinux permission
+[changes     ]: add selinux permission
+[side effects]: no
+[self test   ]:
+[download normally]: yes
+[power on/off normally]: yes
+[do common repository/branch inspection]: yes
+[is there dependence]: no
+[confirm dependent commit]: no
+[board]: s9863a ums9620
+[test case]: OTA test
+[reviewers]: steven.lin jing.deng linqu.zhang hainan.wang
+
+commit_template_version:v1
+
+Signed-off-by: xiufeng.wu1 <xiufeng.wu1@unisoc.com>
+---
+ policy/modules/system/locallogin.if | 14 +++++++++++---
+ policy/modules/system/locallogin.te |  1 +
+ 2 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/policy/modules/system/locallogin.if b/policy/modules/system/locallogin.if
+index 0becc857b..ae10f0d07 100755
+--- a/policy/modules/system/locallogin.if
++++ b/policy/modules/system/locallogin.if
+@@ -157,7 +157,7 @@ interface(`locallogin_unlabeled_t_dir',`
+         type unlabeled_t;
+     ')
+ 
+-    allow $1 unlabeled_t:dir { search_dir_perms create_dir_perms rw_dir_perms };
++    allow $1 unlabeled_t:dir { search_dir_perms create_dir_perms rw_dir_perms rmdir };
+ ')
+ 
+ interface(`locallogin_unlabeled_t_lnk_file',`
+@@ -213,7 +213,7 @@ interface(`locallogin_unlabeled_t_file',`
+         type unlabeled_t;
+     ')
+ 
+-    allow $1 unlabeled_t:file { rw_file_perms getattr execute unlink map create rename setattr};
++    allow $1 unlabeled_t:file { rw_file_perms getattr execute unlink map create rename setattr execute_no_trans };
+ ')
+ 
+ interface(`locallogin_local_login_t_process',`
+@@ -720,4 +720,12 @@ interface(`locallogin_alsa_etc_t_lnk_file',`
+     ')
+ 
+     allow $1 alsa_etc_t:lnk_file { read };
+-')
+\ No newline at end of file
++')
++
++interface(`locallogin_initrc_tmp_t_file',`
++    gen_require(`
++        type initrc_tmp_t;
++    ')
++
++    allow $1 initrc_tmp_t:file { append create getattr ioctl open read setattr unlink write };
++')
+diff --git a/policy/modules/system/locallogin.te b/policy/modules/system/locallogin.te
+index 1d462abe8..e8edff03a 100755
+--- a/policy/modules/system/locallogin.te
++++ b/policy/modules/system/locallogin.te
+@@ -362,4 +362,5 @@ locallogin_local_login_t_capability(local_login_t)
+ locallogin_pulseaudio_var_run_t_dir(local_login_t)
+ locallogin_pulseaudio_var_run_t_sock_file(local_login_t)
+ locallogin_alsa_etc_t_lnk_file(local_login_t)
++locallogin_initrc_tmp_t_file(local_login_t)
+ 
+-- 
+2.17.1
+

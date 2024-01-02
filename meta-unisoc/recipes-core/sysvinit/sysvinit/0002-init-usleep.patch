@@ -1,0 +1,49 @@
+diff --git a/src/init.c b/src/init.c
+index 27532ad..f913a6f 100644
+--- a/src/init.c
++++ b/src/init.c
+@@ -128,7 +128,7 @@ int wrote_wtmp_reboot = 1;	/* Set when we wrote the reboot record */
+ int wrote_utmp_reboot = 1;	/* Set when we wrote the reboot record */
+ int wrote_wtmp_rlevel = 1;	/* Set when we wrote the runlevel record */
+ int wrote_utmp_rlevel = 1;	/* Set when we wrote the runlevel record */
+-int sltime = 5;			/* Sleep time between TERM and KILL */
++int sltime = 500;			/* Sleep time between TERM and KILL */
+ char *argv0;			/* First arguments; show up in ps listing */
+ int maxproclen;			/* Maximal length of argv[0] with \0 */
+ struct utmp utproto;		/* Only used for sizeof(utproto.ut_id) */
+@@ -233,6 +233,17 @@ void do_sleep(int sec)
+ 		;
+ }
+ 
++static
++void do_usleep(int usec)
++{
++	struct timeval tv;
++
++	tv.tv_sec = 0;
++	tv.tv_usec = usec;
++
++	while(select(0, NULL, NULL, NULL, &tv) < 0 && errno == EINTR)
++		;
++}
+ 
+ /*
+  *	Non-failing allocation routines (init cannot fail).
+@@ -1533,7 +1544,7 @@ void read_inittab(void)
+ 			foundOne = 0; /* Skip the sleep below. */
+ 			break;
+ 		}
+-		do_sleep(1);
++		do_usleep(10000);
+ 	}
+     }
+   }
+@@ -1541,7 +1552,7 @@ void read_inittab(void)
+   /*
+    *	Now give all processes the chance to die and collect exit statuses.
+    */
+-  if (foundOne) do_sleep(1);
++  if (foundOne) do_usleep(100000);
+   for(ch = family; ch; ch = ch->next)
+ 	if (ch->flags & KILLME) {
+ 		if (!(ch->flags & ZOMBIE))

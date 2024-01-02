@@ -1,0 +1,88 @@
+From 95343bfb31e7f5994991dfa06ffe4883c71065df Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Wed, 28 Sep 2022 17:35:11 +0800
+Subject: [PATCH] Bug #2011601 login-permission
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/services/gpsd.if | 20 ++++++++++++++++++--
+ policy/modules/services/gpsd.te |  2 ++
+ policy/modules/system/mount.if  |  2 +-
+ 3 files changed, 21 insertions(+), 3 deletions(-)
+
+diff --git a/policy/modules/services/gpsd.if b/policy/modules/services/gpsd.if
+index 61a50e98b..764d0c579 100644
+--- a/policy/modules/services/gpsd.if
++++ b/policy/modules/services/gpsd.if
+@@ -101,10 +101,10 @@ interface(`gpsd_admin',`
+ 
+ interface(`gpsd_user_devpts_t_chr_file',`
+     gen_require(`
+-        type gpsd_t;
++        type user_devpts_t;
+     ')
+ 
+-   allow $1 gpsd_t:chr_file {setattr};
++   allow $1 user_devpts_t:chr_file {setattr write map open read};
+ ')
+ 
+ interface(`gpsd_etc_t_file',`
+@@ -164,3 +164,19 @@ interface(`gpsd_sysadm_t_unix_dgram_socket',`
+     allow $1 sysadm_t:unix_dgram_socket {sendto};
+ ')
+ 
++interface(`gpsd_device_t_sock_file',`
++    gen_require(`
++        type device_t;
++    ')
++
++   allow $1 device_t:sock_file {write map open read};
++')
++
++interface(`gpsd_gpsd_t_process',`
++    gen_require(`
++        type gpsd_t;
++    ')
++
++   allow $1 gpsd_t:process {getsession};
++')
++
+diff --git a/policy/modules/services/gpsd.te b/policy/modules/services/gpsd.te
+index 0009ee598..b500bd2ee 100644
+--- a/policy/modules/services/gpsd.te
++++ b/policy/modules/services/gpsd.te
+@@ -91,4 +91,6 @@ gpsd_unlabeled_t_dir(gpsd_t)
+ gpsd_gpsd_t_unix_stream_socket(gpsd_t)
+ gpsd_sysadm_t_unix_stream_socket(gpsd_t)
+ gpsd_sysadm_t_unix_dgram_socket(gpsd_t)
++gpsd_device_t_sock_file(gpsd_t)
++gpsd_gpsd_t_process(gpsd_t)
+ 
+diff --git a/policy/modules/system/mount.if b/policy/modules/system/mount.if
+index c82a1644a..e9e812726 100644
+--- a/policy/modules/system/mount.if
++++ b/policy/modules/system/mount.if
+@@ -273,6 +273,6 @@ interface(`mount_configfs_t_dir',`
+         type configfs_t;
+     ')
+ 
+-    allow $1 configfs_t:dir {mounton};
++    allow $1 configfs_t:dir {mounton getattr};
+ ')
+ 
+-- 
+2.17.1
+

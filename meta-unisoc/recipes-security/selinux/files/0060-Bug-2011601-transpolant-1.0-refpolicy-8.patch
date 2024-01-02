@@ -1,0 +1,41 @@
+From 5671ded8357364041fbc9b8d67c7d21c96ac7385 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Tue, 11 Oct 2022 00:45:47 +0800
+Subject: [PATCH] Bug #2011601-transpolant-1.0-refpolicy-8
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/system/logging.te | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/policy/modules/system/logging.te b/policy/modules/system/logging.te
+index 4ab048c81..4c2a8a789 100644
+--- a/policy/modules/system/logging.te
++++ b/policy/modules/system/logging.te
+@@ -637,4 +637,8 @@ logging_home_root_t_dir(klogd_t)
+ logging_dosfs_t_dir(syslogd_t)
+ logging_dosfs_t_file(syslogd_t)
+ logging_device_t_chr_file(klogd_t)
+-logging_device_t_chr_file(syslogd_t)
+\ No newline at end of file
++logging_device_t_chr_file(syslogd_t)
++
++
++
++#end
+-- 
+2.17.1
+

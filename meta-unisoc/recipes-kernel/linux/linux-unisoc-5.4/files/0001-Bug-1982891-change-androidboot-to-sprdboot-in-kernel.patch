@@ -1,0 +1,917 @@
+From 0194000de5b2de19954336b6d01e8618b207aa98 Mon Sep 17 00:00:00 2001
+From: Chengyuan Li <chengyuan.li@unisoc.com>
+Date: Mon, 15 Aug 2022 14:36:21 +0800
+Subject: [PATCH] Bug #1982891 change androidboot to sprdboot in kernel
+
+[root cause  ]: change androidboot to sprdboot
+[changes     ]: change androidboot to sprdboot
+[side effects]: na
+[self test   ]: ok
+[download normally]:ok
+[power on/off normally]:ok
+[do common repository/branch inspection]:ok
+[is there dependence]:ok
+[confirm dependent commit]:ok
+[board]:all
+[test case]:ok
+[reviewers]:changmao.guo xxing.wei
+
+commit_template_version:v1
+[change_type ] bringup --> sprd_chip_support
+[tag_product ] common
+
+Change-Id: Iaa66bbcaede1d8351c1139149c09ead306048cc9
+---
+ arch/arm/boot/dts/sp7731e-1h10-overlay.dts                | 2 +-
+ arch/arm/boot/dts/sp7731e-mach.dtsi                       | 2 +-
+ arch/arm/boot/dts/sp9832e-1h10_go-overlay.dts             | 2 +-
+ arch/arm/boot/dts/sp9832e-go-mach.dtsi                    | 2 +-
+ arch/arm/boot/dts/sp9863a-14c10-go_32b-overlay.dts        | 2 +-
+ arch/arm/boot/dts/sp9863a-1h10-go_32b-overlay.dts         | 2 +-
+ arch/arm/boot/dts/sp9863a.dts                             | 2 +-
+ arch/arm64/boot/dts/sprd/sc9863a-w12v1.dts                | 2 +-
+ arch/arm64/boot/dts/sprd/sp9863a-14c10_go-overlay.dts     | 2 +-
+ arch/arm64/boot/dts/sprd/sp9863a-1h10_go-overlay.dts      | 2 +-
+ arch/arm64/boot/dts/sprd/sp9863a.dts                      | 2 +-
+ arch/arm64/boot/dts/sprd/ums312-2h10-go-overlay.dts       | 2 +-
+ arch/arm64/boot/dts/sprd/ums312-2h10-overlay.dts          | 2 +-
+ arch/arm64/boot/dts/sprd/ums312-mach.dtsi                 | 2 +-
+ arch/arm64/boot/dts/sprd/ums512-1h10-go-overlay.dts       | 2 +-
+ arch/arm64/boot/dts/sprd/ums512-1h10-overlay.dts          | 2 +-
+ arch/arm64/boot/dts/sprd/ums512-w27v1.dts                 | 4 ++--
+ arch/arm64/boot/dts/sprd/ums512.dts                       | 2 +-
+ arch/arm64/boot/dts/sprd/ums9230-1h10-overlay.dts         | 2 +-
+ arch/arm64/boot/dts/sprd/ums9230-1h10_go-overlay.dts      | 2 +-
+ arch/arm64/boot/dts/sprd/ums9230-4h10-overlay.dts         | 2 +-
+ arch/arm64/boot/dts/sprd/ums9230-4h10_go-overlay.dts      | 2 +-
+ arch/arm64/boot/dts/sprd/ums9230-6h10-overlay.dts         | 2 +-
+ .../arm64/boot/dts/sprd/ums9230-haps-backdoor-overlay.dts | 2 +-
+ arch/arm64/boot/dts/sprd/ums9230-haps-flash-overlay.dts   | 2 +-
+ arch/arm64/boot/dts/sprd/ums9230.dts                      | 2 +-
+ .../arm64/boot/dts/sprd/ums9520-haps-backdoor-overlay.dts | 2 +-
+ arch/arm64/boot/dts/sprd/ums9620-1h10-overlay.dts         | 2 +-
+ arch/arm64/boot/dts/sprd/ums9620-mach.dtsi                | 2 +-
+ drivers/gpu/drm/sprd/dpu/dpu_lite_r1p0.c                  | 2 +-
+ drivers/gpu/drm/sprd/gsp/gsp_dev.c                        | 2 +-
+ drivers/gpu/drm/sprd/sprd_drm.c                           | 8 ++++----
+ drivers/input/touchscreen/adaptive-ts/ats_loader.c        | 2 +-
+ drivers/power/supply/bq2560x-charger.c                    | 4 ++--
+ drivers/power/supply/charger-manager.c                    | 6 +++---
+ drivers/power/supply/sc2703-charger.c                     | 2 +-
+ drivers/power/supply/sgm41511-charger.c                   | 4 ++--
+ drivers/scsi/ufs/ufs-qcom.c                               | 2 +-
+ .../soc/sprd/domain/sprd_camsys_pw_domain_qogirn6pro.c    | 2 +-
+ drivers/soc/sprd/domain/sprd_camsys_pw_domain_r7p0.c      | 2 +-
+ drivers/soc/sprd/domain/sprd_camsys_pw_domain_r8p0.c      | 2 +-
+ drivers/soc/sprd/domain/sprd_disp_pm_domain_sharkl3.c     | 2 +-
+ drivers/soc/sprd/domain/sprd_vpu_pw_domain.c              | 2 +-
+ drivers/soc/sprd/domain/sprd_vsp_pw_domain.c              | 2 +-
+ drivers/thermal/sc27xx_tsensor_thermal.c                  | 2 +-
+ drivers/thermal/sprd_ump96xx_tsensor.c                    | 2 +-
+ drivers/unisoc_platform/sprdwcn/boot/wcn_integrate_dev.c  | 2 +-
+ drivers/unisoc_platform/sprdwcn/platform/wcn_boot.c       | 4 ++--
+ drivers/usb/dwc3/dwc3-sprd.c                              | 6 +++---
+ drivers/usb/musb/musb_sprd.c                              | 2 +-
+ drivers/usb/phy/phy-sprd-pike2.c                          | 2 +-
+ drivers/usb/phy/phy-sprd-qogirl6.c                        | 2 +-
+ drivers/usb/phy/phy-sprd-qogirn6pro.c                     | 2 +-
+ drivers/usb/phy/phy-sprd-sharkl3.c                        | 2 +-
+ drivers/usb/phy/phy-sprd-sharkl5.c                        | 2 +-
+ drivers/usb/phy/phy-sprd-sharkl5Pro.c                     | 2 +-
+ drivers/usb/phy/phy-sprd-sharkle.c                        | 2 +-
+ drivers/watchdog/sprd_pmic_wdt.c                          | 6 +++---
+ drivers/watchdog/sprd_wdt.c                               | 6 +++---
+ drivers/watchdog/sprd_wdt_fiq.c                           | 6 +++---
+ 60 files changed, 77 insertions(+), 77 deletions(-)
+
+diff --git a/arch/arm/boot/dts/sp7731e-1h10-overlay.dts b/arch/arm/boot/dts/sp7731e-1h10-overlay.dts
+index d874c96fef0f..f3b59b3f8f26 100644
+--- a/arch/arm/boot/dts/sp7731e-1h10-overlay.dts
++++ b/arch/arm/boot/dts/sp7731e-1h10-overlay.dts
+@@ -229,7 +229,7 @@
+ };
+ 
+ &chosen {
+-	bootargs_ext = "androidboot.hardware=sp7731e_1h10 androidboot.dtbo_idx=0 androidboot.slot_suffix=_a dummy_hcd.num=0";
++	bootargs_ext = "sprdboot.hardware=sp7731e_1h10 sprdboot.dtbo_idx=0 sprdboot.slot_suffix=_a dummy_hcd.num=0";
+ };
+ 
+ &reserved_memory {
+diff --git a/arch/arm/boot/dts/sp7731e-mach.dtsi b/arch/arm/boot/dts/sp7731e-mach.dtsi
+index fbc59a962049..36eb07689dda 100644
+--- a/arch/arm/boot/dts/sp7731e-mach.dtsi
++++ b/arch/arm/boot/dts/sp7731e-mach.dtsi
+@@ -15,7 +15,7 @@
+ 
+ 	chosen: chosen {
+ 		stdout-path = &uart1;
+-		bootargs = "earlycon=sprd_serial,0x70100000,115200n8 loglevel=1 console=ttyS1,115200n8 init=/init root=/dev/ram0 rw printk.devkmsg=on androidboot.boot_devices=soc/soc:ap-ahb/20600000.sdio initcall_debug=1";
++		bootargs = "earlycon=sprd_serial,0x70100000,115200n8 loglevel=1 console=ttyS1,115200n8 init=/init root=/dev/ram0 rw printk.devkmsg=on sprdboot.boot_devices=soc/soc:ap-ahb/20600000.sdio initcall_debug=1";
+ 	};
+ 
+ 	memory: memory@80000000 {
+diff --git a/arch/arm/boot/dts/sp9832e-1h10_go-overlay.dts b/arch/arm/boot/dts/sp9832e-1h10_go-overlay.dts
+index f96607b8dba6..03fd078e6975 100644
+--- a/arch/arm/boot/dts/sp9832e-1h10_go-overlay.dts
++++ b/arch/arm/boot/dts/sp9832e-1h10_go-overlay.dts
+@@ -228,7 +228,7 @@
+ };
+ 
+ &chosen {
+-	bootargs_ext = "androidboot.hardware=sp9832e_1h10_go androidboot.dtbo_idx=0";
++	bootargs_ext = "sprdboot.hardware=sp9832e_1h10_go sprdboot.dtbo_idx=0";
+ };
+ 
+ &reserved_memory {
+diff --git a/arch/arm/boot/dts/sp9832e-go-mach.dtsi b/arch/arm/boot/dts/sp9832e-go-mach.dtsi
+index 8597ddafea6a..f4d416fa9649 100644
+--- a/arch/arm/boot/dts/sp9832e-go-mach.dtsi
++++ b/arch/arm/boot/dts/sp9832e-go-mach.dtsi
+@@ -19,7 +19,7 @@
+ 
+ 	chosen: chosen {
+ 		stdout-path = &uart1;
+-		bootargs = "earlycon=sprd_serial,0x70100000,115200n8 console=ttyS1,115200n8 loglevel=1 init=/init root=/dev/ram0 rw vmalloc=360M printk.devkmsg=on androidboot.boot_devices=soc/soc:ap-ahb/20600000.sdio initcall_debug=1";
++		bootargs = "earlycon=sprd_serial,0x70100000,115200n8 console=ttyS1,115200n8 loglevel=1 init=/init root=/dev/ram0 rw vmalloc=360M printk.devkmsg=on sprdboot.boot_devices=soc/soc:ap-ahb/20600000.sdio initcall_debug=1";
+ 	};
+ 
+ 	memory: memory@80000000 {
+diff --git a/arch/arm/boot/dts/sp9863a-14c10-go_32b-overlay.dts b/arch/arm/boot/dts/sp9863a-14c10-go_32b-overlay.dts
+index 5c2a50dd80e2..629b19151124 100644
+--- a/arch/arm/boot/dts/sp9863a-14c10-go_32b-overlay.dts
++++ b/arch/arm/boot/dts/sp9863a-14c10-go_32b-overlay.dts
+@@ -243,7 +243,7 @@
+ };
+ 
+ &chosen {
+-	bootargs_ext = "androidboot.hardware=s9863a14c10_go_32b";
++	bootargs_ext = "sprdboot.hardware=s9863a14c10_go_32b";
+ };
+ 
+ &reserved_memory {
+diff --git a/arch/arm/boot/dts/sp9863a-1h10-go_32b-overlay.dts b/arch/arm/boot/dts/sp9863a-1h10-go_32b-overlay.dts
+index 667f2f89d461..722ab190b951 100644
+--- a/arch/arm/boot/dts/sp9863a-1h10-go_32b-overlay.dts
++++ b/arch/arm/boot/dts/sp9863a-1h10-go_32b-overlay.dts
+@@ -286,7 +286,7 @@
+ };
+ 
+ &chosen {
+-	bootargs_ext = "androidboot.hardware=s9863a1h10_go_32b";
++	bootargs_ext = "sprdboot.hardware=s9863a1h10_go_32b";
+ };
+ 
+ &reserved_memory {
+diff --git a/arch/arm/boot/dts/sp9863a.dts b/arch/arm/boot/dts/sp9863a.dts
+index 984afbb8c31e..e679a2313ab4 100644
+--- a/arch/arm/boot/dts/sp9863a.dts
++++ b/arch/arm/boot/dts/sp9863a.dts
+@@ -32,7 +32,7 @@
+ 
+ 	chosen: chosen {
+ 		stdout-path = "serial1:115200n8";
+-		bootargs = "earlycon console=ttyS1,115200n8 loglevel=1 init=/init root=/dev/ram0 rw printk.devkmsg=on androidboot.boot_devices=soc/soc:ap-ahb/20600000.sdio dummy_hcd.num=0 initcall_debug=1";
++		bootargs = "earlycon console=ttyS1,115200n8 loglevel=1 init=/init root=/dev/ram0 rw printk.devkmsg=on sprdboot.boot_devices=soc/soc:ap-ahb/20600000.sdio dummy_hcd.num=0 initcall_debug=1";
+ 	};
+ 
+ 	extcon_gpio: extcon-gpio {
+diff --git a/arch/arm64/boot/dts/sprd/sc9863a-w12v1.dts b/arch/arm64/boot/dts/sprd/sc9863a-w12v1.dts
+index c8499086acca..045250a8b82f 100644
+--- a/arch/arm64/boot/dts/sprd/sc9863a-w12v1.dts
++++ b/arch/arm64/boot/dts/sprd/sc9863a-w12v1.dts
+@@ -38,7 +38,7 @@
+ 
+ 	chosen: chosen {
+ 		stdout-path = "serial1:115200n8";
+-		bootargs = "earlycon console=ttyS1,115200n8 loglevel=1 init=/init root=/dev/ram0 rw printk.devkmsg=on androidboot.boot_devices=soc/soc:ap-ahb/20600000.sdio dummy_hcd.num=0 androidboot.hardware=s9863a1h10";
++		bootargs = "earlycon console=ttyS1,115200n8 loglevel=1 init=/init root=/dev/ram0 rw printk.devkmsg=on sprdboot.boot_devices=soc/soc:ap-ahb/20600000.sdio dummy_hcd.num=0 sprdboot.hardware=s9863a1h10";
+ 	};
+ 
+ 	extcon_gpio: extcon-gpio {
+diff --git a/arch/arm64/boot/dts/sprd/sp9863a-14c10_go-overlay.dts b/arch/arm64/boot/dts/sprd/sp9863a-14c10_go-overlay.dts
+index de5760a96b81..64e21f7ec8a3 100644
+--- a/arch/arm64/boot/dts/sprd/sp9863a-14c10_go-overlay.dts
++++ b/arch/arm64/boot/dts/sprd/sp9863a-14c10_go-overlay.dts
+@@ -242,7 +242,7 @@
+ };
+ 
+ &chosen {
+-	bootargs_ext = "androidboot.hardware=s9863a14c10_go";
++	bootargs_ext = "sprdboot.hardware=s9863a14c10_go";
+ };
+ 
+ &reserved_memory {
+diff --git a/arch/arm64/boot/dts/sprd/sp9863a-1h10_go-overlay.dts b/arch/arm64/boot/dts/sprd/sp9863a-1h10_go-overlay.dts
+index 1a9367b0c7a6..9c7e1d0d71a4 100644
+--- a/arch/arm64/boot/dts/sprd/sp9863a-1h10_go-overlay.dts
++++ b/arch/arm64/boot/dts/sprd/sp9863a-1h10_go-overlay.dts
+@@ -286,7 +286,7 @@
+ };
+ 
+ &chosen {
+-	bootargs_ext = "androidboot.hardware=s9863a1h10_go";
++	bootargs_ext = "sprdboot.hardware=s9863a1h10_go";
+ };
+ 
+ &reserved_memory {
+diff --git a/arch/arm64/boot/dts/sprd/sp9863a.dts b/arch/arm64/boot/dts/sprd/sp9863a.dts
+index 8c9aa9b5aa91..b766f674725e 100644
+--- a/arch/arm64/boot/dts/sprd/sp9863a.dts
++++ b/arch/arm64/boot/dts/sprd/sp9863a.dts
+@@ -32,7 +32,7 @@
+ 
+ 	chosen: chosen {
+ 		stdout-path = "serial1:115200n8";
+-		bootargs = "earlycon console=ttyS1,115200n8 loop.max_part=7 loglevel=1 init=/init root=/dev/ram0 rw printk.devkmsg=on androidboot.boot_devices=soc/soc:ap-ahb/20600000.sdio dummy_hcd.num=0 swiotlb=1 initcall_debug=1 androidboot.init_fatal_panic=true";
++		bootargs = "earlycon console=ttyS1,115200n8 loop.max_part=7 loglevel=1 init=/init root=/dev/ram0 rw printk.devkmsg=on sprdboot.boot_devices=soc/soc:ap-ahb/20600000.sdio dummy_hcd.num=0 swiotlb=1 initcall_debug=1 sprdboot.init_fatal_panic=true";
+ 	};
+ 
+ 	extcon_gpio: extcon-gpio {
+diff --git a/arch/arm64/boot/dts/sprd/ums312-2h10-go-overlay.dts b/arch/arm64/boot/dts/sprd/ums312-2h10-go-overlay.dts
+index fb5ff0a89d9f..30d29b0bc4b7 100644
+--- a/arch/arm64/boot/dts/sprd/ums312-2h10-go-overlay.dts
++++ b/arch/arm64/boot/dts/sprd/ums312-2h10-go-overlay.dts
+@@ -274,7 +274,7 @@
+ };
+ 
+ &chosen {
+-	bootargs_ext = "androidboot.hardware=ums312_2h10_go androidboot.dtbo_idx=0";
++	bootargs_ext = "sprdboot.hardware=ums312_2h10_go sprdboot.dtbo_idx=0";
+ };
+ 
+ &usb {
+diff --git a/arch/arm64/boot/dts/sprd/ums312-2h10-overlay.dts b/arch/arm64/boot/dts/sprd/ums312-2h10-overlay.dts
+index 7039047a51e4..07b55e92e29b 100644
+--- a/arch/arm64/boot/dts/sprd/ums312-2h10-overlay.dts
++++ b/arch/arm64/boot/dts/sprd/ums312-2h10-overlay.dts
+@@ -274,7 +274,7 @@
+ };
+ 
+ &chosen {
+-	bootargs_ext = "androidboot.hardware=ums312_2h10 androidboot.dtbo_idx=0";
++	bootargs_ext = "sprdboot.hardware=ums312_2h10 sprdboot.dtbo_idx=0";
+ };
+ 
+ &usb {
+diff --git a/arch/arm64/boot/dts/sprd/ums312-mach.dtsi b/arch/arm64/boot/dts/sprd/ums312-mach.dtsi
+index 9bb665fd1f6e..82e6d07ec2b8 100644
+--- a/arch/arm64/boot/dts/sprd/ums312-mach.dtsi
++++ b/arch/arm64/boot/dts/sprd/ums312-mach.dtsi
+@@ -19,7 +19,7 @@
+ 
+ 	chosen: chosen {
+ 		stdout-path = &uart1;
+-		bootargs = "earlycon=sprd_serial,0x70100000,115200n8 console=ttyS1,115200n8 loglevel=1 init=/init root=/dev/ram0 ro rootwait swiotlb=1 printk.devkmsg=on androidboot.boot_devices=soc/soc:ap-apb/71400000.sdio dummy_hcd.num=0";
++		bootargs = "earlycon=sprd_serial,0x70100000,115200n8 console=ttyS1,115200n8 loglevel=1 init=/init root=/dev/ram0 ro rootwait swiotlb=1 printk.devkmsg=on sprdboot.boot_devices=soc/soc:ap-apb/71400000.sdio dummy_hcd.num=0";
+ 	};
+ 
+ 	memory: memory {
+diff --git a/arch/arm64/boot/dts/sprd/ums512-1h10-go-overlay.dts b/arch/arm64/boot/dts/sprd/ums512-1h10-go-overlay.dts
+index e49aa32a5d0e..70378ab272c3 100644
+--- a/arch/arm64/boot/dts/sprd/ums512-1h10-go-overlay.dts
++++ b/arch/arm64/boot/dts/sprd/ums512-1h10-go-overlay.dts
+@@ -526,7 +526,7 @@
+ };
+ 
+ &chosen {
+-	bootargs_ext = "androidboot.hardware=ums512_1h10_go";
++	bootargs_ext = "sprdboot.hardware=ums512_1h10_go";
+ };
+ 
+ &reserved_memory {
+diff --git a/arch/arm64/boot/dts/sprd/ums512-1h10-overlay.dts b/arch/arm64/boot/dts/sprd/ums512-1h10-overlay.dts
+index f9785bebe910..8df68fe14f0d 100644
+--- a/arch/arm64/boot/dts/sprd/ums512-1h10-overlay.dts
++++ b/arch/arm64/boot/dts/sprd/ums512-1h10-overlay.dts
+@@ -551,7 +551,7 @@
+ };
+ 
+ &chosen {
+-	bootargs_ext = "androidboot.hardware=ums512_1h10";
++	bootargs_ext = "sprdboot.hardware=ums512_1h10";
+ };
+ 
+ &reserved_memory {
+diff --git a/arch/arm64/boot/dts/sprd/ums512-w27v1.dts b/arch/arm64/boot/dts/sprd/ums512-w27v1.dts
+index 1f354acdc319..6ec895cc1932 100644
+--- a/arch/arm64/boot/dts/sprd/ums512-w27v1.dts
++++ b/arch/arm64/boot/dts/sprd/ums512-w27v1.dts
+@@ -39,7 +39,7 @@
+ 
+ 	chosen: chosen {
+ 		stdout-path = "serial1:115200n8";
+-		bootargs = "earlycon console=ttyS1,115200n8 loglevel=1 init=/init root=/dev/ram0 rw printk.devkmsg=on androidboot.boot_devices=soc/soc:ap-apb/71400000.sdio dummy_hcd.num=0";
++		bootargs = "earlycon console=ttyS1,115200n8 loglevel=1 init=/init root=/dev/ram0 rw printk.devkmsg=on sprdboot.boot_devices=soc/soc:ap-apb/71400000.sdio dummy_hcd.num=0";
+ 	};
+ 
+ 	extcon_gpio: extcon-gpio {
+@@ -704,7 +704,7 @@
+ };
+ 
+ &chosen {
+-	bootargs_ext = "androidboot.hardware=ums512_1h10";
++	bootargs_ext = "sprdboot.hardware=ums512_1h10";
+ };
+ 
+ &reserved_memory {
+diff --git a/arch/arm64/boot/dts/sprd/ums512.dts b/arch/arm64/boot/dts/sprd/ums512.dts
+index b27b71d8585d..367fffd97b3a 100644
+--- a/arch/arm64/boot/dts/sprd/ums512.dts
++++ b/arch/arm64/boot/dts/sprd/ums512.dts
+@@ -32,7 +32,7 @@
+ 
+ 	chosen: chosen {
+ 		stdout-path = "serial1:115200n8";
+-		bootargs = "earlycon console=ttyS1,115200n8 loop.max_part=7 loglevel=1 init=/init root=/dev/ram0 rw printk.devkmsg=on androidboot.boot_devices=soc/soc:ap-apb/71400000.sdio dummy_hcd.num=0 swiotlb=1 initcall_debug=1 androidboot.init_fatal_panic=true";
++		bootargs = "earlycon console=ttyS1,115200n8 loop.max_part=7 loglevel=1 init=/init root=/dev/ram0 rw printk.devkmsg=on sprdboot.boot_devices=soc/soc:ap-apb/71400000.sdio dummy_hcd.num=0 swiotlb=1 initcall_debug=1 sprdboot.init_fatal_panic=true";
+ 	};
+ 
+ 	extcon_gpio: extcon-gpio {
+diff --git a/arch/arm64/boot/dts/sprd/ums9230-1h10-overlay.dts b/arch/arm64/boot/dts/sprd/ums9230-1h10-overlay.dts
+index 43b7a67801a1..373ad9d2c604 100644
+--- a/arch/arm64/boot/dts/sprd/ums9230-1h10-overlay.dts
++++ b/arch/arm64/boot/dts/sprd/ums9230-1h10-overlay.dts
+@@ -369,7 +369,7 @@
+ };
+ 
+ &chosen {
+-	bootargs_ext = "androidboot.hardware=ums9230_1h10 androidboot.dtbo_idx=0";
++	bootargs_ext = "sprdboot.hardware=ums9230_1h10 sprdboot.dtbo_idx=0";
+ };
+ 
+ &reserved_memory {
+diff --git a/arch/arm64/boot/dts/sprd/ums9230-1h10_go-overlay.dts b/arch/arm64/boot/dts/sprd/ums9230-1h10_go-overlay.dts
+index 9fe8ba810c56..f353b319ed37 100644
+--- a/arch/arm64/boot/dts/sprd/ums9230-1h10_go-overlay.dts
++++ b/arch/arm64/boot/dts/sprd/ums9230-1h10_go-overlay.dts
+@@ -368,7 +368,7 @@
+ };
+ 
+ &chosen {
+-	bootargs_ext = "androidboot.hardware=ums9230_1h10_go androidboot.dtbo_idx=0";
++	bootargs_ext = "sprdboot.hardware=ums9230_1h10_go sprdboot.dtbo_idx=0";
+ };
+ 
+ &reserved_memory {
+diff --git a/arch/arm64/boot/dts/sprd/ums9230-4h10-overlay.dts b/arch/arm64/boot/dts/sprd/ums9230-4h10-overlay.dts
+index 6aa33cb61f8b..992595a2dbee 100644
+--- a/arch/arm64/boot/dts/sprd/ums9230-4h10-overlay.dts
++++ b/arch/arm64/boot/dts/sprd/ums9230-4h10-overlay.dts
+@@ -422,7 +422,7 @@
+ };
+ 
+ &chosen {
+-	bootargs_ext = "androidboot.hardware=ums9230_4h10 androidboot.dtbo_idx=0";
++	bootargs_ext = "sprdboot.hardware=ums9230_4h10 sprdboot.dtbo_idx=0";
+ };
+ 
+ &reserved_memory {
+diff --git a/arch/arm64/boot/dts/sprd/ums9230-4h10_go-overlay.dts b/arch/arm64/boot/dts/sprd/ums9230-4h10_go-overlay.dts
+index c410f5adc15e..a555658a366c 100644
+--- a/arch/arm64/boot/dts/sprd/ums9230-4h10_go-overlay.dts
++++ b/arch/arm64/boot/dts/sprd/ums9230-4h10_go-overlay.dts
+@@ -373,7 +373,7 @@
+ };
+ 
+ &chosen {
+-	bootargs_ext = "androidboot.hardware=ums9230_4h10_go androidboot.dtbo_idx=0";
++	bootargs_ext = "sprdboot.hardware=ums9230_4h10_go sprdboot.dtbo_idx=0";
+ };
+ 
+ &reserved_memory {
+diff --git a/arch/arm64/boot/dts/sprd/ums9230-6h10-overlay.dts b/arch/arm64/boot/dts/sprd/ums9230-6h10-overlay.dts
+index 9451d29aafb8..fd18ad2d23de 100644
+--- a/arch/arm64/boot/dts/sprd/ums9230-6h10-overlay.dts
++++ b/arch/arm64/boot/dts/sprd/ums9230-6h10-overlay.dts
+@@ -314,7 +314,7 @@
+ };
+ 
+ &chosen {
+-	bootargs_ext = "androidboot.hardware=ums9230_6h10 androidboot.dtbo_idx=0";
++	bootargs_ext = "sprdboot.hardware=ums9230_6h10 sprdboot.dtbo_idx=0";
+ };
+ 
+ &reserved_memory {
+diff --git a/arch/arm64/boot/dts/sprd/ums9230-haps-backdoor-overlay.dts b/arch/arm64/boot/dts/sprd/ums9230-haps-backdoor-overlay.dts
+index 024eb13e0fc7..879d0f2fb1e8 100644
+--- a/arch/arm64/boot/dts/sprd/ums9230-haps-backdoor-overlay.dts
++++ b/arch/arm64/boot/dts/sprd/ums9230-haps-backdoor-overlay.dts
+@@ -10,5 +10,5 @@
+ };
+ 
+ &chosen {
+-	bootargs = "earlycon console=ttyS1,115200n8 loglevel=7 init=/init root=/dev/ram0 rw androidboot.hardware=ums9230_haps androidboot.dtbo_idx=0 printk.devkmsg=on androidboot.boot_devices=memdisk0 androidboot.selinux=permissive";
++	bootargs = "earlycon console=ttyS1,115200n8 loglevel=7 init=/init root=/dev/ram0 rw sprdboot.hardware=ums9230_haps sprdboot.dtbo_idx=0 printk.devkmsg=on sprdboot.boot_devices=memdisk0 sprdboot.selinux=permissive";
+ };
+diff --git a/arch/arm64/boot/dts/sprd/ums9230-haps-flash-overlay.dts b/arch/arm64/boot/dts/sprd/ums9230-haps-flash-overlay.dts
+index 56790d61f500..f6088d120ae3 100644
+--- a/arch/arm64/boot/dts/sprd/ums9230-haps-flash-overlay.dts
++++ b/arch/arm64/boot/dts/sprd/ums9230-haps-flash-overlay.dts
+@@ -12,5 +12,5 @@
+ };
+ 
+ &chosen {
+-	bootargs = "earlycon console=ttyS1,115200n8 loglevel=7 init=/init root=/dev/ram0 rw androidboot.hardware=ums9230_haps_flash androidboot.dtbo_idx=0 printk.devkmsg=on androidboot.boot_devices=soc/soc:ap-apb/201d0000.sdio androidboot.selinux=permissive androidboot.force_normal_boot=1";
++	bootargs = "earlycon console=ttyS1,115200n8 loglevel=7 init=/init root=/dev/ram0 rw sprdboot.hardware=ums9230_haps_flash sprdboot.dtbo_idx=0 printk.devkmsg=on sprdboot.boot_devices=soc/soc:ap-apb/201d0000.sdio sprdboot.selinux=permissive sprdboot.force_normal_boot=1";
+ };
+diff --git a/arch/arm64/boot/dts/sprd/ums9230.dts b/arch/arm64/boot/dts/sprd/ums9230.dts
+index d8ad2e79674d..e95f7e9f5993 100644
+--- a/arch/arm64/boot/dts/sprd/ums9230.dts
++++ b/arch/arm64/boot/dts/sprd/ums9230.dts
+@@ -36,7 +36,7 @@
+ 
+ 	chosen: chosen {
+ 		stdout-path = "serial1:115200n8";
+-		bootargs = "earlycon console=ttyS1,115200n8 loop.max_part=7 loglevel=1 init=/init root=/dev/ram0 rw printk.devkmsg=on swiotlb=1 dummy_hcd.num=0 initcall_debug=1 androidboot.init_fatal_panic=true";
++		bootargs = "earlycon console=ttyS1,115200n8 loop.max_part=7 loglevel=1 init=/init root=/dev/ram0 rw printk.devkmsg=on swiotlb=1 dummy_hcd.num=0 initcall_debug=1 sprdboot.init_fatal_panic=true";
+ 	};
+ 
+ 	sprd-iq {
+diff --git a/arch/arm64/boot/dts/sprd/ums9520-haps-backdoor-overlay.dts b/arch/arm64/boot/dts/sprd/ums9520-haps-backdoor-overlay.dts
+index 4703112b390d..d89439bf6961 100644
+--- a/arch/arm64/boot/dts/sprd/ums9520-haps-backdoor-overlay.dts
++++ b/arch/arm64/boot/dts/sprd/ums9520-haps-backdoor-overlay.dts
+@@ -10,5 +10,5 @@
+ };
+ 
+ &chosen {
+-	bootargs = "earlycon console=ttyS1,115200n8 loglevel=7 init=/init root=/dev/ram0 rw androidboot.hardware=ums9520_haps androidboot.dtbo_idx=0 printk.devkmsg=on androidboot.boot_devices=memdisk0 androidboot.selinux=permissive androidboot.force_normal_boot=1";
++	bootargs = "earlycon console=ttyS1,115200n8 loglevel=7 init=/init root=/dev/ram0 rw sprdboot.hardware=ums9520_haps sprdboot.dtbo_idx=0 printk.devkmsg=on sprdboot.boot_devices=memdisk0 sprdboot.selinux=permissive sprdboot.force_normal_boot=1";
+ };
+diff --git a/arch/arm64/boot/dts/sprd/ums9620-1h10-overlay.dts b/arch/arm64/boot/dts/sprd/ums9620-1h10-overlay.dts
+index ef660c939904..bbf9ae131c18 100644
+--- a/arch/arm64/boot/dts/sprd/ums9620-1h10-overlay.dts
++++ b/arch/arm64/boot/dts/sprd/ums9620-1h10-overlay.dts
+@@ -366,7 +366,7 @@
+ };
+ 
+ &chosen {
+-	bootargs_ext = "androidboot.hardware=ums9620_1h10 androidboot.dtbo_idx=0";
++	bootargs_ext = "sprdboot.hardware=ums9620_1h10 sprdboot.dtbo_idx=0";
+ };
+ 
+ &thm_zone {
+diff --git a/arch/arm64/boot/dts/sprd/ums9620-mach.dtsi b/arch/arm64/boot/dts/sprd/ums9620-mach.dtsi
+index e9b8844e8d8b..aec4d7607203 100644
+--- a/arch/arm64/boot/dts/sprd/ums9620-mach.dtsi
++++ b/arch/arm64/boot/dts/sprd/ums9620-mach.dtsi
+@@ -31,7 +31,7 @@
+ 
+ 	chosen: chosen {
+ 		stdout-path = "serial1:115200n8";
+-		bootargs = "earlycon=sprd_serial,0x20210000,115200n8 console=ttyS1,115200n8 loop.max_part=7 loglevel=1 init=/init root=/dev/ram0 rw printk.devkmsg=on dummy_hcd.num=0 pcie_ports=compat swiotlb=1 initcall_debug=1 androidboot.init_fatal_panic=true";
++		bootargs = "earlycon=sprd_serial,0x20210000,115200n8 console=ttyS1,115200n8 loop.max_part=7 loglevel=1 init=/init root=/dev/ram0 rw printk.devkmsg=on dummy_hcd.num=0 pcie_ports=compat swiotlb=1 initcall_debug=1 sprdboot.init_fatal_panic=true";
+ 	};
+ 
+ 	dpu_dvfs: dpu-dvfs {
+diff --git a/drivers/gpu/drm/sprd/dpu/dpu_lite_r1p0.c b/drivers/gpu/drm/sprd/dpu/dpu_lite_r1p0.c
+index 5f54d3eaa3bd..3d15896d793d 100644
+--- a/drivers/gpu/drm/sprd/dpu/dpu_lite_r1p0.c
++++ b/drivers/gpu/drm/sprd/dpu/dpu_lite_r1p0.c
+@@ -180,7 +180,7 @@ static void dpu_charger_mode(void)
+ 		return;
+ 	}
+ 
+-	mode = strstr(cmdline, "androidboot.mode=charger");
++	mode = strstr(cmdline, "sprdboot.mode=charger");
+ 
+ 	if (mode)
+ 		boot_charging = 1;
+diff --git a/drivers/gpu/drm/sprd/gsp/gsp_dev.c b/drivers/gpu/drm/sprd/gsp/gsp_dev.c
+index a05a81502f67..c442dde9cb5c 100644
+--- a/drivers/gpu/drm/sprd/gsp/gsp_dev.c
++++ b/drivers/gpu/drm/sprd/gsp/gsp_dev.c
+@@ -156,7 +156,7 @@ static int boot_mode_check(void)
+ 	if (ret < 0)
+ 		return 0;
+ 
+-	if (strstr(cmd_line, "androidboot.mode=cali"))
++	if (strstr(cmd_line, "sprdboot.mode=cali"))
+ 		ret = 1;
+ 
+ 	return ret;
+diff --git a/drivers/gpu/drm/sprd/sprd_drm.c b/drivers/gpu/drm/sprd/sprd_drm.c
+index 8665556b74b9..3c0d2e5ca471 100644
+--- a/drivers/gpu/drm/sprd/sprd_drm.c
++++ b/drivers/gpu/drm/sprd/sprd_drm.c
+@@ -449,7 +449,7 @@ static int sprd_drm_probe(struct platform_device *pdev)
+ 	int ret;
+ 	bool cali_mode;
+ 
+-	cali_mode = boot_mode_check("androidboot.mode=cali");
++	cali_mode = boot_mode_check("sprdboot.mode=cali");
+ 	if (cali_mode) {
+ 		DRM_WARN("Calibration Mode! Don't register sprd drm driver");
+ 		return 0;
+@@ -505,7 +505,7 @@ static int sprd_drm_pm_suspend(struct device *dev)
+ 
+ 	DRM_INFO("%s()\n", __func__);
+ 
+-	if (boot_mode_check("androidboot.mode=autotest")) {
++	if (boot_mode_check("sprdboot.mode=autotest")) {
+ 		if (is_suspend)
+ 			return 0;
+ 
+@@ -551,7 +551,7 @@ static int sprd_drm_pm_resume(struct device *dev)
+ 		return 0;
+ 	}
+ 
+-	if (boot_mode_check("androidboot.mode=autotest")) {
++	if (boot_mode_check("sprdboot.mode=autotest")) {
+ 		DRM_WARN("BBAT mode not need resume\n");
+ 		return 0;
+ 	}
+@@ -616,7 +616,7 @@ static int __init sprd_drm_init(void)
+ 	int ret;
+ 	bool cali_mode;
+ 
+-	cali_mode = boot_mode_check("androidboot.mode=cali");
++	cali_mode = boot_mode_check("sprdboot.mode=cali");
+ 	if (cali_mode) {
+ 		DRM_WARN("Calibration Mode! Don't register sprd drm driver");
+ 		return 0;
+diff --git a/drivers/input/touchscreen/adaptive-ts/ats_loader.c b/drivers/input/touchscreen/adaptive-ts/ats_loader.c
+index e1f1d2ed32d5..2d87d3151726 100644
+--- a/drivers/input/touchscreen/adaptive-ts/ats_loader.c
++++ b/drivers/input/touchscreen/adaptive-ts/ats_loader.c
+@@ -88,7 +88,7 @@ static int ts_parse_cali_mode(char *str)
+ 		cali = false;
+ 	return 0;
+ }
+-__setup("androidboot.mode=", ts_parse_cali_mode);
++__setup("sprdboot.mode=", ts_parse_cali_mode);
+ #endif
+ 
+ /* parse key name using key code */
+diff --git a/drivers/power/supply/bq2560x-charger.c b/drivers/power/supply/bq2560x-charger.c
+index b60e826870a0..9fdd4f304f3f 100644
+--- a/drivers/power/supply/bq2560x-charger.c
++++ b/drivers/power/supply/bq2560x-charger.c
+@@ -202,9 +202,9 @@ static void power_path_control(struct bq2560x_charger_info *info)
+ 	if (strncmp(cmd_line, "charger", strlen("charger")) == 0)
+ 		info->disable_power_path = true;
+ 
+-	match = strstr(cmd_line, "androidboot.mode=");
++	match = strstr(cmd_line, "sprdboot.mode=");
+ 	if (match) {
+-		memcpy(result, (match + strlen("androidboot.mode=")),
++		memcpy(result, (match + strlen("sprdboot.mode=")),
+ 			sizeof(result) - 1);
+ 		if ((!strcmp(result, "cali")) || (!strcmp(result, "auto")))
+ 			info->disable_power_path = true;
+diff --git a/drivers/power/supply/charger-manager.c b/drivers/power/supply/charger-manager.c
+index edafc2b95eee..f96841882a92 100644
+--- a/drivers/power/supply/charger-manager.c
++++ b/drivers/power/supply/charger-manager.c
+@@ -6983,10 +6983,10 @@ static int get_boot_mode(void)
+ 	if (ret)
+ 		return ret;
+ 
+-	if (strstr(cmd_line, "androidboot.mode=cali") ||
+-	    strstr(cmd_line, "androidboot.mode=autotest"))
++	if (strstr(cmd_line, "sprdboot.mode=cali") ||
++	    strstr(cmd_line, "sprdboot.mode=autotest"))
+ 		allow_charger_enable = true;
+-	else if (strstr(cmd_line, "androidboot.mode=charger"))
++	else if (strstr(cmd_line, "sprdboot.mode=charger"))
+ 		is_charger_mode =  true;
+ 
+ 	return 0;
+diff --git a/drivers/power/supply/sc2703-charger.c b/drivers/power/supply/sc2703-charger.c
+index d0cad4cf4336..0b68a478bd7e 100644
+--- a/drivers/power/supply/sc2703-charger.c
++++ b/drivers/power/supply/sc2703-charger.c
+@@ -102,7 +102,7 @@ static int __init boot_mode(char *str)
+ 
+ 	return 0;
+ }
+-__setup("androidboot.mode=", boot_mode);
++__setup("sprdboot.mode=", boot_mode);
+ 
+ static bool sc2703_charger_is_bat_present(struct sc2703_charger_info *info)
+ {
+diff --git a/drivers/power/supply/sgm41511-charger.c b/drivers/power/supply/sgm41511-charger.c
+index 83c14c1c5f0e..860ee928b5ca 100644
+--- a/drivers/power/supply/sgm41511-charger.c
++++ b/drivers/power/supply/sgm41511-charger.c
+@@ -130,9 +130,9 @@ static void power_path_control(struct sgm41511_charger_info *info)
+ 	if (strncmp(cmd_line, "charger", strlen("charger")) == 0)
+ 		info->disable_power_path = true;
+ 
+-	match = strstr(cmd_line, "androidboot.mode=");
++	match = strstr(cmd_line, "sprdboot.mode=");
+ 	if (match) {
+-		memcpy(result, (match + strlen("androidboot.mode=")),
++		memcpy(result, (match + strlen("sprdboot.mode=")),
+ 			sizeof(result) - 1);
+ 		if ((!strcmp(result, "cali")) || (!strcmp(result, "auto")))
+ 			info->disable_power_path = true;
+diff --git a/drivers/scsi/ufs/ufs-qcom.c b/drivers/scsi/ufs/ufs-qcom.c
+index de81fee5342a..8fdef026f11e 100644
+--- a/drivers/scsi/ufs/ufs-qcom.c
++++ b/drivers/scsi/ufs/ufs-qcom.c
+@@ -1175,7 +1175,7 @@ static int __init get_android_boot_dev(char *str)
+ 	strlcpy(android_boot_dev, str, ANDROID_BOOT_DEV_MAX);
+ 	return 1;
+ }
+-__setup("androidboot.bootdevice=", get_android_boot_dev);
++__setup("sprdboot.bootdevice=", get_android_boot_dev);
+ #endif
+ 
+ /**
+diff --git a/drivers/soc/sprd/domain/sprd_disp_pm_domain_sharkl3.c b/drivers/soc/sprd/domain/sprd_disp_pm_domain_sharkl3.c
+index a26615b2f181..1e9e4ae65575 100644
+--- a/drivers/soc/sprd/domain/sprd_disp_pm_domain_sharkl3.c
++++ b/drivers/soc/sprd/domain/sprd_disp_pm_domain_sharkl3.c
+@@ -114,7 +114,7 @@ static int sprd_disp_pm_domain_probe(struct platform_device *pdev)
+ 	/* Workaround:
+ 	 * When enter Cali mode, need to power off the disp manually.
+ 	 */
+-	cali_mode = cali_mode_check("androidboot.mode=cali");
++	cali_mode = cali_mode_check("sprdboot.mode=cali");
+ 	if (cali_mode) {
+ 		regmap_update_bits(pd->regmap,
+ 		    pd->ctrl_reg,
+diff --git a/drivers/soc/sprd/domain/sprd_vpu_pw_domain.c b/drivers/soc/sprd/domain/sprd_vpu_pw_domain.c
+index e0383c060b78..74ba7d7d49af 100644
+--- a/drivers/soc/sprd/domain/sprd_vpu_pw_domain.c
++++ b/drivers/soc/sprd/domain/sprd_vpu_pw_domain.c
+@@ -245,7 +245,7 @@ static int vpu_pd_probe(struct platform_device *pdev)
+ 			pname, pd->regmap[i], pd->reg[i], pd->mask[i]);
+ 	}
+ 
+-	cali_mode = cali_mode_check("androidboot.mode=cali");
++	cali_mode = cali_mode_check("sprdboot.mode=cali");
+ 	if (cali_mode) {
+ 		pr_info("cali mode enter success!");
+ 		ret = vpu_vsp_cali(pd);
+diff --git a/drivers/soc/sprd/domain/sprd_vsp_pw_domain.c b/drivers/soc/sprd/domain/sprd_vsp_pw_domain.c
+index 8aa97b409319..e349e16e4b3d 100644
+--- a/drivers/soc/sprd/domain/sprd_vsp_pw_domain.c
++++ b/drivers/soc/sprd/domain/sprd_vsp_pw_domain.c
+@@ -61,7 +61,7 @@ static int boot_mode_check(void)
+ 	if (ret < 0)
+ 		return 0;
+ 
+-	if (strstr(cmd_line, "androidboot.mode=cali"))
++	if (strstr(cmd_line, "sprdboot.mode=cali"))
+ 		ret = 1;
+ 
+ 	return ret;
+diff --git a/drivers/thermal/sc27xx_tsensor_thermal.c b/drivers/thermal/sc27xx_tsensor_thermal.c
+index 40293702ca00..21932f2505c4 100644
+--- a/drivers/thermal/sc27xx_tsensor_thermal.c
++++ b/drivers/thermal/sc27xx_tsensor_thermal.c
+@@ -245,7 +245,7 @@ static int get_boot_mode(void)
+ 	if (ret)
+ 		return ret;
+ 
+-	if (strstr(cmd_line, "androidboot.mode=cali"))
++	if (strstr(cmd_line, "sprdboot.mode=cali"))
+ 		cali_mode = true;
+ 	else
+ 		cali_mode = false;
+diff --git a/drivers/thermal/sprd_ump96xx_tsensor.c b/drivers/thermal/sprd_ump96xx_tsensor.c
+index bd9d800c2edc..dc11cc1322b1 100644
+--- a/drivers/thermal/sprd_ump96xx_tsensor.c
++++ b/drivers/thermal/sprd_ump96xx_tsensor.c
+@@ -280,7 +280,7 @@ static int get_boot_mode(void)
+ 	if (ret)
+ 		return ret;
+ 
+-	if (strstr(cmd_line, "androidboot.mode=cali"))
++	if (strstr(cmd_line, "sprdboot.mode=cali"))
+ 		cali_mode = true;
+ 	else
+ 		cali_mode = false;
+diff --git a/drivers/unisoc_platform/sprdwcn/boot/wcn_integrate_dev.c b/drivers/unisoc_platform/sprdwcn/boot/wcn_integrate_dev.c
+index 65b00d1ce370..98051f0a9364 100644
+--- a/drivers/unisoc_platform/sprdwcn/boot/wcn_integrate_dev.c
++++ b/drivers/unisoc_platform/sprdwcn/boot/wcn_integrate_dev.c
+@@ -48,7 +48,7 @@
+ #include "wcn_txrx.h"
+ #include "wcn_gnss_dump.h"
+ 
+-#define SUFFIX "androidboot.slot_suffix="
++#define SUFFIX "sprdboot.slot_suffix="
+ 
+ struct wcn_device_manage s_wcn_device;
+ 
+diff --git a/drivers/unisoc_platform/sprdwcn/platform/wcn_boot.c b/drivers/unisoc_platform/sprdwcn/platform/wcn_boot.c
+index 23a4b5ec5764..41a9d81d0616 100644
+--- a/drivers/unisoc_platform/sprdwcn/platform/wcn_boot.c
++++ b/drivers/unisoc_platform/sprdwcn/platform/wcn_boot.c
+@@ -62,13 +62,13 @@ module_param(clktype, int, 0444);
+ #ifdef MODULE_PARAM_PREFIX
+ #undef MODULE_PARAM_PREFIX
+ #endif
+-#define MODULE_PARAM_PREFIX	"androidboot."
++#define MODULE_PARAM_PREFIX	"sprdboot."
+ 
+ static char *slot_suffix;
+ module_param(slot_suffix, charp, 0444);
+ 
+ #ifndef SUFFIX
+-#define SUFFIX "androidboot.slot_suffix="
++#define SUFFIX "sprdboot.slot_suffix="
+ #endif
+ 
+ #ifndef WCN_CLKTYPE
+diff --git a/drivers/usb/dwc3/dwc3-sprd.c b/drivers/usb/dwc3/dwc3-sprd.c
+index 13f3c95bf479..9da17d58b79d 100644
+--- a/drivers/usb/dwc3/dwc3-sprd.c
++++ b/drivers/usb/dwc3/dwc3-sprd.c
+@@ -300,7 +300,7 @@ static int dwc3_sprd_charger_mode(void)
+ 		return 0;
+ 	}
+ 
+-	mode = strstr(cmdline, "androidboot.mode=charger");
++	mode = strstr(cmdline, "sprdboot.mode=charger");
+ 
+ 	if (mode)
+ 		return 1;
+@@ -323,12 +323,12 @@ static int dwc3_sprd_calibration_mode(void)
+ 		return 0;
+ 	}
+ 
+-	mode = strstr(cmdline, "androidboot.mode=cali");
++	mode = strstr(cmdline, "sprdboot.mode=cali");
+ 
+ 	if (mode)
+ 		return 1;
+ 	else {
+-		mode = strstr(cmdline, "androidboot.mode=autotest");
++		mode = strstr(cmdline, "sprdboot.mode=autotest");
+ 		if (mode)
+ 			return 1;
+ 		else
+diff --git a/drivers/usb/musb/musb_sprd.c b/drivers/usb/musb/musb_sprd.c
+index 8b9f3cf2f387..35d0a00d94a6 100644
+--- a/drivers/usb/musb/musb_sprd.c
++++ b/drivers/usb/musb/musb_sprd.c
+@@ -690,7 +690,7 @@ static void musb_sprd_charger_mode(void)
+ 	if (ret < 0)
+ 		return;
+ 
+-	s = strstr(cmd_line, "androidboot.mode=charger");
++	s = strstr(cmd_line, "sprdboot.mode=charger");
+ 	if (s != NULL)
+ 		boot_charging = 1;
+ 	else
+diff --git a/drivers/usb/phy/phy-sprd-pike2.c b/drivers/usb/phy/phy-sprd-pike2.c
+index ecc9c1d70a2b..399c5ccc1934 100644
+--- a/drivers/usb/phy/phy-sprd-pike2.c
++++ b/drivers/usb/phy/phy-sprd-pike2.c
+@@ -369,7 +369,7 @@ int sprd_hsphy_cali_mode(void)
+ 		return 0;
+ 	}
+ 
+-	mode = strstr(cmdline, "androidboot.mode=cali");
++	mode = strstr(cmdline, "sprdboot.mode=cali");
+ 
+ 	if (mode)
+ 		return 1;
+diff --git a/drivers/usb/phy/phy-sprd-qogirl6.c b/drivers/usb/phy/phy-sprd-qogirl6.c
+index 4dd3a25a4956..9b4233bcbea2 100644
+--- a/drivers/usb/phy/phy-sprd-qogirl6.c
++++ b/drivers/usb/phy/phy-sprd-qogirl6.c
+@@ -570,7 +570,7 @@ int sprd_hsphy_cali_mode(void)
+ 		return 0;
+ 	}
+ 
+-	mode = strstr(cmdline, "androidboot.mode=cali");
++	mode = strstr(cmdline, "sprdboot.mode=cali");
+ 
+ 	if (mode)
+ 		return 1;
+diff --git a/drivers/usb/phy/phy-sprd-qogirn6pro.c b/drivers/usb/phy/phy-sprd-qogirn6pro.c
+index c54a594c85ce..b4523f9a08f4 100644
+--- a/drivers/usb/phy/phy-sprd-qogirn6pro.c
++++ b/drivers/usb/phy/phy-sprd-qogirn6pro.c
+@@ -135,7 +135,7 @@ int sprd_hsphy_cali_mode(void)
+ 		return 0;
+ 	}
+ 
+-	mode = strstr(cmdline, "androidboot.mode=cali");
++	mode = strstr(cmdline, "sprdboot.mode=cali");
+ 
+ 	if (mode)
+ 		return 1;
+diff --git a/drivers/usb/phy/phy-sprd-sharkl3.c b/drivers/usb/phy/phy-sprd-sharkl3.c
+index 0fcd5e076516..219c28746a59 100644
+--- a/drivers/usb/phy/phy-sprd-sharkl3.c
++++ b/drivers/usb/phy/phy-sprd-sharkl3.c
+@@ -441,7 +441,7 @@ int sprd_hsphy_cali_mode(void)
+ 		return 0;
+ 	}
+ 
+-	mode = strstr(cmdline, "androidboot.mode=cali");
++	mode = strstr(cmdline, "sprdboot.mode=cali");
+ 
+ 	if (mode)
+ 		return 1;
+diff --git a/drivers/usb/phy/phy-sprd-sharkl5.c b/drivers/usb/phy/phy-sprd-sharkl5.c
+index e347a6b78332..539314111907 100644
+--- a/drivers/usb/phy/phy-sprd-sharkl5.c
++++ b/drivers/usb/phy/phy-sprd-sharkl5.c
+@@ -358,7 +358,7 @@ int sprd_hsphy_cali_mode(void)
+ 		return 0;
+ 	}
+ 
+-	mode = strstr(cmdline, "androidboot.mode=cali");
++	mode = strstr(cmdline, "sprdboot.mode=cali");
+ 
+ 	if (mode)
+ 		return 1;
+diff --git a/drivers/usb/phy/phy-sprd-sharkl5Pro.c b/drivers/usb/phy/phy-sprd-sharkl5Pro.c
+index fa284aa087d3..fdd1da4a3da2 100644
+--- a/drivers/usb/phy/phy-sprd-sharkl5Pro.c
++++ b/drivers/usb/phy/phy-sprd-sharkl5Pro.c
+@@ -452,7 +452,7 @@ int sprd_hsphy_cali_mode(void)
+ 		return 0;
+ 	}
+ 
+-	mode = strstr(cmdline, "androidboot.mode=cali");
++	mode = strstr(cmdline, "sprdboot.mode=cali");
+ 
+ 	if (mode)
+ 		return 1;
+diff --git a/drivers/usb/phy/phy-sprd-sharkle.c b/drivers/usb/phy/phy-sprd-sharkle.c
+index 5a24af63fbd4..09206996ead4 100644
+--- a/drivers/usb/phy/phy-sprd-sharkle.c
++++ b/drivers/usb/phy/phy-sprd-sharkle.c
+@@ -362,7 +362,7 @@ int sprd_hsphy_cali_mode(void)
+ 		return 0;
+ 	}
+ 
+-	mode = strstr(cmdline, "androidboot.mode=cali");
++	mode = strstr(cmdline, "sprdboot.mode=cali");
+ 
+ 	if (mode)
+ 		return 1;
+diff --git a/drivers/watchdog/sprd_pmic_wdt.c b/drivers/watchdog/sprd_pmic_wdt.c
+index 66183c310ac4..b9554e0906b9 100644
+--- a/drivers/watchdog/sprd_pmic_wdt.c
++++ b/drivers/watchdog/sprd_pmic_wdt.c
+@@ -157,13 +157,13 @@ static bool sprd_pimc_wdt_en(void)
+ 		return false;
+ 	}
+ 
+-	wdten_name_p = strstr(cmd_line, "androidboot.wdten=");
++	wdten_name_p = strstr(cmd_line, "sprdboot.wdten=");
+ 	if (!wdten_name_p) {
+-		pr_err("sprd_pmic_wdt can't find androidboot.wdten\n");
++		pr_err("sprd_pmic_wdt can't find sprdboot.wdten\n");
+ 		return false;
+ 	}
+ 
+-	sscanf(wdten_name_p, "androidboot.wdten=%8s", wdten_value);
++	sscanf(wdten_name_p, "sprdboot.wdten=%8s", wdten_value);
+ 	if (strncmp(wdten_value, SPRD_PMIC_WDTEN_MAGIC, strlen(SPRD_PMIC_WDTEN_MAGIC)))
+ 		return false;
+ 
+diff --git a/drivers/watchdog/sprd_wdt.c b/drivers/watchdog/sprd_wdt.c
+index 7e65861fceaf..609e1fe6ab19 100644
+--- a/drivers/watchdog/sprd_wdt.c
++++ b/drivers/watchdog/sprd_wdt.c
+@@ -81,13 +81,13 @@ static bool sprd_wdt_en(void)
+ 		return false;
+ 	}
+ 
+-	wdten_name_p = strstr(cmd_line, "androidboot.wdten=");
++	wdten_name_p = strstr(cmd_line, "sprdboot.wdten=");
+ 	if (!wdten_name_p) {
+-		pr_err("can't find androidboot.wdten\n");
++		pr_err("can't find sprdboot.wdten\n");
+ 		return false;
+ 	}
+ 
+-	sscanf(wdten_name_p, "androidboot.wdten=%8s", wdten_value);
++	sscanf(wdten_name_p, "sprdboot.wdten=%8s", wdten_value);
+ 	if (strncmp(wdten_value, SPRD_WDTEN_MAGIC, strlen(SPRD_WDTEN_MAGIC)))
+ 		return false;
+ 
+diff --git a/drivers/watchdog/sprd_wdt_fiq.c b/drivers/watchdog/sprd_wdt_fiq.c
+index 03ac0e431094..9542935eaaae 100644
+--- a/drivers/watchdog/sprd_wdt_fiq.c
++++ b/drivers/watchdog/sprd_wdt_fiq.c
+@@ -116,13 +116,13 @@ static bool sprd_dswdt_fiq_en(void)
+ 		return false;
+ 	}
+ 
+-	dswdten_name_p = strstr(cmd_line, "androidboot.dswdten=");
++	dswdten_name_p = strstr(cmd_line, "sprdboot.dswdten=");
+ 	if (!dswdten_name_p) {
+-		pr_err("can't find androidboot.dswdten\n");
++		pr_err("can't find sprdboot.dswdten\n");
+ 		return false;
+ 	}
+ 
+-	sscanf(dswdten_name_p, "androidboot.dswdten=%8s", dswdten_value);
++	sscanf(dswdten_name_p, "sprdboot.dswdten=%8s", dswdten_value);
+ 	if (strncmp(dswdten_value, SPRD_DSWDTEN_MAGIC, strlen(SPRD_DSWDTEN_MAGIC)))
+ 		return false;
+ 
+-- 
+2.17.1
+

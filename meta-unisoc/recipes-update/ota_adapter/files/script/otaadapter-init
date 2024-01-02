@@ -1,0 +1,59 @@
+#!/bin/sh
+
+DESC="ota_adapter-service"
+
+do_start() {
+	str1=$(cat /etc/ota_adapter/ota_adapter.ini)
+	str2=$(cat /mnt/data/ota_adapter.ini)
+	str3="ota-adapterenable"
+	result1=$(echo $str1 | grep "${str3}")
+	result2=$(echo $str2 | grep "${str3}")
+	if [ -s "/mnt/data/ota_adapter.ini" ]; then
+	  if [ "$result2" != "" ];then
+	    echo "enter the ota_adapter"
+            /usr/bin/ota_adapter &
+            exit 0
+	  else
+	    echo "stop the ota-adapter"
+	    exit 0
+	  fi
+        else
+	  echo "/mnt/data/ota_adapter.ini is not exit or empty"
+	  cp -rf /etc/ota_adapter/ota_adapter.ini /mnt/data/ota_adapter.ini
+	  if [ "$result1" != "" ];then
+	    echo "enter the ota_adapter"
+	    /usr/bin/ota_adapter &
+    	    exit 0
+	  else
+   	    echo "stop the ota-adapter"
+            exit 0
+          fi
+	fi
+}
+
+do_stop() {
+	start-stop-daemon --stop --name ota_adapter --quiet
+}
+
+case "$1" in
+  start)
+	echo "Starting $DESC"
+	do_start
+	;;
+  stop)
+	echo "Stopping $DESC"
+	do_stop
+	;;
+  restart|force-reload)
+	echo "Restarting $DESC"
+	do_stop
+	sleep 1
+	do_start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

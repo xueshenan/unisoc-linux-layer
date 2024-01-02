@@ -1,0 +1,3 @@
+ACTION=="add",GOTO="usb_add", KERNEL=="port0-partner", RUN+="/bin/bash /etc/hotplug-usb.sh", LABEL="usb_add"
+ACTION=="remove",GOTO="usb_remove", KERNEL=="port0-partner", RUN+="/bin/bash /etc/hotplug-rmusb.sh", LABEL="usb_remove"
+ACTION=="change",GOTO="usb_change", KERNEL=="musb-hdrc.1.auto", RUN+="/bin/bash /etc/hotplug-usb-ums.sh", LABEL="usb_change"

@@ -1,0 +1,57 @@
+From 660c5e14f8648487b29b71d5ff8960196cc38d1b Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Mon, 10 Oct 2022 23:50:50 +0800
+Subject: [PATCH] Bug #2011601-transplant-1.0-refpolicy-2
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/system/clock.if | 9 ++++-----
+ policy/modules/system/clock.te | 1 -
+ 2 files changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/policy/modules/system/clock.if b/policy/modules/system/clock.if
+index 57a7e6488..69f12c0fc 100644
+--- a/policy/modules/system/clock.if
++++ b/policy/modules/system/clock.if
+@@ -119,11 +119,10 @@ interface(`clock_rw_adjtime',`
+ ')
+ 
+ ##### unisoc permisson #####
+-interface(`clock_unlabeled_t_file',`
+-        gen_require(`
+-                type unlabeled_t;
+-        ')
+-
++interface(`hwclock_device_t_file',`
++    gen_require(`
++       type device_t;
++    ')
+     allow $1 device_t:file {read append write create open ioctl map};
+ ')
+ 
+diff --git a/policy/modules/system/clock.te b/policy/modules/system/clock.te
+index b161bcb3d..f3dc1f890 100644
+--- a/policy/modules/system/clock.te
++++ b/policy/modules/system/clock.te
+@@ -84,5 +84,4 @@ hwclock_device_t_file(hwclock_t)
+ hwclock_etc_t_file(hwclock_t)
+ hwclock_etc_t_dir(hwclock_t)
+ hwclock_device_t_chr_file(hwclock_t)
+-clock_unlabeled_t_file(hwclock_t)
+ 
+-- 
+2.17.1
+

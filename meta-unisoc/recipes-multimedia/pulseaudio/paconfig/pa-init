@@ -1,0 +1,6 @@
+#!/bin/sh
+#pulseaudio init script
+
+export PULSE_RUNTIME_PATH=/mnt/data/.config/pulse
+export PULSE_STATE_PATH=/mnt/data/.config/pulse
+

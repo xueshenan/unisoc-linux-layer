@@ -1,0 +1,1096 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfg>
+    <sensor_name>ov08a10</sensor_name>
+    <versionid>0x000D0010</versionid>
+    <scenario_num>13</scenario_num>
+    <scenario alia="com">
+        <id>0x0000000000000000</id>
+        <block_num>56</block_num>
+        <imageWidth>3264</imageWidth>
+        <imageHeight>2448</imageHeight>
+        <block name="3DNR">
+            <block_id>0x505b</block_id>
+            <param>com</param>
+        </block>
+        <block name="AE">
+            <block_id>0x4031</block_id>
+            <param>com</param>
+        </block>
+        <block name="AEM">
+            <block_id>0x400e</block_id>
+            <param>com</param>
+        </block>
+        <block name="AE_SYNC">
+            <block_id>0x5007</block_id>
+            <param>com</param>
+        </block>
+        <block name="AF">
+            <block_id>0x4033</block_id>
+            <param>com</param>
+        </block>
+        <block name="AFL_V1">
+            <block_id>0x4019</block_id>
+            <param>com</param>
+        </block>
+        <block name="AFL_V3">
+            <block_id>0x401a</block_id>
+            <param>com</param>
+        </block>
+        <block name="AFT">
+            <block_id>0x4030</block_id>
+            <param>com</param>
+        </block>
+        <block name="AI_PRO">
+            <block_id>0x5079</block_id>
+            <param>com</param>
+        </block>
+        <block name="ALSC">
+            <block_id>0x402f</block_id>
+            <param>com</param>
+        </block>
+        <block name="ANTIFL">
+            <block_id>0x403b</block_id>
+            <param>com</param>
+        </block>
+        <block name="ATM4GAMM">
+            <block_id>0x403d</block_id>
+            <param>com</param>
+        </block>
+        <block name="AWB">
+            <block_id>0x4032</block_id>
+            <param>com</param>
+        </block>
+        <block name="AWBC">
+            <block_id>0x400d</block_id>
+            <param>com</param>
+        </block>
+        <block name="BCHS">
+            <block_id>0x5065</block_id>
+            <param>com</param>
+        </block>
+        <block name="BLC">
+            <block_id>0x4002</block_id>
+            <param>com</param>
+        </block>
+        <block name="BPC">
+            <block_id>0x5054</block_id>
+            <param>com</param>
+        </block>
+        <block name="BWUD">
+            <block_id>0x5069</block_id>
+            <param>com</param>
+        </block>
+        <block name="CCE">
+            <block_id>0x4017</block_id>
+            <param>com</param>
+        </block>
+        <block name="CDN">
+            <block_id>0x505e</block_id>
+            <param>com</param>
+        </block>
+        <block name="CFA">
+            <block_id>0x5059</block_id>
+            <param>com</param>
+        </block>
+        <block name="CMC10">
+            <block_id>0x4013</block_id>
+            <param>com</param>
+        </block>
+        <block name="DFLASH">
+            <block_id>0x4036</block_id>
+            <param>com</param>
+        </block>
+        <block name="RGB_DITHER">
+            <block_id>0x5051</block_id>
+            <param>com</param>
+        </block>
+        <block name="D_ENVI">
+            <block_id>0x4035</block_id>
+            <param>com</param>
+        </block>
+        <block name="EDGE">
+            <block_id>0x5061</block_id>
+            <param>com</param>
+        </block>
+        <block name="FDR">
+            <block_id>0x5078</block_id>
+            <param>com</param>
+        </block>
+        <block name="GTM_V1">
+            <block_id>0x509e</block_id>
+            <param>com</param>
+        </block>
+        <block name="HDR3">
+            <block_id>0x508e</block_id>
+            <param>com</param>
+        </block>
+        <block name="HIST2">
+            <block_id>0x4022</block_id>
+            <param>com</param>
+        </block>
+        <block name="HSV">
+            <block_id>0x508d</block_id>
+            <param>com</param>
+        </block>
+        <block name="IMBLANC">
+            <block_id>0x506e</block_id>
+            <param>com</param>
+        </block>
+        <block name="LSC_2D">
+            <block_id>0x400a</block_id>
+            <param>com</param>
+        </block>
+        <block name="MFNR_4">
+            <block_id>0x5090</block_id>
+            <param>com</param>
+        </block>
+        <block name="MFNR_SD">
+            <block_id>0x5091</block_id>
+            <param>com</param>
+        </block>
+        <block name="MFSR">
+            <block_id>0x508f</block_id>
+            <param>com</param>
+        </block>
+        <block name="NFILTER">
+            <block_id>0x5063</block_id>
+            <param>com</param>
+        </block>
+        <block name="NLM">
+            <block_id>0x506f</block_id>
+            <param>com</param>
+        </block>
+        <block name="PPE">
+            <block_id>0x5073</block_id>
+            <param>com</param>
+        </block>
+        <block name="RGBGAIN">
+            <block_id>0x4007</block_id>
+            <param>com</param>
+        </block>
+        <block name="RGB_AFM">
+            <block_id>0x5055</block_id>
+            <param>com</param>
+        </block>
+        <block name="RGB_GAM">
+            <block_id>0x4014</block_id>
+            <param>com</param>
+        </block>
+        <block name="RGB_GTM">
+            <block_id>0x508a</block_id>
+            <param>com</param>
+        </block>
+        <block name="RGB_LTM">
+            <block_id>0x506b</block_id>
+            <param>com</param>
+        </block>
+        <block name="SWYNR">
+            <block_id>0x506c</block_id>
+            <param>com</param>
+        </block>
+        <block name="UVDIV">
+            <block_id>0x505a</block_id>
+            <param>com</param>
+        </block>
+        <block name="YNR">
+            <block_id>0x5060</block_id>
+            <param>com</param>
+        </block>
+        <block name="Y_GAMMA">
+            <block_id>0x5075</block_id>
+            <param>com</param>
+        </block>
+        <block name="cnr3">
+            <block_id>0x5076</block_id>
+            <param>com</param>
+        </block>
+        <block name="cnr_h">
+            <block_id>0x508b</block_id>
+            <param>com</param>
+        </block>
+        <block name="dct">
+            <block_id>0x5088</block_id>
+            <param>com</param>
+        </block>
+        <block name="mfnr">
+            <block_id>0x5080</block_id>
+            <param>com</param>
+        </block>
+        <block name="POST_CNR_H">
+            <block_id>0x508c</block_id>
+            <param>com</param>
+        </block>
+        <block name="post_ee">
+            <block_id>0x5082</block_id>
+            <param>com</param>
+        </block>
+        <block name="PYRAMID_OFFL">
+            <block_id>0x5087</block_id>
+            <param>com</param>
+        </block>
+        <block name="PYRAMID_ONL">
+            <block_id>0x5086</block_id>
+            <param>com</param>
+        </block>
+    </scenario>
+    <scenario alia="prv0">
+        <id>0x0000010000000000</id>
+        <block_num>24</block_num>
+        <imageWidth>3264</imageWidth>
+        <imageHeight>2448</imageHeight>
+        <block name="3DNR">
+            <block_id>0x505b</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="BPC">
+            <block_id>0x5054</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="BWUD">
+            <block_id>0x5069</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="CDN">
+            <block_id>0x505e</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="CFA">
+            <block_id>0x5059</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="RGB_DITHER">
+            <block_id>0x5051</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="EDGE">
+            <block_id>0x5061</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="IMBLANC">
+            <block_id>0x506e</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="MFNR_4">
+            <block_id>0x5090</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="NFILTER">
+            <block_id>0x5063</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="NLM">
+            <block_id>0x506f</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="PPE">
+            <block_id>0x5073</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="RGB_AFM">
+            <block_id>0x5055</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="SWYNR">
+            <block_id>0x506c</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="UVDIV">
+            <block_id>0x505a</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="YNR">
+            <block_id>0x5060</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="cnr3">
+            <block_id>0x5076</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="cnr_h">
+            <block_id>0x508b</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="dct">
+            <block_id>0x5088</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="mfnr">
+            <block_id>0x5080</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="POST_CNR_H">
+            <block_id>0x508c</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="post_ee">
+            <block_id>0x5082</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="PYRAMID_OFFL">
+            <block_id>0x5087</block_id>
+            <param>prv0</param>
+        </block>
+        <block name="PYRAMID_ONL">
+            <block_id>0x5086</block_id>
+            <param>prv0</param>
+        </block>
+    </scenario>
+    <scenario alia="prv1">
+        <id>0x0000020000000000</id>
+        <block_num>0</block_num>
+        <imageWidth>1632</imageWidth>
+        <imageHeight>1224</imageHeight>
+    </scenario>
+    <scenario alia="cap0">
+        <id>0x0000050000000000</id>
+        <block_num>24</block_num>
+        <imageWidth>3264</imageWidth>
+        <imageHeight>2448</imageHeight>
+        <block name="3DNR">
+            <block_id>0x505b</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="BPC">
+            <block_id>0x5054</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="BWUD">
+            <block_id>0x5069</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="CDN">
+            <block_id>0x505e</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="CFA">
+            <block_id>0x5059</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="RGB_DITHER">
+            <block_id>0x5051</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="EDGE">
+            <block_id>0x5061</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="IMBLANC">
+            <block_id>0x506e</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="MFNR_4">
+            <block_id>0x5090</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="NFILTER">
+            <block_id>0x5063</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="NLM">
+            <block_id>0x506f</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="PPE">
+            <block_id>0x5073</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="RGB_AFM">
+            <block_id>0x5055</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="SWYNR">
+            <block_id>0x506c</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="UVDIV">
+            <block_id>0x505a</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="YNR">
+            <block_id>0x5060</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="cnr3">
+            <block_id>0x5076</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="cnr_h">
+            <block_id>0x508b</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="dct">
+            <block_id>0x5088</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="mfnr">
+            <block_id>0x5080</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="POST_CNR_H">
+            <block_id>0x508c</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="post_ee">
+            <block_id>0x5082</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="PYRAMID_OFFL">
+            <block_id>0x5087</block_id>
+            <param>cap0</param>
+        </block>
+        <block name="PYRAMID_ONL">
+            <block_id>0x5086</block_id>
+            <param>cap0</param>
+        </block>
+    </scenario>
+    <scenario alia="cap1">
+        <id>0x0000060000000000</id>
+        <block_num>0</block_num>
+        <imageWidth>1632</imageWidth>
+        <imageHeight>1224</imageHeight>
+    </scenario>
+    <scenario alia="video0">
+        <id>0x0000090000000000</id>
+        <block_num>24</block_num>
+        <imageWidth>3264</imageWidth>
+        <imageHeight>2448</imageHeight>
+        <block name="3DNR">
+            <block_id>0x505b</block_id>
+            <param>video0</param>
+        </block>
+        <block name="BPC">
+            <block_id>0x5054</block_id>
+            <param>video0</param>
+        </block>
+        <block name="BWUD">
+            <block_id>0x5069</block_id>
+            <param>video0</param>
+        </block>
+        <block name="CDN">
+            <block_id>0x505e</block_id>
+            <param>video0</param>
+        </block>
+        <block name="CFA">
+            <block_id>0x5059</block_id>
+            <param>video0</param>
+        </block>
+        <block name="RGB_DITHER">
+            <block_id>0x5051</block_id>
+            <param>video0</param>
+        </block>
+        <block name="EDGE">
+            <block_id>0x5061</block_id>
+            <param>video0</param>
+        </block>
+        <block name="IMBLANC">
+            <block_id>0x506e</block_id>
+            <param>video0</param>
+        </block>
+        <block name="MFNR_4">
+            <block_id>0x5090</block_id>
+            <param>video0</param>
+        </block>
+        <block name="NFILTER">
+            <block_id>0x5063</block_id>
+            <param>video0</param>
+        </block>
+        <block name="NLM">
+            <block_id>0x506f</block_id>
+            <param>video0</param>
+        </block>
+        <block name="PPE">
+            <block_id>0x5073</block_id>
+            <param>video0</param>
+        </block>
+        <block name="RGB_AFM">
+            <block_id>0x5055</block_id>
+            <param>video0</param>
+        </block>
+        <block name="SWYNR">
+            <block_id>0x506c</block_id>
+            <param>video0</param>
+        </block>
+        <block name="UVDIV">
+            <block_id>0x505a</block_id>
+            <param>video0</param>
+        </block>
+        <block name="YNR">
+            <block_id>0x5060</block_id>
+            <param>video0</param>
+        </block>
+        <block name="cnr3">
+            <block_id>0x5076</block_id>
+            <param>video0</param>
+        </block>
+        <block name="cnr_h">
+            <block_id>0x508b</block_id>
+            <param>video0</param>
+        </block>
+        <block name="dct">
+            <block_id>0x5088</block_id>
+            <param>video0</param>
+        </block>
+        <block name="mfnr">
+            <block_id>0x5080</block_id>
+            <param>video0</param>
+        </block>
+        <block name="POST_CNR_H">
+            <block_id>0x508c</block_id>
+            <param>video0</param>
+        </block>
+        <block name="post_ee">
+            <block_id>0x5082</block_id>
+            <param>video0</param>
+        </block>
+        <block name="PYRAMID_OFFL">
+            <block_id>0x5087</block_id>
+            <param>video0</param>
+        </block>
+        <block name="PYRAMID_ONL">
+            <block_id>0x5086</block_id>
+            <param>video0</param>
+        </block>
+    </scenario>
+    <scenario alia="video1">
+        <id>0x00000A0000000000</id>
+        <block_num>0</block_num>
+        <imageWidth>1632</imageWidth>
+        <imageHeight>1224</imageHeight>
+    </scenario>
+    <scenario alia="video2">
+        <id>0x00000B0000000000</id>
+        <block_num>0</block_num>
+        <imageWidth>1920</imageWidth>
+        <imageHeight>1080</imageHeight>
+    </scenario>
+    <scenario alia="cap0_hdr">
+        <id>0x0000050001000000</id>
+        <block_num>25</block_num>
+        <imageWidth>3264</imageWidth>
+        <imageHeight>2448</imageHeight>
+        <block name="3DNR">
+            <block_id>0x505b</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="BAYER_NR">
+            <block_id>0x506f</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="BPC">
+            <block_id>0x5054</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="BWUD">
+            <block_id>0x5069</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="CCE_UVDIV">
+            <block_id>0x505a</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="CFAI">
+            <block_id>0x5059</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="CNR3">
+            <block_id>0x5076</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="CNR_H">
+            <block_id>0x508b</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="DCT">
+            <block_id>0x5088</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="EE">
+            <block_id>0x5061</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="IMBALANCE">
+            <block_id>0x506e</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="MFNR4">
+            <block_id>0x5090</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="MFNR">
+            <block_id>0x5080</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="POST_CNR_H">
+            <block_id>0x508c</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="POST_EE">
+            <block_id>0x5082</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="PPE">
+            <block_id>0x5073</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="PYRAMID_OFFL">
+            <block_id>0x5087</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="PYRAMID_ONL">
+            <block_id>0x5086</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="RGB_AFM">
+            <block_id>0x5055</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="RGB_DITHER">
+            <block_id>0x5051</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="SW3DNR">
+            <block_id>0x0</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="UV_CDN">
+            <block_id>0x505e</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="YNR">
+            <block_id>0x5060</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="YNRS">
+            <block_id>0x506c</block_id>
+            <param>cap0_hdr</param>
+        </block>
+        <block name="YUV_NOISEFILTER">
+            <block_id>0x5063</block_id>
+            <param>cap0_hdr</param>
+        </block>
+    </scenario>
+    <scenario alia="cap0_flash">
+        <id>0x0000050002000000</id>
+        <block_num>25</block_num>
+        <imageWidth>3264</imageWidth>
+        <imageHeight>2448</imageHeight>
+        <block name="3DNR">
+            <block_id>0x505b</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="BAYER_NR">
+            <block_id>0x506f</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="BPC">
+            <block_id>0x5054</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="BWUD">
+            <block_id>0x5069</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="CCE_UVDIV">
+            <block_id>0x505a</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="CFAI">
+            <block_id>0x5059</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="CNR3">
+            <block_id>0x5076</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="CNR_H">
+            <block_id>0x508b</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="DCT">
+            <block_id>0x5088</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="EE">
+            <block_id>0x5061</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="IMBALANCE">
+            <block_id>0x506e</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="MFNR4">
+            <block_id>0x5090</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="MFNR">
+            <block_id>0x5080</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="POST_CNR_H">
+            <block_id>0x508c</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="POST_EE">
+            <block_id>0x5082</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="PPE">
+            <block_id>0x5073</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="PYRAMID_OFFL">
+            <block_id>0x5087</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="PYRAMID_ONL">
+            <block_id>0x5086</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="RGB_AFM">
+            <block_id>0x5055</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="RGB_DITHER">
+            <block_id>0x5051</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="SW3DNR">
+            <block_id>0x0</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="UV_CDN">
+            <block_id>0x505e</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="YNR">
+            <block_id>0x5060</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="YNRS">
+            <block_id>0x506c</block_id>
+            <param>cap0_flash</param>
+        </block>
+        <block name="YUV_NOISEFILTER">
+            <block_id>0x5063</block_id>
+            <param>cap0_flash</param>
+        </block>
+    </scenario>
+    <scenario alia="cap0_zoom">
+        <id>0x0000050000000001</id>
+        <block_num>25</block_num>
+        <imageWidth>3264</imageWidth>
+        <imageHeight>2448</imageHeight>
+        <block name="3DNR">
+            <block_id>0x505b</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="BAYER_NR">
+            <block_id>0x506f</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="BPC">
+            <block_id>0x5054</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="BWUD">
+            <block_id>0x5069</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="CCE_UVDIV">
+            <block_id>0x505a</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="CFAI">
+            <block_id>0x5059</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="CNR3">
+            <block_id>0x5076</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="CNR_H">
+            <block_id>0x508b</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="DCT">
+            <block_id>0x5088</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="EE">
+            <block_id>0x5061</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="IMBALANCE">
+            <block_id>0x506e</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="MFNR4">
+            <block_id>0x5090</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="MFNR">
+            <block_id>0x5080</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="POST_CNR_H">
+            <block_id>0x508c</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="POST_EE">
+            <block_id>0x5082</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="PPE">
+            <block_id>0x5073</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="PYRAMID_OFFL">
+            <block_id>0x5087</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="PYRAMID_ONL">
+            <block_id>0x5086</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="RGB_AFM">
+            <block_id>0x5055</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="RGB_DITHER">
+            <block_id>0x5051</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="SW3DNR">
+            <block_id>0x0</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="UV_CDN">
+            <block_id>0x505e</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="YNR">
+            <block_id>0x5060</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="YNRS">
+            <block_id>0x506c</block_id>
+            <param>cap0_zoom</param>
+        </block>
+        <block name="YUV_NOISEFILTER">
+            <block_id>0x5063</block_id>
+            <param>cap0_zoom</param>
+        </block>
+    </scenario>
+    <scenario alia="qq_cap0">
+        <id>0x0002050000000000</id>
+        <block_num>25</block_num>
+        <imageWidth>3264</imageWidth>
+        <imageHeight>2448</imageHeight>
+        <block name="3DNR">
+            <block_id>0x505b</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="BAYER_NR">
+            <block_id>0x506f</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="BPC">
+            <block_id>0x5054</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="BWUD">
+            <block_id>0x5069</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="CCE_UVDIV">
+            <block_id>0x505a</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="CFAI">
+            <block_id>0x5059</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="CNR3">
+            <block_id>0x5076</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="CNR_H">
+            <block_id>0x508b</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="DCT">
+            <block_id>0x5088</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="EE">
+            <block_id>0x5061</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="IMBALANCE">
+            <block_id>0x506e</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="MFNR4">
+            <block_id>0x5090</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="MFNR">
+            <block_id>0x5080</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="POST_CNR_H">
+            <block_id>0x508c</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="POST_EE">
+            <block_id>0x5082</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="PPE">
+            <block_id>0x5073</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="PYRAMID_OFFL">
+            <block_id>0x5087</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="PYRAMID_ONL">
+            <block_id>0x5086</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="RGB_AFM">
+            <block_id>0x5055</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="RGB_DITHER">
+            <block_id>0x5051</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="SW3DNR">
+            <block_id>0x0</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="UV_CDN">
+            <block_id>0x505e</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="YNR">
+            <block_id>0x5060</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="YNRS">
+            <block_id>0x506c</block_id>
+            <param>qq_cap0</param>
+        </block>
+        <block name="YUV_NOISEFILTER">
+            <block_id>0x5063</block_id>
+            <param>qq_cap0</param>
+        </block>
+    </scenario>
+    <scenario alia="wechat_cap0">
+        <id>0x0001050000000000</id>
+        <block_num>25</block_num>
+        <imageWidth>3264</imageWidth>
+        <imageHeight>2448</imageHeight>
+        <block name="3DNR">
+            <block_id>0x505b</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="BAYER_NR">
+            <block_id>0x506f</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="BPC">
+            <block_id>0x5054</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="BWUD">
+            <block_id>0x5069</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="CCE_UVDIV">
+            <block_id>0x505a</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="CFAI">
+            <block_id>0x5059</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="CNR3">
+            <block_id>0x5076</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="CNR_H">
+            <block_id>0x508b</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="DCT">
+            <block_id>0x5088</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="EE">
+            <block_id>0x5061</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="IMBALANCE">
+            <block_id>0x506e</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="MFNR4">
+            <block_id>0x5090</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="MFNR">
+            <block_id>0x5080</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="POST_CNR_H">
+            <block_id>0x508c</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="POST_EE">
+            <block_id>0x5082</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="PPE">
+            <block_id>0x5073</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="PYRAMID_OFFL">
+            <block_id>0x5087</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="PYRAMID_ONL">
+            <block_id>0x5086</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="RGB_AFM">
+            <block_id>0x5055</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="RGB_DITHER">
+            <block_id>0x5051</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="SW3DNR">
+            <block_id>0x0</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="UV_CDN">
+            <block_id>0x505e</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="YNR">
+            <block_id>0x5060</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="YNRS">
+            <block_id>0x506c</block_id>
+            <param>wechat_cap0</param>
+        </block>
+        <block name="YUV_NOISEFILTER">
+            <block_id>0x5063</block_id>
+            <param>wechat_cap0</param>
+        </block>
+    </scenario>
+</cfg>

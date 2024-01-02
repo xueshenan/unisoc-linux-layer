@@ -1,0 +1,21 @@
+[Unit]
+Description=modem control Daemon Service
+After=property-service.service
+Before=cp_diskserver.service slogmodem.service mlogservice.service
+
+[Service]
+ExecStart=/usr/bin/modem_control -l /usr/lib/libmodem_utils.so
+
+#User=root
+#Group=system radio shell
+#SupplementaryGroups=inet net_admin net_raw
+#SecureBits=keep-caps
+#Capabilities=cap_net_admin=ep cap_net_bind_service=ep cap_net_broadcast=ep cap_net_raw=ep
+#CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW
+Restart=always
+#NonBlocking=true
+
+
+[Install]
+WantedBy=multi-user.target
+Alias=modem_control.service

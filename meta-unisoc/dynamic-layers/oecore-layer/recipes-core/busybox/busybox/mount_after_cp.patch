@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2019-2021 Unisoc (Shanghai) Technologies Co., Ltd.
+#
+# SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
+
+diff --git a/util-linux/mount.c b/util-linux/mount.c
+index 12ccd19..add795d 100644
+--- a/util-linux/mount.c
++++ b/util-linux/mount.c
+@@ -727,11 +727,25 @@ static int mount_it_now(struct mntent *mp, unsigned long vfsflags, char *filtero
+                                close(fd);
+                                rc = verbose_mount(mp->mnt_fsname, mp->mnt_dir, mp->mnt_type,
+                                                        vfsflags, filteropts);
+-                               if (rc == 0) {
+-                                       printf("mount volume %s success after formating\n",mp->mnt_fsname);
++                                       
++			       if ((rc == 0) && !(strcmp(mp->mnt_fsname, "/dev/ubi0_userdata") ==0 )) {
++				       printf("mount volume %s success after formating\n",mp->mnt_fsname);
+                                        goto mtab;
+                                }
+                        }
++		       if( (rc == 0) && (strcmp(mp->mnt_fsname, "/dev/ubi0_userdata") == 0)) {
++                               if(access("/mnt/userdata/data",0) || access("/mnt/userdata/var",0) || access("/mnt/userdata/home",0) || access("/mnt/userdata/.check",0)){
++                                               system("tar -xzf /mnt/.data.tar.gz -C /mnt/userdata/");
++                                               system("tar -xzf /mnt/.var.tar.gz -C /mnt/userdata/");
++                                               system("tar -xzf /mnt/.home.tar.gz -C /mnt/userdata/");
++                                               sync();
++                                               system("sleep 2");
++                                               system("touch /mnt/userdata/.check");
++                                               sync();
++                               }
++                                       goto mtab;
++                       }
++
+                }
+ 
+ 
+-- 
+2.17.1
+

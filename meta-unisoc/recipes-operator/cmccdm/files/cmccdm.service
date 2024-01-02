@@ -1,0 +1,11 @@
+[Unit]
+Description=example Daemon Service
+After=sprdrild.target
+
+[Service]
+ExecStart=/usr/bin/cmccdm
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

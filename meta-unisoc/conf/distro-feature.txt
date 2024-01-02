@@ -1,0 +1,8 @@
+## Collections of distro feature defined
+## Features meet one of bellow condition should be a distro feature
+## 1. a software feature independs on hardware
+## 2. a user layer software feature depends on hardware
+
+# feature-name	description
+ram		系统启动时配置zram相关参数
+perflink        network modules

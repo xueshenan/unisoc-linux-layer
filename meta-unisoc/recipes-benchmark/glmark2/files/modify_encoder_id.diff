@@ -1,0 +1,81 @@
+diff --git a/src/native-state-drm.cpp b/src/native-state-drm.cpp
+index dc2b323..09d5e35 100644
+--- a/src/native-state-drm.cpp
++++ b/src/native-state-drm.cpp
+@@ -493,7 +493,7 @@ NativeStateDRM::init()
+         Log::error("Failed to find a suitable mode\n");
+         return false;
+     }
+-
++/*
+     // Find a suitable encoder
+     for (int e = 0; e < resources_->count_encoders; e++) {
+         encoder_ = drmModeGetEncoder(fd_, resources_->encoders[e]);
+@@ -508,15 +508,66 @@ NativeStateDRM::init()
+         Log::error("Failed to find a suitable encoder\n");
+         return false;
+     }
++*/
++/********test********/
++// Find a suitable encoder
++    for (int e = 0; e < resources_->count_encoders; e++) {
++        bool found = false;
++        encoder_ = drmModeGetEncoder(fd_, resources_->encoders[e]);
++        for (int ce = 0; ce < connector_->count_encoders; ce++) {
++            if (encoder_ && encoder_->encoder_id == connector_->encoders[ce]) {
++                found = true;
++                break;
++            }
++        }
++        if (found)
++            break;
++        drmModeFreeEncoder(encoder_);
++        encoder_ = 0;
++    }
++
++    // If encoder is not connected to the connector try to find
++    // a suitable one
++    if (!encoder_) {
++        for (int e = 0; e < connector_->count_encoders; e++) {
++            encoder_ = drmModeGetEncoder(fd, connector_->encoders[e]);
++            for (int c = 0; c < resources_->count_crtcs; c++) {
++                if (encoder_->possible_crtcs & (1 << c)) {
++                    encoder_->crtc_id = resources_->crtcs[c];
++                    break;
++                }
++            }
++            if (encoder_->crtc_id) {
++                break;
++            }
++
++            drmModeFreeEncoder(encoder_);
++            encoder_ = 0;
++        }
++    }
+ 
++    if (!encoder_) {
++        Log::error("Failed to find a suitable encoder\n");
++        return false;
++    }
++/****************/
+     if (!init_gbm()) {
+         return false;
+     }
+ 
+     crtc_ = drmModeGetCrtc(fd_, encoder_->crtc_id);
+-    if (!crtc_) {
++    /*if (!crtc_) {
+         Log::error("Failed to get current CRTC\n");
+         return false;
++    }*/
++	 if (!crtc_) {
++        // if there is no current CRTC, make sure to attach a suitable one
++        for (int c = 0; c < resources_->count_crtcs; c++) {
++            if (encoder_->possible_crtcs & (1 << c)) {
++                encoder_->crtc_id = resources_->crtcs[c];
++                break;
++            }
++        }
+     }
+ 
+     signal(SIGINT, &NativeStateDRM::quit_handler);

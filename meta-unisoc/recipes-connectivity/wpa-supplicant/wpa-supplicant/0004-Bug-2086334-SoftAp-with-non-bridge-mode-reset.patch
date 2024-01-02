@@ -1,0 +1,15 @@
+diff --git a/wpa_supplicant/events.c b/wpa_supplicant/events.c
+index 5f7f0e2..e68f8a2 100755
+--- a/wpa_supplicant/events.c
++++ b/wpa_supplicant/events.c
+@@ -4185,8 +4185,7 @@ static void wpas_event_assoc_reject(struct wpa_supplicant *wpa_s,
+
+ int wpa_supplicant_event_softap_reset(struct wpa_supplicant *wpa_s)
+ {
+-    wpa_printf(MSG_INFO, "bridge_ifname : %s", wpa_s->bridge_ifname);
+-    if (wpa_s->bridge_ifname[0] && wpa_s->ap_iface) {
++    if (wpa_s->ap_iface) {
+         struct wpa_ssid *ssid = wpa_s->current_ssid;
+         if (ssid != NULL) {
+             wpa_printf(MSG_DEBUG, "AP mode, ssid : %s", wpa_ssid_txt(ssid->ssid, ssid->ssid_len));
+

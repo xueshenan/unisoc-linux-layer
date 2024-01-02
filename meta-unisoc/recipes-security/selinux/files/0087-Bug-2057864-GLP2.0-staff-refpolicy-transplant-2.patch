@@ -1,0 +1,174 @@
+From 70f06bc32d2b67b8a1bf6777d21b53a8c4f75599 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Thu, 27 Oct 2022 18:51:30 +0800
+Subject: [PATCH] Bug #2057864 GLP2.0-staff-refpolicy-transplant-2
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/roles/staff.if   | 92 ++++++++++++++++++++++++++++++++-
+ policy/modules/roles/staff.te   | 10 ++++
+ policy/modules/services/cron.if |  2 +-
+ 3 files changed, 101 insertions(+), 3 deletions(-)
+
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+index 143072be3..4d7842f6c 100644
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -102,7 +102,7 @@ interface(`staff_staff_t_capability',`
+         type staff_t;
+     ')
+ 
+-    allow $1 staff_t:capability { dac_override sys_tty_config};
++    allow $1 staff_t:capability { dac_override sys_tty_config setuid net_admin };
+ ')
+ 
+ interface(`staff_tty_device_t_chr_file',`
+@@ -325,7 +325,7 @@ interface(`staff_wireless_device_t_chr_file',`
+ 		type wireless_device_t;
+         ')
+ 
+-        allow $1 wireless_device_t:chr_file { write };
++        allow $1 wireless_device_t:chr_file { write read open map append ioctl getattr };
+ ')
+ 
+ interface(`staff_commplex_link_port_t_tcp_socket',`
+@@ -519,3 +519,91 @@ interface(`staff_kernel_t_process',`
+       allow $1 kernel_t:process {setsched};
+ ')
+ 
++interface(`staff_staff_t_bluetooth_socket',`
++    gen_require(`
++        type staff_t;
++    ')
++
++    allow $1 staff_t:bluetooth_socket { create bind listen connect write read accept setopt getattr };
++')
++
++interface(`staff_bluetooth_var_run_t_sock_file',`
++    gen_require(`
++        type bluetooth_var_run_t;
++    ')
++
++    allow $1 bluetooth_var_run_t:sock_file { write read open getattr map append };
++')
++
++interface(`staff_bluetooth_t_unix_stream_socket',`
++    gen_require(`
++        type bluetooth_t;
++    ')
++
++    allow $1 bluetooth_t:unix_stream_socket { connectto };
++')
++
++# Bug1791399
++interface(`staff_modules_dep_t_file',`
++    gen_require(`
++        type modules_dep_t;
++    ')
++
++    allow $1 modules_dep_t:file { open read write map };
++')
++
++interface(`staff_modules_object_t_file',`
++    gen_require(`
++        type modules_object_t;
++    ')
++
++    allow $1 modules_object_t:file { open read map write};
++')
++
++interface(`staff_modules_object_t_system',`
++    gen_require(`
++        type modules_object_t;
++    ')
++
++    allow $1 modules_object_t:system { module_load};
++')
++
++interface(`staff_var_run_t_dir',`
++    gen_require(`
++        type var_run_t;
++    ')
++
++    allow $1 var_run_t:dir { write add_name remove_name };
++')
++
++interface(`staff_var_run_t_file',`
++    gen_require(`
++        type var_run_t;
++    ')
++
++    allow $1 var_run_t:file { create write open read unlink map execute };
++')
++
++interface(`staff_var_run_t_sock_file',`
++    gen_require(`
++        type var_run_t;
++    ')
++    allow $1 var_run_t : sock_file { write };
++')
++
++interface(`staff_var_lock_t_file',`
++    gen_require(`
++        type var_lock_t;
++    ')
++
++    allow $1 var_lock_t:file { lock write open };
++')
++
++interface(`staff_xkb_var_lib_t_file',`
++	gen_require(`
++		type xkb_var_lib_t;
++    ')
++
++    allow $1 xkb_var_lib_t:file {map};
++')
++
+diff --git a/policy/modules/roles/staff.te b/policy/modules/roles/staff.te
+index 9b5db6fc5..62b9535eb 100644
+--- a/policy/modules/roles/staff.te
++++ b/policy/modules/roles/staff.te
+@@ -277,4 +277,14 @@ staff_staff_t_icmp_socket(staff_t)
+ staff_staff_t_rawip_socket(staff_t)
+ staff_initrc_t_dbus(staff_t)
+ staff_kernel_t_process(staff_t)
++staff_staff_t_bluetooth_socket(staff_t)
++staff_bluetooth_var_run_t_sock_file(staff_t)
++staff_bluetooth_t_unix_stream_socket(staff_t)
++staff_modules_dep_t_file(staff_t)
++staff_modules_object_t_file(staff_t)
++staff_modules_object_t_system(staff_t)
++staff_var_run_t_file(staff_t)
++staff_var_run_t_sock_file(staff_t)
++staff_var_lock_t_file(staff_t)
++staff_xkb_var_lib_t_file(staff_t)
+ 
+diff --git a/policy/modules/services/cron.if b/policy/modules/services/cron.if
+index 5442ef543..b5375f9d8 100644
+--- a/policy/modules/services/cron.if
++++ b/policy/modules/services/cron.if
+@@ -1001,7 +1001,7 @@ interface(`crond_unlabeled_t_dir',`
+         type unlabeled_t;
+     ')
+ 
+-    allow $1 unlabeled_t:dir {search_dir_perms rw_dir_perms create_dir_perms};
++    allow $1 unlabeled_t:dir {rw_dir_perms create_dir_perms};
+ ')
+ 
+ interface(`crond_unlabeled_t_lnk_file',`
+-- 
+2.17.1
+

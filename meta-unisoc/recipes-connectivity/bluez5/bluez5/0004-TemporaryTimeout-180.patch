@@ -1,0 +1,13 @@
+diff --git a/src/main.conf b/src/main.conf
+index 42f7e41c5..6288b5fb1 100644
+--- a/src/main.conf
++++ b/src/main.conf
+@@ -80,7 +80,7 @@
+ # How long to keep temporary devices around
+ # The value is in seconds. Default is 30.
+ # 0 = disable timer, i.e. never keep temporary devices
+-#TemporaryTimeout = 30
++TemporaryTimeout = 180
+ 
+ # Enables the device to issue an SDP request to update known services when
+ # profile is connected. Defaults to true.

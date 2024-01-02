@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2019-2021 Unisoc (Shanghai) Technologies Co., Ltd.
+#
+# SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
+
+diff --git a/sysklogd/syslogd.c b/sysklogd/syslogd.c
+index 5d4e524..69343da 100644
+--- a/sysklogd/syslogd.c
++++ b/sysklogd/syslogd.c
+@@ -178,6 +178,8 @@
+ #include <sys/shm.h>
+ #endif
+ 
++#include <unistd.h>
++
+ static void timestamp_and_log_internal(const char *msg);
+ #define DEBUG 0
+ 
+@@ -1051,6 +1053,14 @@ static void do_syslogd(void)
+ 	if (option_mask32 & OPT_kmsg)
+ 		kmsg_init();
+ 
++#if 1
++       while (access("/mnt/data", W_OK) && access("/mnt/media", W_OK))
++       {
++               /* code */
++       }
++
++#endif
++
+ 	timestamp_and_log_internal("syslogd started: BusyBox v" BB_VER);
+ 
+ 	while (!bb_got_signal) {
+-- 
+2.17.1
+

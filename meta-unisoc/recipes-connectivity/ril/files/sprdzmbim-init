@@ -1,0 +1,56 @@
+#!/bin/sh
+
+DESC="mbim-daemon"
+
+do_start() {
+	str1=$(cat /proc/cmdline)
+	str2="calibration="
+	startmbim=0
+
+	result=$(echo $str1 | grep "${str2}")
+
+	if [ ! -f "/mnt/data/mbimmode.ini" ];then
+		echo "mbimmode.ini not exist"
+	else
+		startmbim=$(/usr/bin/rwini.sh /mnt/data/mbimmode.ini property startmbim)
+		echo "startmbim = $startmbim"
+	fi
+
+	if [ "$result" != "" ];then
+		echo "enter the calibration"
+		exit 0
+	else
+		if [ "$startmbim" == "1" ];then
+			/usr/bin/mbim-daemon&
+			echo "enter the mbim $startmbim"
+		fi
+		exit 0
+	fi
+}
+
+do_stop() {
+	start-stop-daemon --stop --name mbim-daemon --quiet
+}
+
+case "$1" in
+  start)
+	echo "Starting $DESC"
+	do_start
+	;;
+  stop)
+	echo "Stopping $DESC"
+	do_stop
+	;;
+  restart|force-reload)
+	echo "Restarting $DESC"
+	do_stop
+	sleep 1
+	do_start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

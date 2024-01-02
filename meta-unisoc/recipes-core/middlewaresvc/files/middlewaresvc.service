@@ -1,0 +1,12 @@
+[Unit]
+Description=middlewaresvc
+
+[Service]
+ExecStart=/usr/bin/middlewaresvc
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+Alias=middlewaresvc.service
+

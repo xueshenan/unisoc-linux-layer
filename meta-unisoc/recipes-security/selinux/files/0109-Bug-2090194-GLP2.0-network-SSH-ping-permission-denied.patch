@@ -1,0 +1,18 @@
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+index 649c79b68..3952b0755 100755
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -498,7 +498,7 @@ interface(`staff_staff_t_rawip_socket',`
+         type staff_t;
+     ')
+ 
+-    allow $1 staff_t:rawip_socket { create setopt getopt write read };
++    allow $1 staff_t:rawip_socket { ioctl create setopt getopt write read };
+ ')
+ 
+ ##### Bug 1741443 unisoc sl8541e-smartpen ssh login function permission #####
+@@ -631,4 +631,3 @@ interface(`staff_initrc_t_bluetooth_socket',`
+ 
+     allow $1 initrc_t:bluetooth_socket { write read setopt getattr getopt };
+ ')
+-

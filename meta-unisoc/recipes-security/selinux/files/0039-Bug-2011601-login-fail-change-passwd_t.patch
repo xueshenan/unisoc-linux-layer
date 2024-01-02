@@ -1,0 +1,130 @@
+From 1068903e293aa24b8f900edb6c34dc587122afec Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Wed, 28 Sep 2022 14:55:52 +0800
+Subject: [PATCH] Bug #2011601 login-fail&change passwd_t
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/admin/usermanage.fc | 4 ++++
+ policy/modules/roles/sysadm.if     | 5 +++--
+ policy/modules/roles/sysadm.te     | 3 +++
+ policy/modules/system/modutils.if  | 8 ++++++++
+ policy/modules/system/modutils.te  | 1 +
+ 5 files changed, 19 insertions(+), 2 deletions(-)
+
+diff --git a/policy/modules/admin/usermanage.fc b/policy/modules/admin/usermanage.fc
+index 620eefc6f..6a051f8a5 100644
+--- a/policy/modules/admin/usermanage.fc
++++ b/policy/modules/admin/usermanage.fc
+@@ -4,7 +4,9 @@ ifdef(`distro_debian',`
+ 
+ /usr/bin/chage		--	gen_context(system_u:object_r:passwd_exec_t,s0)
+ /usr/bin/chfn		--	gen_context(system_u:object_r:chfn_exec_t,s0)
++/usr/bin/chfn\.shadow		--	gen_context(system_u:object_r:chfn_exec_t,s0)
+ /usr/bin/chsh		--	gen_context(system_u:object_r:chfn_exec_t,s0)
++/usr/bin/chsh\.shadow		--	gen_context(system_u:object_r:chfn_exec_t,s0)
+ /usr/bin/crack_[a-z]*	--	gen_context(system_u:object_r:crack_exec_t,s0)
+ /usr/bin/cracklib-[a-z]* --	gen_context(system_u:object_r:crack_exec_t,s0)
+ /usr/bin/gpasswd	--	gen_context(system_u:object_r:groupadd_exec_t,s0)
+@@ -14,6 +16,7 @@ ifdef(`distro_debian',`
+ /usr/bin/grpconv	--	gen_context(system_u:object_r:admin_passwd_exec_t,s0)
+ /usr/bin/grpunconv	--	gen_context(system_u:object_r:admin_passwd_exec_t,s0)
+ /usr/bin/passwd		--	gen_context(system_u:object_r:passwd_exec_t,s0)
++/usr/bin/passwd\.shadow		--	gen_context(system_u:object_r:passwd_exec_t,s0)
+ /usr/bin/pwconv		--	gen_context(system_u:object_r:admin_passwd_exec_t,s0)
+ /usr/bin/pwunconv	--	gen_context(system_u:object_r:admin_passwd_exec_t,s0)
+ /usr/bin/useradd	--	gen_context(system_u:object_r:useradd_exec_t,s0)
+@@ -39,6 +42,7 @@ ifdef(`distro_debian',`
+ /usr/sbin/usermod	--	gen_context(system_u:object_r:useradd_exec_t,s0)
+ /usr/sbin/vigr		--	gen_context(system_u:object_r:admin_passwd_exec_t,s0)
+ /usr/sbin/vipw		--	gen_context(system_u:object_r:admin_passwd_exec_t,s0)
++/usr/sbin/vipw\.shadow		--	gen_context(system_u:object_r:admin_passwd_exec_t,s0)
+ 
+ /usr/share/cracklib(/.*)?	gen_context(system_u:object_r:crack_db_t,s0)
+ 
+diff --git a/policy/modules/roles/sysadm.if b/policy/modules/roles/sysadm.if
+index 1e24f32c1..a7afcdd9c 100644
+--- a/policy/modules/roles/sysadm.if
++++ b/policy/modules/roles/sysadm.if
+@@ -13,6 +13,7 @@
+ #
+ interface(`sysadm_role_change',`
+ 	gen_require(`
++        type sysadm_t;
+ 		role sysadm_r;
+ 	')
+ 
+@@ -250,7 +251,7 @@ interface(`sysadm_device_t_chr_file',`
+ 	    type device_t;
+     ')
+ 
+-    allow $1 device_t:chr_file {write read open ioctl map};
++    allow $1 device_t:chr_file {write read open ioctl map setattr create};
+ ')
+ 
+ interface(`sysadm_modem_device_t_chr_file',`
+@@ -322,7 +323,7 @@ interface(`sysadm_event_device_t_chr_file',`
+         type event_device_t;
+     ')
+ 
+-    allow $1 event_device_t:chr_file {write ioctl map read open};
++    allow $1 event_device_t:chr_file {write ioctl map read open setattr};
+ ')
+ 
+ interface(`sysadm_usb_device_t_chr_file',`
+diff --git a/policy/modules/roles/sysadm.te b/policy/modules/roles/sysadm.te
+index 285097477..e0861e1fc 100644
+--- a/policy/modules/roles/sysadm.te
++++ b/policy/modules/roles/sysadm.te
+@@ -34,6 +34,9 @@ dev_read_kmsg(sysadm_t)
+ 
+ mls_process_read_all_levels(sysadm_t)
+ 
++mls_file_read_all_levels(sysadm_t)
++mls_process_write_to_clearance(sysadm_t)
++
+ selinux_read_policy(sysadm_t)
+ 
+ ubac_process_exempt(sysadm_t)
+diff --git a/policy/modules/system/modutils.if b/policy/modules/system/modutils.if
+index 2adc989b5..b12facc54 100644
+--- a/policy/modules/system/modutils.if
++++ b/policy/modules/system/modutils.if
+@@ -422,3 +422,11 @@ interface(`kmod_tty_device_t_chr_file',`
+     allow $1 tty_device_t:chr_file { write append read open};
+ ')
+ 
++interface(`kmod_device_t_chr_file',`
++    gen_require(`
++        type device_t;
++    ')
++
++    allow $1 device_t:chr_file { write append read open};
++')
++
+diff --git a/policy/modules/system/modutils.te b/policy/modules/system/modutils.te
+index ba6c791fb..996a99a5c 100644
+--- a/policy/modules/system/modutils.te
++++ b/policy/modules/system/modutils.te
+@@ -194,4 +194,5 @@ optional_policy(`
+ kmod_var_log_t_file(kmod_t)
+ kmod_httpd_var_run_t_file(kmod_t)
+ kmod_tty_device_t_chr_file(kmod_t)
++kmod_device_t_chr_file(kmod_t)
+ 
+-- 
+2.17.1
+

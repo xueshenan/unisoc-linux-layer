@@ -1,0 +1,43 @@
+From c6caec405aaf0a928659269bae28d63a5bcdc49a Mon Sep 17 00:00:00 2001
+From: "zhenghai.yang" <zhenghai.yang@unisoc.com>
+Date: Tue, 16 Aug 2022 20:25:36 +0800
+Subject: [PATCH] Bug #add S_ISCHR file
+
+[root cause  ]: add S_ISCHR file
+[changes     ]: add S_ISCHR file
+[side effects]: yes
+[self test   ]: yes
+[download normally]:yes
+[power on/off normally]:yes
+[do common repository/branch inspection]:no
+[is there dependence]:no
+[confirm dependent commit]:no
+[board]:9863
+[test case]:wcn log
+[reviewers]:etham.li
+
+commit_template_version:v1
+---
+ imfile/imfile.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/plugins/imfile/imfile.c b/plugins/imfile/imfile.c
+index 1540a3f..554138c 100644
+--- a/plugins/imfile/imfile.c
++++ b/plugins/imfile/imfile.c
+@@ -948,10 +948,10 @@ poll_tree(fs_edge_t *const chld)
+ 			} else {
+ 				issymlink = 0;
+ 			}
+-			const int is_file = (S_ISREG(fileInfo.st_mode) || issymlink || S_ISBLK(fileInfo.st_mode) || S_ISFIFO(fileInfo.st_mode));
++			const int is_file = (S_ISREG(fileInfo.st_mode) || issymlink || S_ISBLK(fileInfo.st_mode) || S_ISFIFO(fileInfo.st_mode) || S_ISCHR(fileInfo.st_mode));
+ 			DBGPRINTF("poll_tree:  found '%s', File: %d (config file: %d), symlink: %d\n",
+ 				file, is_file, chld->is_file, issymlink);
+-			if(!is_file && S_ISREG(fileInfo.st_mode) && S_ISBLK(fileInfo.st_mode) && S_ISFIFO(fileInfo.st_mode)) {
++			if(!is_file && S_ISREG(fileInfo.st_mode) && S_ISBLK(fileInfo.st_mode) && S_ISFIFO(fileInfo.st_mode) && S_ISCHR(fileInfo.st_mode)) {
+ 				LogMsg(0, RS_RET_ERR, LOG_WARNING,
+ 					"imfile: '%s' is neither a regular file, symlink, nor a "
+ 					"directory - ignored", file);
+-- 
+2.7.4
+

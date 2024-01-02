@@ -1,0 +1,697 @@
+From 7fceb5bcbb1b83cab1dbdb8fb3efae4ce836d757 Mon Sep 17 00:00:00 2001
+From: "etham.li" <etham.li@unisoc.com>
+Date: Wed, 22 Jun 2022 16:53:40 +0800
+Subject: [PATCH] Bug #1869193 - [rsyslog] Add imtest.so in rsyslog
+
+[root cause  ]: Add imtest.so in rsyslog
+[changes     ]: Add imtest.so in rsyslog
+[side effects]: no
+[self test   ]: build pass
+[download normally]: yes
+[power on/off normally]: yes
+[do common repository/branch inspection]: no
+[is there dependence]:no
+[confirm dependent commit]:no
+[board]:trunk
+[test case]:build pass
+[reviewers]:zhenghai.yang
+
+commit_template_version:v1
+---
+ Makefile.am                |   7 +-
+ configure.ac               |  14 ++
+ plugins/imtest/Makefile.am |   8 ++
+ plugins/imtest/imtest.c    | 255 +++++++++++++++++++++++++++++++++++
+ plugins/imtest/imtest.h    |  35 +++++
+ plugins/imtest/test.c      | 270 +++++++++++++++++++++++++++++++++++++
+ 6 files changed, 588 insertions(+), 1 deletion(-)
+ mode change 100644 => 100755 Makefile.am
+ mode change 100644 => 100755 configure.ac
+ create mode 100755 plugins/imtest/Makefile.am
+ create mode 100755 plugins/imtest/imtest.c
+ create mode 100755 plugins/imtest/imtest.h
+ create mode 100755 plugins/imtest/test.c
+
+diff --git a/Makefile.am b/Makefile.am
+old mode 100644
+new mode 100755
+index d37cde7..f216884
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -30,6 +30,10 @@ if ENABLE_IMKLOG
+ SUBDIRS += plugins/imklog
+ endif
+ 
++if ENABLE_IMTEST
++SUBDIRS += plugins/imtest
++endif
++
+ if ENABLE_IMKMSG
+ SUBDIRS += contrib/imkmsg
+ endif
+@@ -388,7 +392,8 @@ DISTCHECK_CONFIGURE_FLAGS+= \
+ 	--enable-pmlastmsg \
+ 	--enable-pmnull \
+ 	--enable-pmsnare \
+-	--enable-usertools
++	--enable-usertools \
++	--enable-test
+ 
+ else
+ DISTCHECK_CONFIGURE_FLAGS+= \
+diff --git a/configure.ac b/configure.ac
+old mode 100644
+new mode 100755
+index 7899c57..f777ad6
+--- a/configure.ac
++++ b/configure.ac
+@@ -579,6 +579,18 @@ AM_CONDITIONAL(ENABLE_IMKLOG_BSD, test x$os_type = xbsd)
+ AM_CONDITIONAL(ENABLE_IMKLOG_LINUX, test x$os_type = xlinux)
+ AM_CONDITIONAL(ENABLE_IMKLOG_SOLARIS, test x$os_type = xsolaris)
+ 
++# test
++AC_ARG_ENABLE(test,
++        [AS_HELP_STRING([--enable-test],[Integrated test functionality @<:@default=yes@:>@])],
++        [case "${enableval}" in
++         yes) enable_test="yes" ;;
++          no) enable_test="no" ;;
++           *) AC_MSG_ERROR(bad value ${enableval} for --enable-test) ;;
++         esac],
++        [enable_test="yes"]
++)
++AM_CONDITIONAL(ENABLE_IMTEST, test x$enable_test = xyes)
++
+ # kmsg
+ AC_ARG_ENABLE(kmsg,
+         [AS_HELP_STRING([--enable-kmsg],[Kmsg structured kernel logs functionality @<:@default=no@:>@])],
+@@ -2673,6 +2685,7 @@ AC_CONFIG_FILES([Makefile \
+ 		plugins/imjournal/Makefile \
+ 		plugins/immark/Makefile \
+ 		plugins/imklog/Makefile \
++		plugins/imtest/Makefile \
+ 		plugins/omhdfs/Makefile \
+ 		plugins/omkafka/Makefile \
+ 		plugins/omprog/Makefile \
+@@ -2784,6 +2797,7 @@ echo "    Solaris input module enabled:             $enable_imsolaris"
+ echo "    periodic statistics module enabled:       $enable_impstats"
+ echo "    imczmq input module enabled:              $enable_imczmq"
+ echo "    imjournal input module enabled:           $enable_imjournal"
++echo "    /dev/kmsg test enabled:                   $enable_test"
+ if test "$enable_imjournal" = "optional"; then
+ echo "        imjournal use dummy:                  $imjournal_use_dummy"
+ fi
+diff --git a/plugins/imtest/Makefile.am b/plugins/imtest/Makefile.am
+new file mode 100755
+index 0000000..67f1221
+--- /dev/null
++++ b/plugins/imtest/Makefile.am
+@@ -0,0 +1,8 @@
++pkglib_LTLIBRARIES = imtest.la
++imtest_la_SOURCES = imtest.c imtest.h
++
++imtest_la_SOURCES += test.c
++
++imtest_la_CPPFLAGS = -I$(top_srcdir) $(PTHREADS_CFLAGS) $(RSRT_CFLAGS)
++imtest_la_LDFLAGS = -module -avoid-version
++imtest_la_LIBADD = 
+diff --git a/plugins/imtest/imtest.c b/plugins/imtest/imtest.c
+new file mode 100755
+index 0000000..8132ef2
+--- /dev/null
++++ b/plugins/imtest/imtest.c
+@@ -0,0 +1,255 @@
++/*
++ * SPDX-FileCopyrightText: 2021 Unisoc (Shanghai) Technologies Co., Ltd.
++ *
++ * SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
++ *
++ * To test under linux:
++ * echo test1 > /dev/kmsg
++ */
++#include <stdio.h>
++#include <assert.h>
++#include <string.h>
++#include <stdarg.h>
++#include <ctype.h>
++#include <stdlib.h>
++#include "imtest.h"
++
++#include "rsyslog.h" //must be included if use the runtime
++#include "module-template.h" //plumbing macros
++#include "dirty.h" //non-modular object accesses
++#include "cfsysline.h" //config file system line object
++#include "obj.h" //the generic obj class module
++#include "msg.h" //all msg-related functions
++#include "glbl.h" //globally-accessible data items
++#include "prop.h" //property object
++#include "errmsg.h" //used to emit error message
++#include "unicode-helper.h" //unicode support,like:strncpy/strdup/strcmp/strlen
++
++//define the module type
++MODULE_TYPE_INPUT
++//define if keept dynamically linked
++MODULE_TYPE_NOKEEP
++//define module name
++MODULE_CNFNAME("imtest")
++
++/* Module static data */
++DEF_IMOD_STATIC_DATA
++DEFobjCurrIf(glbl)
++DEFobjCurrIf(prop)
++
++/* config settings */
++typedef struct configSettings_s {
++	int iFacilIntMsg; /* the facility to use for internal messages (set by driver) */
++} configSettings_t;
++static configSettings_t cs;
++
++static modConfData_t *loadModConf = NULL;/* modConf ptr to use for the current load process */
++static modConfData_t *runModConf = NULL;/* modConf ptr to use for the current run process */
++
++/* global property */
++static prop_t *pInputName = NULL;/* there is only one global inputName for all messages generated by this module */
++
++/* provide the (system-specific) default facility for internal messages
++ */
++static int testFacilIntMsg()
++{
++	DBGPRINTF("imtest::enter testFacilIntMsg");
++	return LOG_LOCAL1;
++}
++
++/* init configsettings interface */
++static inline void
++initConfigSettings(void)
++{
++	cs.iFacilIntMsg = testFacilIntMsg();
++}
++
++/* enqueue the the /dev/kmsg message into the main message-queue.*/
++static rsRetVal
++enqMsg(uchar *msg, uchar* pszTag, syslog_pri_t pri)
++{
++	DBGPRINTF("imtest::enqMsg start");
++	smsg_t *pMsg; //define message object
++	DEFiRet;
++	assert(msg != NULL);
++	assert(pszTag != NULL);
++
++	CHKiRet(msgConstruct(&pMsg));//init message objcet
++	DBGPRINTF("imtest::enqMsg input tag = %s, msg = %s", pszTag, msg);
++
++	MsgSetFlowControlType(pMsg, eFLOWCTL_LIGHT_DELAY); //set flow control state
++	MsgSetInputName(pMsg, pInputName); //set input name
++	MsgSetRawMsgWOSize(pMsg, (char*)msg); //copy raw message
++	MsgSetMSGoffs(pMsg, 0); //set offset of msg part into the raw msg buffer
++	MsgSetTAG(pMsg, pszTag, ustrlen(pszTag)); //set message tag
++	msgSetPRI(pMsg, pri); //set message priority
++	CHKiRet(submitMsg2(pMsg)); //send pmsg
++
++	DBGPRINTF("imtest::enqMsg end");
++finalize_it:
++	RETiRet;
++}
++
++/* log an imtest-internal message */
++rsRetVal imtestLogIntMsg(syslog_pri_t priority, const char *fmt, ...)
++{
++	DEFiRet;
++	va_list ap;
++	uchar msgBuf[2048];
++
++	va_start(ap, fmt);
++	vsnprintf((char*)msgBuf, sizeof(msgBuf), fmt, ap);
++	va_end(ap);
++
++	logmsgInternal(NO_ERRCODE, priority, msgBuf, 0);
++
++	RETiRet;
++}
++
++/* seed a message from /dev/kmsg */
++rsRetVal Syslog(syslog_pri_t priority, uchar *pMsg)
++{
++	DBGPRINTF("imtest::enter Syslog");
++	DEFiRet;
++	iRet = enqMsg((uchar*)pMsg, (uchar*) "fmsg:", priority);
++	RETiRet;
++}
++
++
++BEGINrunInput
++	DBGPRINTF("imtest::BEGINrunInput");
++CODESTARTrunInput
++	/* this is an endless loop - it is terminated when the thread is
++	 * signalled to do so.
++	 */
++	DBGPRINTF("imtest::CODESTARTrunInput");
++    CHKiRet(GetFileMsg(runModConf));
++	while(!pThrd->bShallStop) {
++		CHKiRet(GetKMsg(runModConf));
++	}
++finalize_it:
++ENDrunInput
++
++
++BEGINbeginCnfLoad
++	DBGPRINTF("imtest::BEGINbeginCnfLoad");
++CODESTARTbeginCnfLoad
++	loadModConf = pModConf;
++	pModConf->pConf = pConf;
++	/* init our define settings */
++	pModConf->iFacilIntMsg = testFacilIntMsg();
++	loadModConf->configSetViaV2Method = 0;
++	initConfigSettings();
++ENDbeginCnfLoad
++
++
++BEGINendCnfLoad
++	DBGPRINTF("imtest::BEGINendCnfLoad");
++CODESTARTendCnfLoad
++	DBGPRINTF("imtest::CODESTARTendCnfLoad");
++	if(!loadModConf->configSetViaV2Method) {
++		/* persist module-specific settings from legacy config system */
++		loadModConf->iFacilIntMsg = cs.iFacilIntMsg;
++	}
++
++	loadModConf = NULL; /* done loading */
++ENDendCnfLoad
++
++
++BEGINcheckCnf
++CODESTARTcheckCnf
++ENDcheckCnf
++
++
++BEGINactivateCnfPrePrivDrop
++	DBGPRINTF("imtest::BEGINactivateCnfPrePrivDrop");
++CODESTARTactivateCnfPrePrivDrop
++	DBGPRINTF("imtest::CODESTARTactivateCnfPrePrivDrop");
++	runModConf = pModConf;
++	iRet = testWillRunPrePrivDrop(runModConf); //open /dev/kmsg
++ENDactivateCnfPrePrivDrop
++
++
++BEGINactivateCnf
++CODESTARTactivateCnf
++ENDactivateCnf
++
++
++BEGINfreeCnf
++CODESTARTfreeCnf
++ENDfreeCnf
++
++
++BEGINwillRun
++	DBGPRINTF("imtest::BEGINwillRun");
++CODESTARTwillRun
++	DBGPRINTF("imtest::CODESTARTwillRun");
++	iRet = testWillRunPostPrivDrop(runModConf);
++ENDwillRun
++
++
++BEGINafterRun
++	DBGPRINTF("imtest::BEGINafterRun");
++CODESTARTafterRun
++	DBGPRINTF("imtest::CODESTARTafterRun");
++	iRet = testAfterRun(runModConf);
++ENDafterRun
++
++
++BEGINmodExit
++	DBGPRINTF("imtest::BEGINmodExit");
++CODESTARTmodExit
++	DBGPRINTF("imtest::CODESTARTmodExit");
++	if(pInputName != NULL) {
++		prop.Destruct(&pInputName);
++	}
++	/* release objects we used */
++	objRelease(glbl, CORE_COMPONENT);
++	objRelease(prop, CORE_COMPONENT);
++ENDmodExit
++
++
++BEGINqueryEtryPt
++CODESTARTqueryEtryPt
++CODEqueryEtryPt_STD_IMOD_QUERIES
++CODEqueryEtryPt_STD_CONF2_QUERIES
++CODEqueryEtryPt_STD_CONF2_PREPRIVDROP_QUERIES
++ENDqueryEtryPt
++
++static rsRetVal resetConfigVariables(uchar __attribute__((unused)) *pp, void __attribute__((unused)) *pVal)
++{
++	DBGPRINTF("imtest::resetConfigVariables");
++	cs.iFacilIntMsg = testFacilIntMsg();
++	return RS_RET_OK;
++}
++
++//Start Init imtest.so module
++BEGINmodInit()
++CODESTARTmodInit
++	DBGPRINTF("imtest::CODESTARTmodInit");
++	*ipIFVersProvided = CURR_MOD_IF_VERSION; /* we only support the current interface specification */
++CODEmodInit_QueryRegCFSLineHdlr //define the host API queries
++	DBGPRINTF("imtest::CODEmodInit_QueryRegCFSLineHdlr");
++	CHKiRet(objUse(glbl, CORE_COMPONENT));
++	CHKiRet(objUse(prop, CORE_COMPONENT));
++
++	/* we need to create the inputName property (only once during our lifetime) */
++	CHKiRet(prop.CreateStringProp(&pInputName, UCHAR_CONSTANT("imtest"), sizeof("imtest") - 1));
++
++	/* init config settings */
++	initConfigSettings();
++
++	CHKiRet(omsdRegCFSLineHdlr((uchar *)"debugprintkernelsymbols", 0, eCmdHdlrGoneAway,
++			NULL, NULL, STD_LOADABLE_MODULE_ID));
++	CHKiRet(omsdRegCFSLineHdlr((uchar *)"testsymbollookup", 0, eCmdHdlrGoneAway,
++			NULL, NULL, STD_LOADABLE_MODULE_ID));
++	CHKiRet(omsdRegCFSLineHdlr((uchar *)"testsymbolstwice", 0, eCmdHdlrGoneAway,
++			NULL, NULL, STD_LOADABLE_MODULE_ID));
++	CHKiRet(omsdRegCFSLineHdlr((uchar *)"testusesyscallinterface", 0, eCmdHdlrGoneAway,
++			NULL, NULL, STD_LOADABLE_MODULE_ID));
++	CHKiRet(omsdRegCFSLineHdlr((uchar *)"resetconfigvariables", 1, eCmdHdlrCustomHandler,
++			resetConfigVariables, NULL, STD_LOADABLE_MODULE_ID));
++	DBGPRINTF("imtest::ENDmodInit");
++ENDmodInit
++/* vim:set ai:
++ */
+diff --git a/plugins/imtest/imtest.h b/plugins/imtest/imtest.h
+new file mode 100755
+index 0000000..d8e1ea3
+--- /dev/null
++++ b/plugins/imtest/imtest.h
+@@ -0,0 +1,35 @@
++/*
++ * SPDX-FileCopyrightText: 2021 Unisoc (Shanghai) Technologies Co., Ltd.
++ *
++ * SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
++ */
++
++#ifndef	IMKLOG_H_INCLUDED
++#define	IMKLOG_H_INCLUDED 1
++
++#include "rsyslog.h"
++#include "dirty.h"
++
++/* we need to have the modConf type present in all submodules */
++struct modConfData_s {
++	rsconf_t *pConf;
++	int iFacilIntMsg;
++	uchar *pszPath;
++	int console_log_level;
++	sbool bPermitNonKernel;
++	sbool configSetViaV2Method;
++};
++
++rsRetVal GetKMsg(modConfData_t *pModConf);
++rsRetVal GetFileMsg(modConfData_t *pModConf);
++rsRetVal testWillRunPrePrivDrop(modConfData_t *pModConf);
++rsRetVal testWillRunPostPrivDrop(modConfData_t *pModConf);
++rsRetVal testAfterRun(modConfData_t *pModConf);
++rsRetVal imtestLogIntMsg(syslog_pri_t priority, const char *fmt, ...) __attribute__((format(printf,2, 3)));
++rsRetVal Syslog(syslog_pri_t priority, uchar *msg);
++
++int read_line(char *path);
++
++#endif /* #ifndef IMTEST_H_INCLUDED */
++/* vi:set ai:
++ */
+diff --git a/plugins/imtest/test.c b/plugins/imtest/test.c
+new file mode 100755
+index 0000000..430c861
+--- /dev/null
++++ b/plugins/imtest/test.c
+@@ -0,0 +1,270 @@
++/*
++ * SPDX-FileCopyrightText: 2021 Unisoc (Shanghai) Technologies Co., Ltd.
++ *
++ * SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
++ *
++ * To test under linux:
++ * echo test1 > /dev/kmsg
++ */
++#include <stdlib.h>
++#include <time.h>
++#include <unistd.h>
++#include <stdio.h>
++#include <fcntl.h>
++#include <errno.h>
++#include <string.h>
++#include <ctype.h>
++#include <sys/klog.h>
++#include <sys/sysinfo.h>
++#include <sys/time.h>
++
++#include "rsyslog.h"
++#include "srUtils.h"
++#include "debug.h"
++#include "imtest.h"
++
++/* globals */
++static int ftest = -1;	/* kernel log fd */
++
++#ifndef _PATH_KLOG
++#	define _PATH_KLOG "/dev/kmsg"
++#endif
++
++
++#ifndef _PATH_FILE
++#	define _PATH_FILE "/var/log/imtest.txt"
++#endif
++
++#define LINE_MAX 1024
++
++/* submit a message to imtest Syslog() API. In this function, we parse
++ * necessary information from kernel log line.
++ */
++static void
++submitSyslog(uchar *buf)
++{
++	DBGPRINTF("imtest::enter submitSyslog");
++	DBGPRINTF("imtest::submitSyslog revice raw buf = %s", buf);
++	long offs = 0;
++	struct sysinfo info;
++	unsigned long int timestamp = 0;
++	char name[1024];
++	char value[1024];
++	char msg[1024];
++	syslog_pri_t priority = 0;
++	long int sequnum = 0;
++
++	/* get priority */
++	for (; isdigit(*buf); buf++) {
++		priority = (priority * 10) + (*buf - '0');
++	}
++	buf++;
++	DBGPRINTF("imtest::submitSyslog buf after priority(%x) = %s", priority, buf);
++
++	/* get messages sequence number*/
++	for (; isdigit(*buf); buf++) {
++		sequnum = (sequnum * 10) + (*buf - '0');
++	}
++	buf++; /* skip , */
++	DBGPRINTF("imtest::submitSyslog buf after sequence(%ld) = %s", sequnum, buf);
++
++	/* get timestamp */
++	for (; isdigit(*buf); buf++) {
++		timestamp = (timestamp * 10) + (*buf - '0');
++	}
++
++	while (*buf != ';') {
++		buf++; /* skip everything till the first ; */
++	}
++	buf++; /* skip ; */
++
++	/* get message */
++	offs = 0;
++	for (; *buf != '\n' && *buf != '\0'; buf++, offs++) {
++		msg[offs] = *buf;
++	}
++	msg[offs] = '\0';
++	DBGPRINTF("imtest::submitSyslog ready msg = %s", msg);
++
++	if (*buf != '\0') /* message has appended properties, skip \n */
++		buf++;
++
++	while (*buf) {
++		/* get name of the property */
++		buf++; /* skip ' ' */
++		offs = 0;
++		for (; *buf != '=' && *buf != ' '; buf++, offs++) {
++			name[offs] = *buf;
++		}
++		name[offs] = '\0';
++		buf++; /* skip = or ' ' */;
++
++		offs = 0;
++		for (; *buf != '\n' && *buf != '\0'; buf++, offs++) {
++			value[offs] = *buf;
++		}
++		value[offs] = '\0';
++		if (*buf != '\0') {
++			buf++; /* another property, skip \n */
++		}
++	}
++
++	/* calculate timestamp */
++	sysinfo(&info);
++
++	Syslog(priority, (uchar *)msg);
++}
++
++
++/* open the kernel log - will be called inside the willRun() imkmsg entry point
++ */
++rsRetVal
++testWillRunPrePrivDrop(modConfData_t __attribute__((unused)) *pModConf)
++{
++	char errmsg[2048];
++	DEFiRet;
++	DBGPRINTF("imtest::testWillRunPrePrivDrop open /dev/kmsg");
++
++	ftest = open(_PATH_KLOG, O_RDONLY, 0);
++	if (ftest < 0) {
++		DBGPRINTF("imtest: cannot open kernel log (%s): %s.",
++			_PATH_KLOG, rs_strerror_r(errno, errmsg, sizeof(errmsg)));
++		ABORT_FINALIZE(RS_RET_ERR_OPEN_KLOG);
++	}
++	DBGPRINTF("imtest::testWillRunPrePrivDrop open end");
++finalize_it:
++	RETiRet;
++}
++
++/* make sure the kernel log is readable after dropping privileges
++ */
++rsRetVal
++testWillRunPostPrivDrop(modConfData_t __attribute__((unused)) *pModConf)
++{
++	char errmsg[2048];
++	int r;
++	DEFiRet;
++
++	r = read(ftest, NULL, 0);
++	if (r < 0 && errno != EINVAL) {
++		DBGPRINTF("imtest: cannot open kernel log (%s): %s.",
++			_PATH_KLOG, rs_strerror_r(errno, errmsg, sizeof(errmsg)));
++		ftest = -1;
++		ABORT_FINALIZE(RS_RET_ERR_OPEN_KLOG);
++	}
++
++finalize_it:
++	RETiRet;
++}
++
++/* to be called in the module's AfterRun entry point
++ */
++rsRetVal testAfterRun(modConfData_t *pModConf)
++{
++	DBGPRINTF("imtest::enter testAfterRun");
++	DEFiRet;
++	if(ftest != -1)
++		close(ftest);
++
++	if(pModConf->console_log_level != -1)
++		klogctl(7, NULL, 0);
++	RETiRet;
++}
++
++/* to be called in the module's WillRun entry point, this is the main
++ * "message pull" mechanism.
++ */
++rsRetVal GetKMsg(modConfData_t __attribute__((unused)) *pModConf)
++{
++	DBGPRINTF("imtest::enter GetKMsg");
++	DEFiRet;
++	int i;
++	uchar pRcv[8192+1];
++	char errmsg[2048];
++
++	for (;;) {
++		DBGPRINTF("imtest::waiting for kernel log line");
++
++		/* every read() from the opened device node receives one record of the printk buffer */
++		i = read(ftest, pRcv, 8192);
++
++		if (i > 0) {
++			/* successful read of message of nonzero length */
++			pRcv[i] = '\0';
++			DBGPRINTF("imtest::readkmsg pRcv: %s", pRcv);
++		} else if (i == -EPIPE) {
++			DBGPRINTF("imtest: some messages in circular buffer got overwritten");
++			continue;
++		} else {
++			/* something went wrong - error or zero length message */
++			if (i < 0 && errno != EINTR && errno != EAGAIN) {
++				/* error occured */
++				DBGPRINTF("imtest: error reading kernel log - shutting down: %s",
++					rs_strerror_r(errno, errmsg, sizeof(errmsg)));
++				ftest = -1;
++			}
++			break;
++		}
++		DBGPRINTF("imtest::readkmsg end");
++		submitSyslog(pRcv);
++	}
++	RETiRet;
++}
++
++rsRetVal GetFileMsg(modConfData_t __attribute__((unused)) *pModConf)
++{
++	DBGPRINTF("imtest::enter GetFileMsg");
++	DEFiRet;
++	int ret = 0;
++	ret = read_line(_PATH_FILE);
++	RETiRet;
++}
++
++int read_line(char *path)
++{
++	DBGPRINTF("imtest::enter read_line");
++	FILE *fp;
++	int line_num = 0;
++	int line_len = 0;
++	char buf[LINE_MAX] = {0};
++	syslog_pri_t priority = 4;
++
++	fp = fopen(path, "r");
++	if (NULL == fp) {
++		DBGPRINTF("imtest::read_line open %s error", path);
++		return -1;
++	}
++
++	while(fgets(buf, LINE_MAX, fp)) {
++		line_num++;
++		line_len = strlen(buf);
++		// delete \n
++		if ('\n' == buf[line_len - 1]) {
++			buf[line_len - 1] = '\0';
++			line_len--;
++			if (0 == line_len) {
++				//empty line
++				continue;
++			}
++		}
++		// delete \r in windows
++		if ('\r' == buf[line_len - 1]) {
++			buf[line_len - 1] = '\0';
++			line_len--;
++			if (0 == line_len) {
++				//empty line
++				continue;
++			}
++		}
++		Syslog(priority, buf);
++	}
++
++	if (0 == feof) {
++		printf("fgets error\n");	
++		return -1;
++	}
++	fclose(fp);
++
++	return line_num;
++}
++
+-- 
+2.17.1
+

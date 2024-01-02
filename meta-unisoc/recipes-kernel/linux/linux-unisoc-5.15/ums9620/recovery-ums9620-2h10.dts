@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Spreadtrum sl8581e platform DTS file
+ *
+ * Copyright (C) 2018, Spreadtrum Communications Inc.
+ */
+
+/dts-v1/;
+
+#include "ums9620-base.dts"
+
+/ {
+	model = "Spreadtrum UMS9620-2H10 Board";
+
+	chosen {
+		//bootargs = "earlycon console=ttySPRD1,115200n8 loglevel=1 init=/sbin/init root=/dev/ram0 ro androidboot.hardware=s9863a1h10  printk.devkmsg=on";
+		//linux,initrd-start = <0x83500000>;
+                //linux,initrd-end = <0x83a42800>;
+		bootargs = "earlycon console=ttySPRD1,115200n8 loglevel=1 init=/sbin/init root=/dev/mmcblk0p35 rootfstype=ext4 ro rootwait printk.devkmsg=on androidboot.boot_devices=soc/soc:ap-ahb/20600000.sdio dummy_hcd.num=0 swiotlb=1 initcall_debug=1";
+		bootargs_ext = "androidboot.hardware=ums96202h10";
+        };
+};

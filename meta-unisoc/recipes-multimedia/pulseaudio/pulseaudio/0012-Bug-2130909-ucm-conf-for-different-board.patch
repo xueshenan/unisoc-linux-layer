@@ -1,0 +1,18 @@
+diff --git a/src/daemon/system.pa.in b/src/daemon/system.pa.in
+index b0d8e46..9e81c18 100755
+--- a/src/daemon/system.pa.in
++++ b/src/daemon/system.pa.in
+@@ -35,7 +35,12 @@ load-module module-udev-detect
+ #load-module module-detect
+ .endif
+ 
+-##load-module module-alsa-card device_id=0 profile_set=sprd_default.conf fragments=4 fragment_size=960 tsched_buffer_size=3840 mmap=false
++ifelse(@USE_WHALE_HAL@, 1, [dnl
++#load-module module-alsa-card device_id=0 profile_set=sprd_default.conf fragments=4 fragment_size=960 tsched_buffer_size=3840
++])dnl
++ifelse(@USE_WHALE_HAL@, 0, [dnl
++#load-module module-alsa-card device_id=0 profile_set=sprd_default.conf fragments=4 fragment_size=960 tsched_buffer_size=3840 mmap=false
++])dnl
+ load-module module-unisoc-card device_id=0 profile_set=sprd_default.conf use_ucm=false
+ 
+ ### Load several protocols

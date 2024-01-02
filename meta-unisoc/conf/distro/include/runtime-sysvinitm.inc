@@ -1,0 +1,7 @@
+DISTRO_FEATURES_append = " sysvinit"
+VIRTUAL-RUNTIME_dev_manager = "busybox-mdev"
+VIRTUAL-RUNTIME_login_manager = "busybox"
+VIRTUAL-RUNTIME_init_manager = "sysvinit"
+VIRTUAL-RUNTIME_keymaps = "keymaps"
+VIRTUAL-RUNTIME_initscripts = "initscripts"
+VIRTUAL-RUNTIME_syslog = "busybox-syslog"

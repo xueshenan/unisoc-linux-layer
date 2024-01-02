@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Notice:
+You can read the user guide for more information, the path is bsp/tools/teecfg/user_guide.
+-->
+<ta_cipher_config>
+	<property ID="salt1">
+		<value type="ATTR_TYPE_STRING">C639A572E14D5075C526FDDD43E4ECF6B095EA17783D32EF3D2710AF9F359DD4</value>
+	</property>
+	<property ID="salt2">
+		<value type="ATTR_TYPE_STRING">B5A1CBEB0832F1DFCDC0AE9043815255A5965B28558B6B37C384BA1BEEAA6F99</value>
+	</property>
+	<property ID="ta_encrypted_compat">
+		<enable type="ATTR_TYPE_BOOL">true</enable>
+	</property>
+</ta_cipher_config>
+

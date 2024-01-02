@@ -1,0 +1,30 @@
+diff --git a/src/lv_draw/lv_draw_blend.c b/src/lv_draw/lv_draw_blend.c
+index 1092465..18bf3e0 100644
+--- a/src/lv_draw/lv_draw_blend.c
++++ b/src/lv_draw/lv_draw_blend.c
+@@ -65,7 +65,7 @@ static inline lv_color_t color_blend_true_color_subtractive(lv_color_t fg, lv_co
+  **********************/
+
+ #if LV_USE_GPU || LV_USE_GPU_STM32_DMA2D
+-    LV_ATTRIBUTE_DMA static lv_color_t blend_buf[LV_HOR_RES_MAX];
++    LV_ATTRIBUTE_DMA static lv_color_t *blend_buf;
+ #endif
+
+ /**********************
+@@ -314,7 +314,7 @@ LV_ATTRIBUTE_FAST_MEM static void fill_normal(const lv_area_t * disp_area, lv_co
+ #if LV_USE_GPU || LV_COLOR_SCREEN_TRANSP
+     lv_disp_t * disp = _lv_refr_get_disp_refreshing();
+ #endif
+-
++    blend_buf = (lv_color_t *)malloc(LV_HOR_RES_MAX * sizeof(lv_color_t));
+     /*Get the width of the `disp_area` it will be used to go to the next line*/
+     int32_t disp_w = lv_area_get_width(disp_area);
+
+@@ -524,6 +524,7 @@ LV_ATTRIBUTE_FAST_MEM static void fill_normal(const lv_area_t * disp_area, lv_co
+             }
+         }
+     }
++    free(blend_buf);
+ }
+
+ #if LV_USE_BLEND_MODES

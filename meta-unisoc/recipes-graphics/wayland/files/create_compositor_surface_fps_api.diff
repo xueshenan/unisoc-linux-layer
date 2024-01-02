@@ -1,0 +1,93 @@
+diff --git a/libweston/compositor.c b/libweston/compositor.c
+index 813b663..f164734 100644
+--- a/libweston/compositor.c
++++ b/libweston/compositor.c
+@@ -450,10 +450,42 @@ weston_surface_state_set_buffer(struct weston_surface_state *state,
+ 			      &state->buffer_destroy_listener);
+ }
+ 
++static int
++surface_fps_timer_handler(void *data)
++{
++	struct weston_surface *surface = data;
++	const uint32_t benchmark_interval = 1;
++	char buf[512];
++	char timestr[128];
++
++	if (!surface->get_label ||
++		surface->get_label(surface, buf, sizeof(buf)) < 0)
++		return 0;
++
++		if (surface->frame_count > 0) {
++			weston_log("weston_fps is: %d\n", surface->frame_count);
++		}
++
++		surface->frame_count = 0;
++		wl_event_source_timer_update(surface->surface_fps_timer_source, 1000);
++		return 0;
++}
++
++static void
++surface_committed(struct wl_listener *listener, void *data)
++{
++    struct weston_surface *surface = wl_container_of(listener, surface,
++        surface_committed);
++    surface->frame_count++;
++}
++
++
++
+ WL_EXPORT struct weston_surface *
+ weston_surface_create(struct weston_compositor *compositor)
+ {
+ 	struct weston_surface *surface;
++	struct wl_event_loop *loop;
+ 
+ 	surface = zalloc(sizeof *surface);
+ 	if (surface == NULL)
+@@ -464,6 +496,7 @@ weston_surface_create(struct weston_compositor *compositor)
+ 
+ 	surface->compositor = compositor;
+ 	surface->ref_count = 1;
++	surface->frame_count = 0;
+ 
+ 	surface->buffer_viewport.buffer.transform = WL_OUTPUT_TRANSFORM_NORMAL;
+ 	surface->buffer_viewport.buffer.scale = 1;
+@@ -489,6 +522,16 @@ weston_surface_create(struct weston_compositor *compositor)
+ 
+ 	wl_list_init(&surface->pointer_constraints);
+ 
++	if (compositor->surface_fps) {
++		loop = wl_display_get_event_loop(compositor->wl_display);
++		surface->surface_fps_timer_source =
++			wl_event_loop_add_timer(loop, surface_fps_timer_handler, surface);
++		wl_event_source_timer_update(surface->surface_fps_timer_source, 1000);
++		surface->surface_committed.notify = surface_committed;
++		wl_signal_add(&surface->commit_signal, &surface->surface_committed);
++	}
++
++
+ 	return surface;
+ }
+ 
+@@ -1851,6 +1894,11 @@ weston_surface_destroy(struct weston_surface *surface)
+ 
+ 	assert(surface->resource == NULL);
+ 
++	if (surface->surface_fps_timer_source) {
++		wl_event_source_remove(surface->surface_fps_timer_source);
++		wl_list_remove(&surface->surface_committed.link);
++	}
++
+ 	wl_signal_emit(&surface->destroy_signal, surface);
+ 
+ 	assert(wl_list_empty(&surface->subsurface_list_pending));
+@@ -5567,6 +5615,8 @@ weston_compositor_destroy(struct weston_compositor *compositor)
+ 
+ 	weston_plugin_api_destroy_list(compositor);
+ 
++	compositor->debug_fps = NULL;
++
+ 	free(compositor);
+ }
+ 

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<audio_process time="2019-07-26 14:14:01">
+    <Audio>
+        <Handset>
+            <NB1>
+                <mic_switch id="0x0" t="u16">
+                    <head_mic_enable offset="2" bits="1" visible="true" val="0x01" />
+                    <aux_mic_enable offset="1" bits="1" visible="false" val="0x0" />
+                    <main_mic_enable offset="0" bits="1" visible="false" val="0x0" />
+                </mic_switch>
+            </NB1>
+            <NB2>
+                <mic_switch id="0x2" t="u16">
+                    <head_mic_enable offset="2" bits="1" visible="true" val="0x01" />
+                    <aux_mic_enable offset="1" bits="1" visible="false" val="0x0" />
+                    <main_mic_enable offset="0" bits="1" visible="false" val="0x0" />
+                </mic_switch>
+            </NB2>
+            <WB1>
+                <mic_switch id="0x4" t="u16">
+                    <head_mic_enable offset="2" bits="1" visible="true" val="0x01" />
+                    <aux_mic_enable offset="1" bits="1" visible="false" val="0x0" />
+                    <main_mic_enable offset="0" bits="1" visible="false" val="0x0" />
+                </mic_switch>
+            </WB1>
+            <WB2>
+                <mic_switch id="0x6" t="u16">
+                    <head_mic_enable offset="2" bits="1" visible="true" val="0x01" />
+                    <aux_mic_enable offset="1" bits="1" visible="false" val="0x0" />
+                    <main_mic_enable offset="0" bits="1" visible="false" val="0x0" />
+                </mic_switch>
+            </WB2>
+            <SWB1>
+                <mic_switch id="0x8" t="u16">
+                    <head_mic_enable offset="2" bits="1" visible="true" val="0x01" />
+                    <aux_mic_enable offset="1" bits="1" visible="false" val="0x0" />
+                    <main_mic_enable offset="0" bits="1" visible="false" val="0x0" />
+                </mic_switch>
+            </SWB1>
+            <FB1>
+                <mic_switch id="0xa" t="u16">
+                    <head_mic_enable offset="2" bits="1" visible="true" val="0x01" />
+                    <aux_mic_enable offset="1" bits="1" visible="false" val="0x0" />
+                    <main_mic_enable offset="0" bits="1" visible="false" val="0x0" />
+                </mic_switch>
+            </FB1>
+            <VOIP1>
+                <mic_switch id="0xc" t="u16">
+                    <head_mic_enable offset="2" bits="1" visible="true" val="0x01" />
+                    <aux_mic_enable offset="1" bits="1" visible="false" val="0x0" />
+                    <main_mic_enable offset="0" bits="1" visible="false" val="0x0" />
+                </mic_switch>
+            </VOIP1>
+        </Handset>
+    </Audio>
+    <Loopback>
+        <Handset>
+            <Loop1>
+                <type offset="0" bits="16" t="u16" id="0x59c" visible="true" val="1" />
+                <mode offset="0" bits="16" t="u16" id="0x59e" visible="true" val="0" />
+                <delay offset="0" bits="16" Description="" t="u16" id="0x5a0" visible="true" val="0x07d0" />
+            </Loop1>
+        </Handset>
+    </Loopback>
+</audio_process>

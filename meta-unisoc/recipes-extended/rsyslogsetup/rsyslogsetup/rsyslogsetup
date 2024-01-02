@@ -1,0 +1,39 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:             rsyslogsetup
+# Required-Start:      
+# Required-Stop:       
+# Default-Start:        2 3 4 5
+# Default-Stop:         0 1 6
+# Short-Description:     setup before rsyslog start
+### END INIT INFO
+
+set -e
+
+if [ ! -d /mnt/data/rsyslog.d ]; then
+    mkdir /mnt/data/rsyslog.d
+fi
+
+if [ ! -f /mnt/data/rsyslog.d/unirlog.ini ]; then
+    cp -r /etc/rsyslog.d/unirlog.ini /mnt/data/rsyslog.d/unirlog.ini
+fi
+. /mnt/data/rsyslog.d/unirlog.ini
+
+if [ "$SYSLOG_STATUS" = "1" ]; then
+    if [ ! -f /mnt/data/rsyslog.d/unisoc-rsyslog-default.conf ]; then
+            cp -r /etc/rsyslog.d/unisoc-rsyslog-default.conf /mnt/data/rsyslog.d/unisoc-rsyslog-default.conf
+    fi
+fi
+
+if [ ! -d /mnt/data/logrotate.d ]; then
+    mkdir /mnt/data/logrotate.d
+    cp /etc/logrotate.d/syslog.logrotate /mnt/data/logrotate.d/syslog.logrotate
+fi
+
+if [ ! -f /mnt/data/logrotate.d/syslog.logrotate ]; then
+    cp /etc/logrotate.d/syslog.logrotate /mnt/data/logrotate.d/syslog.logrotate
+fi
+
+
+. /usr/bin/setup-log-path
+

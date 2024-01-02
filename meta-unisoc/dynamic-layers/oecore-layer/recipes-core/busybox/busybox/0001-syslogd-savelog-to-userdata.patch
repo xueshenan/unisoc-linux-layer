@@ -1,0 +1,83 @@
+# SPDX-FileCopyrightText: 2019-2021 Unisoc (Shanghai) Technologies Co., Ltd.
+#
+# SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
+
+diff --git a/sysklogd/syslogd.c b/sysklogd/syslogd.c
+index d0dd1bd..c3e46a3 100644
+--- a/sysklogd/syslogd.c
++++ b/sysklogd/syslogd.c
+@@ -177,7 +177,7 @@
+ #include <sys/shm.h>
+ #endif
+ 
+-
++static void timestamp_and_log_internal(const char *msg);
+ #define DEBUG 0
+ 
+ /* MARK code is not very useful, is bloat, and broken:
+@@ -718,6 +718,20 @@ static void log_locally(time_t now, char *msg, logFile_t *log_file)
+ 					| O_NOCTTY | O_APPEND | O_NONBLOCK,
+ 					0666);
+ 			if (log_file->fd < 0) {
++				#if 1
++                                       static int save_to_internal=0;
++                                       if (0==save_to_internal){
++                                               #define INTERNAL_LOGFILE "/mnt/data/yocto.log"
++                                               save_to_internal=1;
++                                               log_file->path=strdup(INTERNAL_LOGFILE);
++                                               log_file->fd = open(log_file->path, O_WRONLY | O_CREAT| O_NOCTTY | O_APPEND | O_NONBLOCK,0666);
++                                               G.logFileSize = 5000 * 1024;// log max size 5000kb(5MB) for internal;add for bug1345567
++                                               G.logFileRotate = 2; // logrotate 2 for internal;add for bug1345567
++                                               //timestamp_and_log_internal("Switch log path to internal");
++                                       }
++                               #endif
++                       }
++                       if (log_file->fd < 0) {
+ 				/* cannot open logfile? - print to /dev/console then */
+ 				int fd = device_open(DEV_CONSOLE, O_WRONLY | O_NOCTTY | O_NONBLOCK);
+ 				if (fd < 0)
+@@ -818,6 +832,15 @@ static void timestamp_and_log(int pri, char *msg, int len)
+ {
+ 	char *timestamp = NULL;
+ 	time_t now;
++	char time_str[20];
++        struct timespec ts;
++        int ret = 0;
++        timestamp = time_str;
++        // time(&now);
++        ret = clock_gettime(CLOCK_REALTIME, &ts);
++        char *t = ctime(&(ts.tv_sec)) + 4;
++        t[15]='\0';
++        snprintf(timestamp, 20, "%s%c%3ld", t, '.', ts.tv_nsec/1000000);
+ 
+ 	/* Jan 18 00:11:22 msg... */
+ 	/* 01234567890123456 */
+@@ -826,10 +849,13 @@ static void timestamp_and_log(int pri, char *msg, int len)
+ 	) {
+ 		if (!(option_mask32 & OPT_timestamp)) {
+ 			/* use message timestamp */
+-			timestamp = msg;
+-			now = 0;
++		//	timestamp = msg;
++		//	now = 0;
++		//	time(&now);
+ 		}
+-		msg += 16;
++	}else{
++		//now = 0;
++		msg += 16;	
+ 	}
+ 
+ 	if (!timestamp) {
+@@ -837,7 +863,7 @@ static void timestamp_and_log(int pri, char *msg, int len)
+ 		timestamp = ctime(&now) + 4; /* skip day of week */
+ 	}
+ 
+-	timestamp[15] = '\0';
++	timestamp[19] = '\0';
+ 
+ 	if (option_mask32 & OPT_kmsg) {
+ 		log_to_kmsg(pri, msg);
+-- 
+2.17.1
+

@@ -1,0 +1,33 @@
+diff --git a/wpa_supplicant/events.c b/wpa_supplicant/events.c
+index 5f7f0e2..3ca52fe 100755
+--- a/wpa_supplicant/events.c
++++ b/wpa_supplicant/events.c
+@@ -52,6 +52,7 @@
+
+
+ #define MAX_OWE_TRANSITION_BSS_SELECT_COUNT 5
++int acs_scan_trigger = 0;
+
+
+ #ifndef CONFIG_NO_SCAN_PROCESSING
+@@ -1819,7 +1820,7 @@ static int _wpa_supplicant_event_scan_results(struct wpa_supplicant *wpa_s,
+ 	if (ap) {
+ 		wpa_dbg(wpa_s, MSG_DEBUG, "Ignore scan results in AP mode");
+ #ifdef CONFIG_AP
+-		if (wpa_s->ap_iface->scan_cb)
++		if (wpa_s->ap_iface->scan_cb && acs_scan_trigger > 0)
+ 			wpa_s->ap_iface->scan_cb(wpa_s->ap_iface);
+ #endif /* CONFIG_AP */
+ 		goto scan_work_done;
+@@ -4299,6 +4300,11 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
+ 		break;
+ #ifndef CONFIG_NO_SCAN_PROCESSING
+ 	case EVENT_SCAN_STARTED:
++		if (wpa_s->ap_iface) {
++			acs_scan_trigger = 1;
++		} else {
++			acs_scan_trigger = 0;
++		}
+ 		if (wpa_s->own_scan_requested ||
+ 		    (data && !data->scan_info.external_scan)) {
+ 			struct os_reltime diff;

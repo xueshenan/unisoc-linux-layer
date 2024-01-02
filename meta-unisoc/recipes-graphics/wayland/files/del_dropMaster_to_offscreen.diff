@@ -1,0 +1,25 @@
+diff --git a/libweston/compositor.c b/libweston/compositor.c
+index 813b6634..40f6b3fc 100644
+--- a/libweston/compositor.c
++++ b/libweston/compositor.c
+@@ -4171,7 +4171,7 @@ weston_compositor_offscreen(struct weston_compositor *compositor)
+ 	case WESTON_COMPOSITOR_SLEEPING:
+ 	default:
+ 		compositor->state = WESTON_COMPOSITOR_OFFSCREEN;
+-		wl_event_source_timer_update(compositor->idle_source, 0);
++		wl_event_source_timer_update(compositor->idle_source, 1);
+ 	}
+ }
+ 
+diff --git a/libweston/launcher-direct.c b/libweston/launcher-direct.c
+index a5d3ee53..c5842538 100644
+--- a/libweston/launcher-direct.c
++++ b/libweston/launcher-direct.c
+@@ -98,7 +98,6 @@ vt_handler(int signal_number, void *data)
+ 	if (compositor->session_active) {
+ 		compositor->session_active = 0;
+ 		wl_signal_emit(&compositor->session_signal, compositor);
+-		drmDropMaster(launcher->drm_fd);
+ 		ioctl(launcher->tty, VT_RELDISP, 1);
+ 	} else {
+ 		ioctl(launcher->tty, VT_RELDISP, VT_ACKACQ);

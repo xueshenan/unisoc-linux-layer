@@ -1,0 +1,44 @@
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+index 3952b0755..7266a209a 100755
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -573,7 +573,7 @@ interface(`staff_var_run_t_dir',`
+         type var_run_t;
+     ')
+ 
+-    allow $1 var_run_t:dir { rw_dir_perms create };
++    allow $1 var_run_t:dir { rw_dir_perms create write add_name };
+ ')
+ 
+ interface(`staff_var_run_t_file',`
+@@ -581,7 +581,7 @@ interface(`staff_var_run_t_file',`
+         type var_run_t;
+     ')
+ 
+-    allow $1 var_run_t:file { create write open read unlink map execute };
++    allow $1 var_run_t:file { create write open read unlink map execute lock };
+ ')
+ 
+ interface(`staff_var_run_t_sock_file',`
+@@ -631,3 +631,11 @@ interface(`staff_initrc_t_bluetooth_socket',`
+ 
+     allow $1 initrc_t:bluetooth_socket { write read setopt getattr getopt };
+ ')
++
++interface(`staff_udev_var_run_t_file',`
++    gen_require(`
++        type udev_var_run_t;
++    ')
++
++    allow $1 udev_var_run_t:file { read open };
++')
+diff --git a/policy/modules/roles/staff.te b/policy/modules/roles/staff.te
+index 3848f544d..37b5c6384 100755
+--- a/policy/modules/roles/staff.te
++++ b/policy/modules/roles/staff.te
+@@ -291,4 +291,5 @@ staff_var_lock_t_file(staff_t)
+ staff_xkb_var_lib_t_file(staff_t)
+ staff_mount_runtime_t_dir(staff_t)
+ staff_staff_t_dbus(staff_t)
++staff_udev_var_run_t_file(staff_t)
+ 

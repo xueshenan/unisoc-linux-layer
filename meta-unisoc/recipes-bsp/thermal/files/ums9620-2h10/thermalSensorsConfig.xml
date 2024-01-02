@@ -1,0 +1,45 @@
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<ThermalConfig>
+	<sensor>
+		<sensor_type>soc-thmzone</sensor_type>
+		<polling_delay>2000</polling_delay>
+		<AvgPeriod>30000</AvgPeriod>
+		<zone_level id="0" type="active">
+			<temp>90000</temp>
+			<trip id="0">
+				<action name="switch_on_temp" arg="70000" file="/sys/class/thermal/thermal_zone3/trip_point_0_temp" />
+				<action name="control_temp" arg="85000" file="/sys/class/thermal/thermal_zone3/trip_point_1_temp" />
+				<action name="0max_ctrl_temp" arg="90000" file="/sys/class/thermal/cooling_device*/max_ctrl_temp" />
+				<action name="1max_ctrl_temp" arg="85000" file="/sys/class/thermal/cooling_device*/max_ctrl_temp" />
+				<action name="2max_ctrl_temp" arg="85000" file="/sys/class/thermal/cooling_device*/max_ctrl_temp" />
+				<action name="0min_freq" arg="614400" file="/sys/class/thermal/cooling_device*/min_freq" />
+				<action name="1min_freq" arg="768000" file="/sys/class/thermal/cooling_device*/min_freq" />
+				<action name="2min_freq" arg="1228800" file="/sys/class/thermal/cooling_device*/min_freq" />
+				<action name="0min_core" arg="4" file="/sys/class/thermal/cooling_device*/min_core_num" />
+				<action name="powerback" arg="SP5GMode:3,1" file="" />
+			</trip>
+			<trip id="1">
+				<action name="0min_core" arg="3" file="/sys/class/thermal/cooling_device*/min_core_num" />
+				<action name="powerback" arg="SP5GMode:3,0" file="" />
+			</trip>
+		</zone_level>
+		<zone_level id="1" type="hot">
+			<temp>95000</temp>
+			<trip id="0">
+				<action name="0min_core" arg="2" file="/sys/class/thermal/cooling_device*/min_core_num" />
+			</trip>
+		</zone_level>
+		<zone_level id="2" type="hot">
+			<temp>100000</temp>
+			<trip id="0">
+				<action name="0min_core" arg="1" file="/sys/class/thermal/cooling_device*/min_core_num" />
+			</trip>
+		</zone_level>
+		<zone_level id="3" type="critical">
+			<temp>110000</temp>
+			<trip id="0">
+				<action name="shutdown" arg="" file=""/>
+			</trip>
+		</zone_level>
+	</sensor>
+</ThermalConfig>

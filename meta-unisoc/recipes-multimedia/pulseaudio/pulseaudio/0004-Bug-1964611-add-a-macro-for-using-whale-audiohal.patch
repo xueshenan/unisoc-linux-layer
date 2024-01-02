@@ -1,0 +1,252 @@
+From 2bd5126a95d07849f522c4c389ed6c44721de1da Mon Sep 17 00:00:00 2001
+From: "gaofeng.zhu" <gaofeng.zhu@unisoc.com>
+Date: Thu, 13 Oct 2022 15:45:41 +0800
+Subject: [PATCH] Bug #1964611 add a macro for using whale audiohal for n6pro
+
+[root cause  ]:the source and macro is different in sharkl3 and n6pro
+[changes     ]: Add a macro
+[side effects]: no
+[self test   ]: yes
+[download normally]: yes
+[power on/off normally]: yes
+[do common repository/branch inspection]: no
+[is there dependence]: no
+[confirm dependent commit]: no
+[board]: ums9620_2h10
+[test case]:y
+[reviewers]: peitao.tian
+
+commit_template_version:v1
+---
+ configure.ac    |   6 +++
+ src/Makefile.am | 118 +++++++++++++++++++++++++++++++++++-------------
+ 2 files changed, 93 insertions(+), 31 deletions(-)
+
+diff --git a/configure.ac b/configure.ac
+index 8278353..156e5c3 100755
+--- a/configure.ac
++++ b/configure.ac
+@@ -1310,6 +1310,12 @@ AC_SUBST(HAVE_SYSTEMD_JOURNAL)
+ AM_CONDITIONAL([HAVE_SYSTEMD_JOURNAL], [test "x$HAVE_SYSTEMD_JOURNAL" = x1])
+ AS_IF([test "x$HAVE_SYSTEMD_JOURNAL" = "x1"], AC_DEFINE([HAVE_SYSTEMD_JOURNAL], 1, [Have SYSTEMDJOURNAL?]))
+ 
++#### sprd whale audio hal support(optional) ####
++AC_ARG_ENABLE([whalehal],
++    AS_HELP_STRING([--enable-whalehal],[Use whale hal for audio]))
++
++AM_CONDITIONAL([USE_WHALE_HAL], [test "x$enable_whalehal" = "xyes"])
++
+ #### Build and Install man pages ####
+ 
+ AC_ARG_ENABLE([manpages],
+diff --git a/src/Makefile.am b/src/Makefile.am
+index f9f6fee..033a23e 100755
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -70,16 +70,7 @@ AM_CPPFLAGS = \
+ 	-I$(top_srcdir)/src/audiohal/whale/preprocessing \
+ 	-I$(top_srcdir)/src/audiohal/whale/audiotester \
+ 	-I$(top_srcdir)/src/audiohal/whale/smartamp \
+-	-I$(top_srcdir)/src/audiohal/whale/platform/normal/include \
+-	-I$(top_srcdir)/src/audiohal/whale/platform/normal/smart_amp/inc \
+-	-I$(top_srcdir)/src/audiohal/whale/platform/normal/compress_simu \
+-	-I$(top_srcdir)/src/audiohal/whale/platform/normal/vb_effect/v2  \
+ 	-I$(top_srcdir)/src/audiohal/pulsemodule  \
+-	-I$(top_srcdir)/src/audiohal/whale/platform/normal/nv_exchange  \
+-	-I$(top_srcdir)/src/audiohal/whale/platform/normal/vb_pga \
+-	-I$(top_srcdir)/src/audiohal/whale/platform/normal/include \
+-	-I$(top_srcdir)/src/audiohal/whale/platform/normal \
+-	-I$(top_srcdir)/src/audiohal/whale/platform/normal/nxppa \
+ 	-I$(top_srcdir)/src/audioutils \
+ 	-I$(top_srcdir)/src/audiohal/external/expat \
+ 	-I$(top_builddir)/src/modules \
+@@ -98,6 +89,24 @@ AM_CPPFLAGS = \
+ 	-DLOCAL_SOCKET_CLIENT \
+ 	-DHAVE_SYSLOG_H \
+ 	-DRECORD_USE_MMAP
++
++if USE_WHALE_HAL
++AM_CPPFLAGS += \
++	-I$(top_srcdir)/src/audiohal/whale/platform/whale \
++	-I$(top_srcdir)/src/audiohal/whale/platform/whale/include
++else
++AM_CPPFLAGS += \
++	-I$(top_srcdir)/src/audiohal/whale/platform/normal/include \
++	-I$(top_srcdir)/src/audiohal/whale/platform/normal/smart_amp/inc \
++	-I$(top_srcdir)/src/audiohal/whale/platform/normal/compress_simu \
++	-I$(top_srcdir)/src/audiohal/whale/platform/normal/vb_effect/v2  \
++	-I$(top_srcdir)/src/audiohal/whale/platform/normal/nv_exchange  \
++	-I$(top_srcdir)/src/audiohal/whale/platform/normal/vb_pga \
++	-I$(top_srcdir)/src/audiohal/whale/platform/normal/include \
++	-I$(top_srcdir)/src/audiohal/whale/platform/normal \
++	-I$(top_srcdir)/src/audiohal/whale/platform/normal/nxppa
++endif
++
+ AM_CFLAGS = -std=gnu11 \
+ 	$(PTHREAD_CFLAGS)
+ AM_CXXFLAGS = -std=c++11 \
+@@ -1382,9 +1391,6 @@ pulselibexec_PROGRAMS =
+ if HAVE_ALSA
+ modlibexec_LTLIBRARIES += \
+ 		libexpat.la \
+-		libvbeffect.la \
+-		libvbpga.la \
+-		libnvexchange.la \
+ 		libaudioutils.la \
+ 		libtinyalsa.la  \
+ 		libtinyxml.la   \
+@@ -1394,8 +1400,16 @@ modlibexec_LTLIBRARIES += \
+ 		module-alsa-source.la \
+ 		module-alsa-card.la  \
+ 		module-unisoc-card.la
+-		
+ 
++if USE_WHALE_HAL
++modlibexec_LTLIBRARIES += \
++		libtinycompress.la
++else
++modlibexec_LTLIBRARIES += \
++		libvbeffect.la \
++		libvbpga.la \
++		libnvexchange.la
++endif
+ dist_alsaprofilesets_DATA = \
+ 		modules/alsa/mixer/profile-sets/default.conf \
+ 		modules/alsa/mixer/profile-sets/force-speaker.conf \
+@@ -1908,14 +1922,16 @@ libexpat_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS) $(ASOUNDLIB_CFLAGS)   -DPA_MO
+     		-Wno-unused-parameter -Wno-missing-field-initializers \
+     		-fexceptions
+ 
+-#audioutil
+-libaudioutils_la_SOURCES = \
+-		audioutils/audio_utils.c  audioutils/audio_utils.h
+-
+-libaudioutils_la_LDFLAGS = -avoid-version
+-libaudioutils_la_LIBADD = $(MODULE_LIBADD) $(ASOUNDLIB_LIBS)
+-libaudioutils_la_CFLAGS = $(AM_CFLAGS)  -DPA_MODULE_NAME=libaudioutils
++#tinycompress
++if USE_WHALE_HAL
++libtinycompress_la_SOURCES = \
++		audiohal/external/tinycompress/compress.c \
++		audiohal/external/tinycompress/utils.c
+ 
++libtinycompress_la_LDFLAGS = -avoid-version
++libtinycompress_la_LIBADD = $(MODULE_LIBADD) $(ASOUNDLIB_LIBS)
++libtinycompress_la_CFLAGS = $(AM_CFLAGS)  -DPA_MODULE_NAME=libtinycompress
++else
+ #libvbeffect
+ libvbeffect_la_SOURCES = \
+ 		audiohal/whale/platform/normal/vb_effect/v2/vb_effect_if.c \
+@@ -1966,9 +1982,18 @@ libaudioparamteser_la_SOURCES = \
+ libaudioparamteser_la_LDFLAGS = -avoid-version
+ libaudioparamteser_la_LIBADD = libvbeffect.la libnvexchange.la
+ libaudioparamteser_la_CFLAGS = $(AM_CFLAGS)  -DPA_MODULE_NAME=libaudioparamteser
++endif
+ 
++#audioutil
++libaudioutils_la_SOURCES = \
++		audioutils/audio_utils.c  audioutils/audio_utils.h
+ 
+-#tinyxml
++libaudioutils_la_LDFLAGS = -avoid-version
++libaudioutils_la_LIBADD = $(MODULE_LIBADD) $(ASOUNDLIB_LIBS)
++libaudioutils_la_CFLAGS = $(AM_CFLAGS)  -DPA_MODULE_NAME=libaudioutils
++
++
++#audiohal
+ libaudiohal_la_SOURCES = \
+ 		audiohal/whale/audio_hw.c \
+ 		audiohal/whale/audio_monitor.c \
+@@ -1998,6 +2023,30 @@ libaudiohal_la_SOURCES = \
+ 		audiohal/whale/preprocessing/DspCommandCtl.c \
+ 		audiohal/whale/preprocessing/DspPreProcessing.c \
+ 		audiohal/whale/tinycompress_util/compress_util.c \
++		audiohal/whale/extra_func.c \
++		audiohal/dump/audio_dump/audio_dump.c \
++		audiohal/tool/libtinyalsa_utils/alsa_pcm_util.c \
++		audiohal/system/core/libcutils/str_parms.cpp \
++		audiohal/system/core/libcutils/hashmap.cpp \
++		audiohal/system/core/libcutils/strlcpy.c
++
++if USE_WHALE_HAL
++libaudiohal_la_SOURCES += \
++		audiohal/whale/platform/whale/usb.c \
++		audiohal/whale/platform/whale/audio_offload.c \
++		audiohal/whale/platform/whale/dsp_control.c \
++		audiohal/whale/debug/dsp_loop.c \
++		audiohal/whale/debug/vbc_pcm_dump.c \
++		audiohal/whale/agdsp.c \
++ 		audiohal/whale/smartamp/smartamp.c
++
++# audiohal/system/media/alsa_utils/alsa_device_profile.c \
++# audiohal/system/media/alsa_utils/alsa_device_proxy.c \
++# audiohal/system/media/alsa_utils/alsa_format.c \
++# audiohal/system/core/libcutils/strlcat.c \
++# audiohal/system/core/libcutils/properties.cpp
++else
++libaudiohal_la_SOURCES += \
+ 		audiohal/whale/platform/normal/dsp_control.c \
+ 		audiohal/whale/platform/normal/audio_offload.c \
+ 		audiohal/whale/platform/normal/vb_control_parameters.c \
+@@ -2008,18 +2057,18 @@ libaudiohal_la_SOURCES = \
+ 		audiohal/whale/platform/normal/compress_simu/mp3_dec.c \
+ 		audiohal/whale/platform/normal/compress_simu/ringbuffer.c \
+ 		audiohal/whale/platform/normal/nxppa/Sprd_NxpTfa.c \
+-		audiohal/whale/extra_func.c \
+-		audiohal/dump/audio_dump/audio_dump.c \
+-		audiohal/tool/libtinyalsa_utils/alsa_pcm_util.c \
+-		audiohal/system/core/libcutils/str_parms.cpp \
+-		audiohal/system/core/libcutils/hashmap.cpp \
+-		audiohal/system/core/libcutils/strlcpy.c \
+ 		audiohal/whale/platform/normal/audio_pga_if.c  \
+ 		audiohal/whale/platform/normal/audiotester.c 
++endif
+ 
+ libaudiohal_la_LDFLAGS = -avoid-version
+-libaudiohal_la_LIBADD = $(MODULE_LIBADD) $(ASOUNDLIB_LIBS) libtinyxml.la libvbeffect.la libvbpga.la \
+-		libnvexchange.la libaudioutils.la
++libaudiohal_la_LIBADD = $(MODULE_LIBADD) $(ASOUNDLIB_LIBS) libtinyxml.la libaudioutils.la
++if USE_WHALE_HAL
++libaudiohal_la_LIBADD += libtinycompress.la
++else
++libaudiohal_la_LIBADD += libvbeffect.la libvbpga.la libnvexchange.la
++endif
++
+ libaudiohal_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS) $(ASOUNDLIB_CFLAGS)   -DPA_MODULE_NAME=libaudiohal -DFLAG_VENDOR_ETC \
+ 		-DAUDIOHAL_V4 \
+ 		-DAUDIO_VBC_DEEPBUFFER_MIXER \
+@@ -2029,7 +2078,9 @@ libaudiohal_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS) $(ASOUNDLIB_CFLAGS)   -DPA
+ 		-DAUDIOHAL_RUN_IN_PULSEAUDIO
+ 
+ libaudiohal_la_CFLAGS += $(SMART_PA_SUPPORT)
+-
++if USE_WHALE_HAL
++libaudiohal_la_CFLAGS += -DAUDIO_DSP_PLATFORM
++endif
+ libaudiohal_la_CPPFLAGS = $(AM_CPPFLAGS) -DFLAG_VENDOR_ETC \
+ 		-DAUDIOHAL_V4 \
+ 		-DAUDIO_VBC_DEEPBUFFER_MIXER \
+@@ -2039,6 +2090,9 @@ libaudiohal_la_CPPFLAGS = $(AM_CPPFLAGS) -DFLAG_VENDOR_ETC \
+ 		-DAUDIOHAL_RUN_IN_PULSEAUDIO
+ 
+ libaudiohal_la_CPPFLAGS += $(SMART_PA_SUPPORT)
++if USE_WHALE_HAL
++libaudiohal_la_CPPFLAGS += -DAUDIO_DSP_PLATFORM
++endif
+ # ALSA
+ 
+ libalsa_util_la_SOURCES = \
+@@ -2055,7 +2109,9 @@ libalsa_util_la_SOURCES = \
+ libalsa_util_la_LDFLAGS = -avoid-version
+ libalsa_util_la_LIBADD = $(MODULE_LIBADD) $(ASOUNDLIB_LIBS) libtinyalsa.la libaudiohal.la
+ libalsa_util_la_CFLAGS = $(AM_CFLAGS) $(SERVER_CFLAGS) $(ASOUNDLIB_CFLAGS)  -DPA_MODULE_NAME=libalsa_util
+-
++if USE_WHALE_HAL
++libalsa_util_la_CFLAGS +=  -DAUDIO_DSP_PLATFORM
++endif
+ if HAVE_UDEV
+ libalsa_util_la_SOURCES += modules/udev-util.h modules/udev-util.c
+ libalsa_util_la_LIBADD += $(UDEV_LIBS)
+-- 
+2.17.1
+

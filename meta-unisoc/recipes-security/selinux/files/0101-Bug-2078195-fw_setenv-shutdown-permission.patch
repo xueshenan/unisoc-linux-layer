@@ -1,0 +1,71 @@
+From cd4c77e0a1cf0c86b94209df18697f31c9f927ed Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Thu, 17 Nov 2022 09:56:56 +0800
+Subject: [PATCH] Bug #2078195 fw_setenv&&shutdown-permission
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/system/locallogin.if | 24 ++++++++++++++++++++++++
+ policy/modules/system/locallogin.te |  3 +++
+ 2 files changed, 27 insertions(+)
+
+diff --git a/policy/modules/system/locallogin.if b/policy/modules/system/locallogin.if
+index d7b37fd26..78d3fd9f8 100644
+--- a/policy/modules/system/locallogin.if
++++ b/policy/modules/system/locallogin.if
+@@ -642,3 +642,27 @@ interface(`locallogin_mount_runtime_t_dir',`
+     allow $1 mount_runtime_t:dir { create rw_dir_perms };
+ ')
+ 
++interface(`locallogin_removable_device_t_blk_file',`
++    gen_require(`
++		type removable_device_t;
++    ')
++
++    allow $1 removable_device_t:blk_file { rw_blk_file_perms };
++')
++
++interface(`locallogin_var_lock_t_file',`
++    gen_require(`
++        type var_lock_t;
++    ')
++
++    allow $1 var_lock_t:file { rw_file_perms lock };
++')
++
++interface(`locallogin_initctl_t_fifo_file',`
++    gen_require(`
++        type initctl_t;
++    ')
++
++    allow $1 initctl_t:fifo_file { rw_fifo_file_perms };
++')
++
+diff --git a/policy/modules/system/locallogin.te b/policy/modules/system/locallogin.te
+index 53c10c24b..caf44bce1 100644
+--- a/policy/modules/system/locallogin.te
++++ b/policy/modules/system/locallogin.te
+@@ -352,4 +352,7 @@ locallogin_unlabeled_t_filesystem(local_login_t)
+ locallogin_dosfs_t_filesystem(local_login_t)
+ locallogin_mount_exec_t_file(local_login_t)
+ locallogin_mount_runtime_t_dir(local_login_t)
++locallogin_removable_device_t_blk_file(local_login_t)
++locallogin_var_lock_t_file(local_login_t)
++locallogin_initctl_t_fifo_file(local_login_t)
+ 
+-- 
+2.17.1
+

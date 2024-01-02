@@ -1,0 +1,83 @@
+FILESEXTRAPATHS_prepend := "${THISDIR}/files:"
+
+
+SRC_URI += "file://0035-Bug-123-test-change-initfc.patch \
+			file://0036-Bug-2011601-delete-neverallow-proc_kmsg_t.patch \
+            file://0037-Bug-2011601-delete-neverallow-2.patch \
+            file://0038-Bug-2011601-login-fail-permission.patch \
+            file://0039-Bug-2011601-login-fail-change-passwd_t.patch \
+file://0040-Bug-2011601-login-permission.patch \
+file://0041-Bug-2011601-dontaudit-to-allow.patch \
+file://0042-Bug-2011601-sysadm-permission.patch \
+file://0043-Bug-2011601-adb-mount-permission.patch \
+file://0044-Bug-2011601-adb-mount-fail-2.patch \
+file://0045-Bug-2011601-adb-mount-fail-3.patch \
+file://0046-Bug-2011601-adb-mount-fail-4.patch \
+file://0047-Bug-2011601-adb-mount-fail-5.patch \
+file://0048-Bug-2011601-adb-mount-fail-6.patch \
+file://0049-Bug-2011601-adb-mount-fail-7.patch \
+file://0050-Bug-2011601-adb-mount-fail-8.patch \
+file://0051-Bug-2011601-adb-mount-fail-9.patch \
+file://0052-Bug-2011601-adb-mount-fail-10.patch \
+file://0053-Bug-2011601-transplant-1.0-refpolicy.patch \
+file://0054-Bug-2011601-transplant-1.0-refpolicy-2.patch \
+file://0055-Bug-2011601-transplant-1.0-refpolicy-3.patch \
+file://0056-Bug-2011601-transplant-1.0-refpolicy-4.patch \
+file://0057-Bug-2011601-transpolant-1.0-refpolicy-5.patch \
+file://0058-Bug-2011601-transpolant-1.0-refpolicy-6.patch \
+file://0059-Bug-2011601-transpolant-1.0-refpolicy-7.patch \
+file://0060-Bug-2011601-transpolant-1.0-refpolicy-8.patch \
+file://0061-Bug-2011601-transpolant-1.0-refpolicy-9.patch \
+file://0062-Bug-2011601-transplant-1.0-refpolicy-10.patch \
+file://0063-Bug-2011601-transplant-1.0-refpolicy-11.patch \
+file://0064-Bug-2011601-transplant-1.0-refpolicy-12.patch \
+file://0065-Bug-2011601-dbus-no-avc.patch \
+file://0066-Bug-2011601-dbus-no-avc-2.patch \
+file://0067-Bug-2011601-transplant-1.0-refpolicy-13.patch \
+file://0068-Bug-2011601-dev-kmsg-permission.patch \
+file://0069-Bug-2047280-bt-ssh-permission.patch \
+file://0070-Bug-2047280-bt-ssh-permission-2.patch \
+file://0071-Bug-2052013-add-BT-selinux-for-getopt.patch \
+file://0072-Bug-2047500-add-wpa_supplicant_permition.patch \
+file://0073-Bug-1963283-usbenum-permission.patch \
+file://0074-Bug-2047715-ssh-connect-fail.patch \
+file://0075-Bug-2052025-cancel-sysadm-to-staff.patch \
+file://0076-Bug-2047715-log-setenforce-failed.patch \
+file://0077-Bug-2047715-log-setenforce-failed-2.patch \
+file://0078-Bug-2047715-N6p-no-log.patch \
+file://0079-Bug-2055905-sh-Permission-denied.patch \
+file://0080-Bug-2055905-postsmoke-premission.patch \
+file://0081-Bug-2057864-N6pro-user-userdebug-login-fail.patch.patch \
+file://0082-Bug-2057864-user-userdebug-login-premission-denied.patch \
+file://0083-Bug-2057864-user-userdebug-login-premission-denied-2.patch \
+file://0084-Bug-2057864-user-userdebug-login-syslog-premission.patch \
+file://0085-Bug-2059680-factory-scan-fail.patch \
+file://0086-Bug-2057864-GLP2.0-staff-refpolicy-transplant.patch \
+file://0087-Bug-2057864-GLP2.0-staff-refpolicy-transplant-2.patch \
+file://0088-Bug-2064276-add-usbenum-permission.patch \
+file://0089-Bug-2062908-log-auto-reboot-log-ppp-usb-permission.patch \
+file://0090-Bug-2061740-ssh-mount-permission.patch \
+file://0091-Bug-2064171-9863a-gst-launch-1.0-permission-denied.patch \
+file://0092-Bug-2065366-udisk-mkdir-rmdir-permission.patch \
+file://0093-Bug-2067317-GLP2.0-gst-play-1.0-permission-denied.patch \
+file://0094-Bug-2062440-crond-selinux.patch \
+file://0095-Bug-2071144-GLP2.0-network-tcpdump-1.0-permission-denied.patch \
+file://0096-Bug-2072244-ufs_test-Permission-denied-modify-94patc.patch \
+file://0097-Bug-2071254-GLP2.0-network-ppp-1.0-permission-denied.patch \
+file://0098-Bug-2074567-GLP2.0-network-iptables-1.0-permission-denied.patch \
+file://0099-Bug-2074837-overlayfs-permission.patch \
+file://0100-Bug-2076703-ssh-dbus-launch-permission.patch \
+file://0101-Bug-2078195-fw_setenv-shutdown-permission.patch \
+file://0102-Bug-2079833-BBAT-mode-mount-dev-pts.patch \
+file://0103-Bug-2082388-ssh-opp-transfer-files-premission.patch \
+file://0104-Bug-2066633-sprd_vsp-has-no-map-selinux-permission.patch \
+file://0105-Bug-2084303-rsyslog-Add-imwcn-plugins-for-unisoc-wcn.patch \
+file://0106-Bug-2084696-9620-play-record-permission.patch \
+file://0107-Bug-2085473-rename-dir-in-mnt-userdata.patch \
+file://0108-Bug-2082388-ssh-opp-transfer-files-premission_1.patch \
+file://0109-Bug-2090194-GLP2.0-network-SSH-ping-permission-denied.patch \
+file://0110-Bug-2062926-GLP2.0-weston-SSH-permission-denied.patch \
+file://0111-Bug-2111531-OTA-add-selinux-permission.patch \
+file://0112-Bug-2112887-add-logrotate-to-dosfs-premission.patch \
+file://0113-Bug-2119927-add-gettty-permission.patch \
+	"

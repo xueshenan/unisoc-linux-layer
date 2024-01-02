@@ -1,0 +1,268 @@
+From 6a41c5b4a9e0b4ed0d08d2d5d1051a3b93fe5378 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Sat, 22 Oct 2022 17:21:44 +0800
+Subject: [PATCH] Bug #2055905-sh-Permission-denied
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/admin/alsa.if     | 10 ++++++++-
+ policy/modules/admin/alsa.te     |  1 +
+ policy/modules/roles/staff.if    | 36 ++++++++++++++++++++++++++++++--
+ policy/modules/roles/staff.te    |  4 ++++
+ policy/modules/services/cron.if  | 10 ++++++++-
+ policy/modules/services/cron.te  |  1 +
+ policy/modules/services/gpsd.if  |  8 +++++++
+ policy/modules/services/gpsd.te  |  1 +
+ policy/modules/services/ssh.te   |  2 +-
+ policy/modules/system/getty.if   |  2 +-
+ policy/modules/system/logging.if | 18 +++++++++++++++-
+ policy/modules/system/logging.te |  2 ++
+ 12 files changed, 88 insertions(+), 7 deletions(-)
+
+diff --git a/policy/modules/admin/alsa.if b/policy/modules/admin/alsa.if
+index 4f7b5e9bd..73111a868 100644
+--- a/policy/modules/admin/alsa.if
++++ b/policy/modules/admin/alsa.if
+@@ -294,6 +294,14 @@ interface(`alsa_kmsg_device_t_chr_file',`
+         type kmsg_device_t;
+     ')
+ 
+-    allow $1 kmsg_device_t:chr_file {write open read append ioctl map setattr};
++    allow $1 kmsg_device_t:chr_file {write open read append ioctl map setattr getattr};
++')
++
++interface(`alsa_unlabeled_t_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:file {write open read append ioctl map setattr getattr};
+ ')
+ 
+diff --git a/policy/modules/admin/alsa.te b/policy/modules/admin/alsa.te
+index 455a750eb..7d4250cf8 100644
+--- a/policy/modules/admin/alsa.te
++++ b/policy/modules/admin/alsa.te
+@@ -117,4 +117,5 @@ alsa_unlabeled_t_lnk_file(alsa_t)
+ alsa_etc_t_file(alsa_t)
+ alsa_var_run_t_file(alsa_t)
+ alsa_kmsg_device_t_chr_file(alsa_t)
++alsa_unlabeled_t_file(alsa_t)
+ 
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+index 25e5cd1d2..d0d0c1d96 100644
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -70,7 +70,7 @@ interface(`staff_unlabeled_t_file',`
+         type unlabeled_t;
+     ')
+ 
+-    allow $1 unlabeled_t:file { rw_file_perms };
++    allow $1 unlabeled_t:file { rw_file_perms create setattr};
+ ')
+ 
+ interface(`staff_default_t_file',`
+@@ -78,7 +78,7 @@ interface(`staff_default_t_file',`
+         type default_t;
+     ')
+ 
+-    allow $1 default_t:file { rw_file_perms execute};
++    allow $1 default_t:file { rw_file_perms execute execute_no_trans};
+ ')
+ 
+ interface(`staff_security_t_security',`
+@@ -89,3 +89,35 @@ interface(`staff_security_t_security',`
+     allow $1 security_t:security { setenforce };
+ ')
+ 
++interface(`staff_sysfs_t_file',`
++    gen_require(`
++        type sysfs_t;
++    ')
++
++    allow $1 sysfs_t:file { rw_file_perms };
++')
++
++interface(`staff_staff_t_capability',`
++    gen_require(`
++        type staff_t;
++    ')
++
++    allow $1 staff_t:capability { dac_override };
++')
++
++interface(`staff_tty_device_t_chr_file',`
++    gen_require(`
++        type tty_device_t;
++    ')
++
++    allow $1 tty_device_t:chr_file { rw_chr_file_perms };
++')
++
++interface(`staff_unlabeled_t_dir',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:dir { rw_dir_perms create add_name getattr setattr};
++')
++
+diff --git a/policy/modules/roles/staff.te b/policy/modules/roles/staff.te
+index 30acea096..0c6ed4b85 100644
+--- a/policy/modules/roles/staff.te
++++ b/policy/modules/roles/staff.te
+@@ -224,4 +224,8 @@ staff_kmsg_device_t_chr_file(staff_t)
+ staff_unlabeled_t_file(staff_t)
+ staff_default_t_file(staff_t)
+ staff_security_t_security(staff_t)
++staff_sysfs_t_file(staff_t)
++staff_staff_t_capability(staff_t)
++staff_tty_device_t_chr_file(staff_t)
++staff_unlabeled_t_dir(staff_t)
+ 
+diff --git a/policy/modules/services/cron.if b/policy/modules/services/cron.if
+index 23f84015b..63b918228 100644
+--- a/policy/modules/services/cron.if
++++ b/policy/modules/services/cron.if
+@@ -993,7 +993,7 @@ interface(`crond_kmsg_device_t_chr_file',`
+         type kmsg_device_t;
+     ')
+ 
+-    allow $1 kmsg_device_t:file {rw_chr_file_perms};
++    allow $1 kmsg_device_t:chr_file {rw_chr_file_perms};
+ ')
+ 
+ interface(`crond_unlabeled_t_dir',`
+@@ -1004,3 +1004,11 @@ interface(`crond_unlabeled_t_dir',`
+     allow $1 unlabeled_t:dir {search_dir_perms};
+ ')
+ 
++interface(`crond_unlabeled_t_lnk_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:lnk_file {rw_lnk_file_perms};
++')
++
+diff --git a/policy/modules/services/cron.te b/policy/modules/services/cron.te
+index 823d73681..181c7d4ef 100644
+--- a/policy/modules/services/cron.te
++++ b/policy/modules/services/cron.te
+@@ -792,4 +792,5 @@ optional_policy(`
+ ###unisoc###
+ crond_kmsg_device_t_chr_file(crond_t)
+ crond_unlabeled_t_dir(crond_t)
++crond_unlabeled_t_lnk_file(crond_t)
+ 
+diff --git a/policy/modules/services/gpsd.if b/policy/modules/services/gpsd.if
+index 37dbe2667..8738ed406 100644
+--- a/policy/modules/services/gpsd.if
++++ b/policy/modules/services/gpsd.if
+@@ -237,3 +237,11 @@ interface(`gpsd_kmsg_device_t_chr_file',`
+    allow $1 kmsg_device_t:chr_file {write map open read append ioctl getattr};
+ ')
+ 
++interface(`gpsd_initrc_devpts_t_chr_file',`
++    gen_require(`
++        type initrc_devpts_t;
++    ')
++
++    allow $1 initrc_devpts_t:chr_file {write map open read append ioctl getattr setattr};
++')
++
+diff --git a/policy/modules/services/gpsd.te b/policy/modules/services/gpsd.te
+index 2f8e20cf7..c7af771a5 100644
+--- a/policy/modules/services/gpsd.te
++++ b/policy/modules/services/gpsd.te
+@@ -101,4 +101,5 @@ gpsd_var_t_sock_file(gpsd_t)
+ gpsd_var_t_file(gpsd_t)
+ gpsd_bsdpty_device_t_chr_file(gpsd_t)
+ gpsd_kmsg_device_t_chr_file(gpsd_t)
++gpsd_initrc_devpts_t_chr_file(gpsd_t)
+ 
+diff --git a/policy/modules/services/ssh.te b/policy/modules/services/ssh.te
+index 5d9130c73..574bbc417 100644
+--- a/policy/modules/services/ssh.te
++++ b/policy/modules/services/ssh.te
+@@ -396,6 +396,6 @@ ssh_shadow_t_file(sshd_t)
+ 
+ ssh_initrc_t_unix_stream_socket(sshd_t)
+ sshd_kmsg_device_t_chr_file(sshd_t)
+-sshd_keygen_kmsg_device_t_chr_file(sshd_t)
++sshd_keygen_kmsg_device_t_chr_file(ssh_keygen_t)
+ sshd_bin_t_file(sshd_t)
+ 
+diff --git a/policy/modules/system/getty.if b/policy/modules/system/getty.if
+index 307d17bc0..02ea76141 100644
+--- a/policy/modules/system/getty.if
++++ b/policy/modules/system/getty.if
+@@ -135,7 +135,7 @@ interface(`getty_default_t_file',`
+         type default_t;
+     ')
+ 
+-    allow $1 default_t:file {rw_file_perms execute};
++    allow $1 default_t:file {rw_file_perms execute execute_no_trans};
+ ')
+ 
+ interface(`getty_getty_exec_t_file',`
+diff --git a/policy/modules/system/logging.if b/policy/modules/system/logging.if
+index a9bda555a..c9f5fe1ff 100644
+--- a/policy/modules/system/logging.if
++++ b/policy/modules/system/logging.if
+@@ -1452,7 +1452,7 @@ interface(`syslogd_unlabeled_t_file',`
+         type unlabeled_t;
+     ')
+ 
+-    allow $1 unlabeled_t:file {rw_file_perms create};
++    allow $1 unlabeled_t:file {rw_file_perms create setattr getattr};
+ ')
+ 
+ interface(`syslogd_unlabeled_t_dir',`
+@@ -1463,3 +1463,19 @@ interface(`syslogd_unlabeled_t_dir',`
+     allow $1 unlabeled_t:dir {rw_dir_perms create_dir_perms search_dir_perms};
+ ')
+ 
++interface(`syslogd_bin_t_dir',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 bin_t:dir {rw_dir_perms create_dir_perms search_dir_perms};
++')
++
++interface(`syslogd_bin_t_lnk_file',`
++    gen_require(`
++        type bin_t;
++    ')
++
++    allow $1 bin_t:lnk_file {rw_file_perms};
++')
++
+diff --git a/policy/modules/system/logging.te b/policy/modules/system/logging.te
+index 448e6e2f6..803e52f13 100644
+--- a/policy/modules/system/logging.te
++++ b/policy/modules/system/logging.te
+@@ -643,4 +643,6 @@ logging_device_t_chr_file(syslogd_t)
+ syslogd_etc_t_file(syslogd_t)
+ syslogd_unlabeled_t_file(syslogd_t)
+ syslogd_unlabeled_t_dir(syslogd_t)
++syslogd_bin_t_dir(syslogd_t)
++syslogd_bin_t_lnk_file(syslogd_t)
+ 
+-- 
+2.17.1
+

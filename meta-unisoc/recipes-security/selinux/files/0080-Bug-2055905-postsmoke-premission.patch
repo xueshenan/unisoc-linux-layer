@@ -1,0 +1,246 @@
+From d0700694f703b5f5a0b585971ad52082d5da8532 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Mon, 24 Oct 2022 13:51:00 +0800
+Subject: [PATCH] Bug #2055905 postsmoke-premission
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/roles/staff.if     | 47 +++++++++++++++++++++++++++++--
+ policy/modules/roles/staff.te     |  5 ++++
+ policy/modules/services/cron.if   | 10 ++++++-
+ policy/modules/services/cron.te   |  1 +
+ policy/modules/system/getty.if    |  2 +-
+ policy/modules/system/logging.if  |  8 ++++++
+ policy/modules/system/logging.te  |  1 +
+ policy/modules/system/modutils.if |  8 ++++++
+ policy/modules/system/modutils.te |  1 +
+ policy/modules/system/mount.if    |  8 ++++++
+ policy/modules/system/mount.te    |  1 +
+ 11 files changed, 87 insertions(+), 5 deletions(-)
+
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+index d0d0c1d96..2bf7cbe1b 100644
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -70,7 +70,7 @@ interface(`staff_unlabeled_t_file',`
+         type unlabeled_t;
+     ')
+ 
+-    allow $1 unlabeled_t:file { rw_file_perms create setattr};
++    allow $1 unlabeled_t:file { rw_file_perms create setattr unlink};
+ ')
+ 
+ interface(`staff_default_t_file',`
+@@ -102,7 +102,7 @@ interface(`staff_staff_t_capability',`
+         type staff_t;
+     ')
+ 
+-    allow $1 staff_t:capability { dac_override };
++    allow $1 staff_t:capability { dac_override sys_tty_config};
+ ')
+ 
+ interface(`staff_tty_device_t_chr_file',`
+@@ -118,6 +118,47 @@ interface(`staff_unlabeled_t_dir',`
+         type unlabeled_t;
+     ')
+ 
+-    allow $1 unlabeled_t:dir { rw_dir_perms create add_name getattr setattr};
++    allow $1 unlabeled_t:dir { rw_dir_perms create add_name getattr setattr rmdir};
++')
++
++interface(`staff_initrc_t_process',`
++    gen_require(`
++        type initrc_t;
++    ')
++
++    allow $1 initrc_t:process { signal sigkill };
++')
++
++interface(`staff_devlog_t_sock_file',`
++    gen_require(`
++        type devlog_t;
++    ')
++
++    allow $1 devlog_t:sock_file {rw_sock_file_perms};
++')
++
++interface(`staff_device_t_chr_file',`
++    gen_require(`
++        type device_t;
++    ')
++
++    allow $1 device_t:chr_file {rw_chr_file_perms};
++')
++
++interface(`staff_tmpfs_t_file',`
++    gen_require(`
++        type tmpfs_t;
++    ')
++
++    allow $1 tmpfs_t:file {rw_file_perms};
++')
++
++
++interface(`staff_pulseaudio_var_run_t_sock_file',`
++    gen_require(`
++        type pulseaudio_var_run_t;
++    ')
++
++    allow $1 pulseaudio_var_run_t:sock_file {rw_sock_file_perms};
+ ')
+ 
+diff --git a/policy/modules/roles/staff.te b/policy/modules/roles/staff.te
+index 0c6ed4b85..05837d133 100644
+--- a/policy/modules/roles/staff.te
++++ b/policy/modules/roles/staff.te
+@@ -228,4 +228,9 @@ staff_sysfs_t_file(staff_t)
+ staff_staff_t_capability(staff_t)
+ staff_tty_device_t_chr_file(staff_t)
+ staff_unlabeled_t_dir(staff_t)
++staff_initrc_t_process(staff_t)
++staff_devlog_t_sock_file(staff_t)
++staff_device_t_chr_file(staff_t)
++staff_tmpfs_t_file(staff_t)
++staff_pulseaudio_var_run_t_sock_file(staff_t)
+ 
+diff --git a/policy/modules/services/cron.if b/policy/modules/services/cron.if
+index 63b918228..f3a97253d 100644
+--- a/policy/modules/services/cron.if
++++ b/policy/modules/services/cron.if
+@@ -1001,7 +1001,7 @@ interface(`crond_unlabeled_t_dir',`
+         type unlabeled_t;
+     ')
+ 
+-    allow $1 unlabeled_t:dir {search_dir_perms};
++    allow $1 unlabeled_t:dir {search_dir_perms rw_dir_perms create_dir_perms};
+ ')
+ 
+ interface(`crond_unlabeled_t_lnk_file',`
+@@ -1012,3 +1012,11 @@ interface(`crond_unlabeled_t_lnk_file',`
+     allow $1 unlabeled_t:lnk_file {rw_lnk_file_perms};
+ ')
+ 
++interface(`crond_etc_t_file',`
++    gen_require(`
++	    type etc_t;
++    ')
++
++    allow $1 etc_t:file {rw_file_perms};
++')
++
+diff --git a/policy/modules/services/cron.te b/policy/modules/services/cron.te
+index 181c7d4ef..1a31b9ffe 100644
+--- a/policy/modules/services/cron.te
++++ b/policy/modules/services/cron.te
+@@ -793,4 +793,5 @@ optional_policy(`
+ crond_kmsg_device_t_chr_file(crond_t)
+ crond_unlabeled_t_dir(crond_t)
+ crond_unlabeled_t_lnk_file(crond_t)
++crond_etc_t_file(crond_t)
+ 
+diff --git a/policy/modules/system/getty.if b/policy/modules/system/getty.if
+index 02ea76141..6faab8131 100644
+--- a/policy/modules/system/getty.if
++++ b/policy/modules/system/getty.if
+@@ -151,6 +151,6 @@ interface(`getty_etc_t_file',`
+         type etc_t;
+     ')
+ 
+-    allow $1 etc_t:file {rw_file_perms};
++    allow $1 etc_t:file {rw_file_perms map};
+ ')
+ 
+diff --git a/policy/modules/system/logging.if b/policy/modules/system/logging.if
+index c9f5fe1ff..a55afe8f3 100644
+--- a/policy/modules/system/logging.if
++++ b/policy/modules/system/logging.if
+@@ -1479,3 +1479,11 @@ interface(`syslogd_bin_t_lnk_file',`
+     allow $1 bin_t:lnk_file {rw_file_perms};
+ ')
+ 
++interface(`syslogd_bin_t_file',`
++    gen_require(`
++        type bin_t;
++    ')
++
++    allow $1 bin_t:file {rw_file_perms};
++')
++
+diff --git a/policy/modules/system/logging.te b/policy/modules/system/logging.te
+index 803e52f13..38a4719c3 100644
+--- a/policy/modules/system/logging.te
++++ b/policy/modules/system/logging.te
+@@ -645,4 +645,5 @@ syslogd_unlabeled_t_file(syslogd_t)
+ syslogd_unlabeled_t_dir(syslogd_t)
+ syslogd_bin_t_dir(syslogd_t)
+ syslogd_bin_t_lnk_file(syslogd_t)
++syslogd_bin_t_file(syslogd_t)
+ 
+diff --git a/policy/modules/system/modutils.if b/policy/modules/system/modutils.if
+index 18cdeca0a..d52200472 100644
+--- a/policy/modules/system/modutils.if
++++ b/policy/modules/system/modutils.if
+@@ -516,3 +516,11 @@ interface(`kmod_kmsg_device_t_chr_file',`
+     allow $1 kmsg_device_t:chr_file { write append read open ioctl map getattr};
+ ')
+ 
++interface(`kmod_initrc_var_run_t_file',`
++    gen_require(`
++        type initrc_var_run_t;
++    ')
++
++    allow $1 initrc_var_run_t:file { write append read open ioctl map getattr};
++')
++
+diff --git a/policy/modules/system/modutils.te b/policy/modules/system/modutils.te
+index f304dc809..39b82d821 100644
+--- a/policy/modules/system/modutils.te
++++ b/policy/modules/system/modutils.te
+@@ -208,4 +208,5 @@ modutils_tty_device_t_chr_file(kmod_t)
+ modutils_ptmx_t_chr_file(kmod_t)
+ 
+ kmod_kmsg_device_t_chr_file(kmod_t)
++kmod_initrc_var_run_t_file(kmod_t)
+ 
+diff --git a/policy/modules/system/mount.if b/policy/modules/system/mount.if
+index 0f7013bc7..b626e252c 100644
+--- a/policy/modules/system/mount.if
++++ b/policy/modules/system/mount.if
+@@ -325,3 +325,11 @@ interface(`mount_unlabeled_t_chr_file',`
+     allow $1 unlabeled_t:chr_file { rw_chr_file_perms};
+ ')
+ 
++interface(`mount_initrc_t_file',`
++    gen_require(`
++        type initrc_t;
++    ')
++
++    allow $1 initrc_t:file { rw_file_perms};
++')
++
+diff --git a/policy/modules/system/mount.te b/policy/modules/system/mount.te
+index 1fedce7c2..0a6474cb3 100644
+--- a/policy/modules/system/mount.te
++++ b/policy/modules/system/mount.te
+@@ -246,4 +246,5 @@ mount_initrc_t_netlink_kobject_uevent_socket(mount_t)
+ mount_initrc_t_unix_stream_socket(mount_t)
+ mount_kmsg_device_t_chr_file(mount_t)
+ mount_unlabeled_t_chr_file(mount_t)
++mount_initrc_t_file(mount_t)
+ 
+-- 
+2.17.1
+

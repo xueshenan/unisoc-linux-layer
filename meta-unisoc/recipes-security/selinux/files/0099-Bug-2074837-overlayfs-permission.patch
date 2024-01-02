@@ -1,0 +1,152 @@
+From f5073aaecf38a4bd0dca0a1ef2325f26b362c12d Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Mon, 14 Nov 2022 14:44:55 +0800
+Subject: [PATCH] Bug #2074837 overlayfs-permission
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/system/mount.if | 96 ++++++++++++++++++++++++++++++++++
+ policy/modules/system/mount.te | 12 +++++
+ 2 files changed, 108 insertions(+)
+
+diff --git a/policy/modules/system/mount.if b/policy/modules/system/mount.if
+index 0fe033839..842ff09bd 100644
+--- a/policy/modules/system/mount.if
++++ b/policy/modules/system/mount.if
+@@ -349,3 +349,99 @@ interface(`mount_dosfs_t_filesystem',`
+     allow $1 dosfs_t:filesystem { unmount remount getattr mount };
+ ')
+ 
++interface(`mount_unlabeled_t_dir',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:dir { rw_dir_perms create };
++')
++
++interface(`mount_default_t_file',`
++    gen_require(`
++        type default_t;
++    ')
++
++    allow $1 default_t:file { rw_file_perms map execute execute_no_trans };
++')
++
++interface(`mount_var_lock_t_file',`
++    gen_require(`
++        type var_lock_t;
++    ')
++
++    allow $1 var_lock_t:file { rw_file_perms map };
++')
++
++interface(`mount_var_lib_t_file',`
++    gen_require(`
++        type var_lib_t;
++    ')
++
++    allow $1 var_lib_t:file { rw_file_perms map rename create };
++')
++
++interface(`mount_alsa_var_lib_t_file',`
++    gen_require(`
++        type alsa_var_lib_t;
++    ')
++
++    allow $1 alsa_var_lib_t:file { rw_file_perms map };
++')
++
++interface(`mount_mount_capability',`
++    gen_require(`
++        type mount_t;
++    ')
++
++    allow $1 mount_t:capability { dac_read_search sys_module setuid dac_override net_raw sys_ptrace sys_tty_config  sys_admin net_admin sys_boot fowner };
++')
++
++interface(`mount_cron_spool_t_dir',`
++    gen_require(`
++        type cron_spool_t;
++    ')
++
++    allow $1 cron_spool_t:dir { rw_dir_perms create };
++')
++
++interface(`mount_ntp_drift_t_dir',`
++    gen_require(`
++        type ntp_drift_t;
++    ')
++
++    allow $1 ntp_drift_t:dir { rw_dir_perms create };
++')
++
++interface(`mount_var_lib_t_dir',`
++    gen_require(`
++        type var_lib_t;
++    ')
++
++    allow $1 var_lib_t:dir { rw_dir_perms create };
++')
++
++interface(`mount_user_home_dir_t_dir',`
++    gen_require(`
++        type user_home_dir_t;
++    ')
++
++    allow $1 user_home_dir_t:dir { rw_dir_perms create reparent rename };
++')
++
++interface(`mount_var_t_file',`
++    gen_require(`
++        type var_t;
++    ')
++
++    allow $1 var_t:file { rw_file_perms map setattr append };
++')
++
++interface(`mount_var_log_t_lnk_file',`
++    gen_require(`
++        type var_log_t;
++    ')
++
++    allow $1 var_log_t:lnk_file { rw_lnk_file_perms map setattr append };
++')
++
+diff --git a/policy/modules/system/mount.te b/policy/modules/system/mount.te
+index 9d1f443d4..9c6f9c698 100644
+--- a/policy/modules/system/mount.te
++++ b/policy/modules/system/mount.te
+@@ -249,4 +249,16 @@ mount_unlabeled_t_chr_file(mount_t)
+ mount_initrc_t_file(mount_t)
+ mount_initrc_var_run_t_file(mount_t)
+ mount_dosfs_t_filesystem(mount_t)
++mount_unlabeled_t_dir(mount_t)
++mount_default_t_file(mount_t)
++mount_var_lock_t_file(mount_t)
++mount_var_lib_t_file(mount_t)
++mount_alsa_var_lib_t_file(mount_t)
++mount_mount_capability(mount_t)
++mount_cron_spool_t_dir(mount_t)
++mount_ntp_drift_t_dir(mount_t)
++mount_var_lib_t_dir(mount_t)
++mount_user_home_dir_t_dir(mount_t)
++mount_var_t_file(mount_t)
++mount_var_log_t_lnk_file(mount_t)
+ 
+-- 
+2.17.1
+

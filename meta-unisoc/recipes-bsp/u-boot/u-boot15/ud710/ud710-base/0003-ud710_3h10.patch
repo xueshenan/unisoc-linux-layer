@@ -1,0 +1,100 @@
+diff --git a/include/configs/ud710_3h10.h b/include/configs/ud710_3h10.h
+index 1bc2da9..0dc462d 100755
+--- a/include/configs/ud710_3h10.h
++++ b/include/configs/ud710_3h10.h
+@@ -19,14 +19,14 @@
+ #define CONFIG_SPL_BAK
+ #define CONFIG_MISC_INIT_R                     /* call misc_init_r()	      */
+ #define CONFIG_BOARD_LATE_INIT         /* call board_late_init() */
+-//#define CONFIG_SUPPORT_RAW_INITRD
++/*#define CONFIG_SUPPORT_RAW_INITRD */
+
+ /*the SPL is erased, the romcode will enter the download process.*/
+ #define CONFIG_ERASE_SPL_AUTO_DOWNLOAD
+
+ /* Cache Definitions */
+-//#define CONFIG_SYS_DCACHE_OFF
+-//#define CONFIG_SYS_ICACHE_OFF
++/*#define CONFIG_SYS_DCACHE_OFF*/
++/*#define CONFIG_SYS_ICACHE_OFF*/
+
+ #define CONFIG_IDENT_STRING		"ROC1"
+
+@@ -115,11 +115,11 @@
+ #define CONFIG_CMD_IMI
+ #define CONFIG_CMD_MEMORY
+ #define CONFIG_CMD_MII
+-//#define CONFIG_CMD_NET
++/*#define CONFIG_CMD_NET*/
+ #define CONFIG_CMD_PING
+ #define CONFIG_CMD_SAVEENV
+ #define CONFIG_CMD_RUN
+-//#define CONFIG_CMD_BOOTD
++/*#define CONFIG_CMD_BOOTD*/
+ #define CONFIG_CMD_ECHO
+ #define CONFIG_CMD_SOURCE
+ #define CONFIG_CMD_FAT
+@@ -129,7 +129,7 @@
+ #define CONFIG_SYS_LOAD_ADDR		(PHYS_SDRAM_1 + 0x10000000)
+
+ /* Physical Memory Map */
+-//#define  CONFIG_DUAL_DDR
++/*#define  CONFIG_DUAL_DDR*/
+
+ #define PHYS_SDRAM_1			0x80000000	/* SDRAM Bank #1 */
+ #define PHYS_SDRAM_1_SIZE		0x20000000	/* 512 MB */
+@@ -256,14 +256,14 @@
+ #define PWR_KEY_DETECT_CNT  2
+ #define ALARM_LEAD_SET_MS 0 /* time set for alarm boot in advancd */
+ #define LOW_BAT_VOL            3500 /*phone battery voltage low than this value will not boot up*/
+-#define LOW_BAT_VOL_CHG        3300    //3.3V charger connect
++#define LOW_BAT_VOL_CHG        3300    /*3.3V charger connect*/
+
+ /*for device tree*/
+ #define DT_PLATFROM_ID 710
+ #define DT_HARDWARE_ID 1
+ #define DT_SOC_VER     0x20000
+
+-#define SIMLOCK_ADR      (0x891FE800+0x4)   //0x4 just for data header
++#define SIMLOCK_ADR      (0x891FE800+0x4)   /*0x4 just for data header*/
+
+ #define KERNEL_ADR      0x80080000
+ #define DT_ADR          0x85400000
+@@ -312,21 +312,21 @@
+ #define UID_DOUBLE 1
+
+ /*7S reset config*/
+-#define CONFIG_7S_RST_MODULE_EN		1	//0:disable module; 1:enable module
++#define CONFIG_7S_RST_MODULE_EN		1	/*0:disable module; 1:enable module*/
+
+ #ifdef DEBUG
+-#define CONFIG_7S_RST_SW_MODE	1	//0:hw reset,1:arm reset,power keep on	//soft for debug version
++#define CONFIG_7S_RST_SW_MODE	1	/*0:hw reset,1:arm reset,power keep on	//soft for debug version*/
+ #else
+-#define CONFIG_7S_RST_SW_MODE	0	//0:hw reset,1:arm reset,power keep on	//hard for user version
++#define CONFIG_7S_RST_SW_MODE	0	/*0:hw reset,1:arm reset,power keep on	//hard for user version*/
+ #endif
+
+-#define CONFIG_7S_RST_SHORT_MODE	1	//0:long press then release key to trigger;1:press key some time to trigger
+-#define CONFIG_7S_RST_2KEY_MODE		1	//0:1Key--Normal mode; 1:2KEY
+-#define CONFIG_7S_RST_THRESHOLD		7	//7S, hold key down for this time to trigger
++#define CONFIG_7S_RST_SHORT_MODE	1	/*0:long press then release key to trigger;1:press key some time to trigger*/
++#define CONFIG_7S_RST_2KEY_MODE		1	/*0:1Key--Normal mode; 1:2KEY*/
++#define CONFIG_7S_RST_THRESHOLD		7	/*7S, hold key down for this time to trigger*/
+
+  /*SMPL config*/
+-//#define CONFIG_SMPL_EN
+-//#define CONFIG_SMPL_THRESHOLD 	0		//one step is 0.25S
++/*#define CONFIG_SMPL_EN*/
++/*#define CONFIG_SMPL_THRESHOLD 	0*/		/*one step is 0.25S*/
+
+ /* Chip Driver Macro Definitions End*/
+ /*active arm7 ram before access to it*/
+@@ -357,6 +357,6 @@
+ #endif
+
+ #define CONFIG_RTC_START_YEAR		1970
+-#define CONFIG_DEBUG_DCDCLDO_FORCE_ON  //for bringup
++#define CONFIG_DEBUG_DCDCLDO_FORCE_ON  /*for bringup*/
+ #define CONFIG_SUPPORT_LOWPOWER
+ #endif /* __CONFIG_H  */

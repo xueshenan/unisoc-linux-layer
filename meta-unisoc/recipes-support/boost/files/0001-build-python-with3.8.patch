@@ -1,0 +1,12 @@
+diff --git a/libs/python/build/Jamfile b/libs/python/build/Jamfile
+index 34f99dd..ff6bf9f 100644
+--- a/libs/python/build/Jamfile-1
++++ b/libs/python/build/Jamfile
+@@ -73,6 +73,7 @@ lib boost_python
+     :   # requirements
+         <link>static:<define>BOOST_PYTHON_STATIC_LIB
+         <define>BOOST_PYTHON_SOURCE
++        <target-os>linux:<linkflags>"-lpython3.8"
+ 
+         # On Windows, all code using Python has to link to the Python
+         # import library.

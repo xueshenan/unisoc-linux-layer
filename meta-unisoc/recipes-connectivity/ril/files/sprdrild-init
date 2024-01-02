@@ -1,0 +1,71 @@
+#!/bin/sh
+
+DESC="sprdrild"
+DAEMON="/usr/bin/sprdrild"
+startmbim=0
+
+do_start() {
+	if [ ! -f "/mnt/data/mbimmode.ini" ];then
+		cp /etc/ril/mbimmode.ini /mnt/data/mbimmode.ini
+		echo "init mbimmode.ini"
+	fi
+	str1=$(cat /proc/cmdline)
+	str2="calibration="
+        str3="linuxboot.mode=autotest"
+	startmbim=$(/usr/bin/rwini.sh /mnt/data/mbimmode.ini property startmbim)
+
+	result1=$(echo $str1 | grep "${str2}")
+        result2=$(echo $str1 | grep "${str3}")
+
+	if [ "$result1" != "" ];then
+		echo "enter the calibration"
+		exit 0
+        elif [ "$result2" != "" ];then
+		echo "enter the bbat"
+                $DAEMON -l  /usr/lib/libsprd-ril.so &
+		exit 0
+	else
+		echo "enter the normal"
+		cat /etc/inittab | grep "$DAEMON"
+
+		if [ $? -eq 0 ]
+		then
+			echo "Starting $DESC from inittab"
+		else
+			if [ "$startmbim" == "1" ];then
+				echo "not starting sprdrild"
+			else
+				echo "Starting $DESC"
+				$DAEMON -l  /usr/lib/libsprd-ril.so &
+			fi
+		fi
+		exit 0
+	fi
+}
+
+do_stop() {
+	start-stop-daemon --stop --name sprdrild --quiet
+}
+
+case "$1" in
+  start)
+	do_start
+	;;
+  stop)
+	echo "Stopping $DESC"
+	do_stop
+	;;
+  restart|force-reload)
+	echo "Restarting $DESC"
+	do_stop
+	sleep 1
+	do_start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0
+

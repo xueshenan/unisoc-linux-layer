@@ -1,0 +1,750 @@
+From 5459c301f4258901dd4aafb61c00ca2c3ad31dbf Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Tue, 11 Oct 2022 09:57:19 +0800
+Subject: [PATCH] Bug #2011601 transplant-1.0-refpolicy-12
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/roles/staff.if | 583 ----------------------------------
+ policy/modules/roles/staff.te | 124 --------
+ 2 files changed, 707 deletions(-)
+
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+index 71ac993e9..13954e200 100644
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -49,586 +49,3 @@ interface(`staff_role_change_to',`
+ 	allow staff_r $1;
+ ')
+ 
+-interface(`staff_unlabeled_t_file',`
+-	gen_require(`
+-		type unlabeled_t;
+-	')
+-	allow $1 unlabeled_t:file { read open write create rename unlink setattr link ioctl map lock append execute execute_no_trans };
+-')
+-
+-interface(`staff_unlabeled_t_dir',`
+-	gen_require(`
+-		type unlabeled_t;
+-	')
+-	allow $1 unlabeled_t:dir { write add_name remove_name create setattr rmdir rename };
+-')
+-
+-interface(`staff_devlog_t_sock_file',`
+-	gen_require(`
+-		type devlog_t;
+-	')
+-	allow $1 devlog_t:sock_file { write };
+-')
+-
+-interface(`staff_unreserved_port_t_tcp_socket',`
+-	gen_require(`
+-		type unreserved_port_t;
+-	')
+-	allow $1 unreserved_port_t:tcp_socket { name_bind };
+-')
+-
+-interface(`staff_syslogd_t_unix_dgram_socket',`
+-	gen_require(`
+-		type syslogd_t;
+-	')
+-	allow $1 syslogd_t:unix_dgram_socket { sendto };
+-')
+-
+-interface(`staff_node_t_tcp_socket',`
+-	gen_require(`
+-		type node_t;
+-	')
+-	allow $1 node_t:tcp_socket { node_bind };
+-')
+-
+-interface(`staff_device_t_chr_file',`
+-	gen_require(`
+-		type device_t;
+-	')
+-	allow $1 device_t:chr_file { read write open ioctl map };
+-')
+-
+-interface(`staff_sysfs_t_file',`
+-	gen_require(`
+-		type sysfs_t;
+-	')
+-	allow $1 sysfs_t:file { write };
+-')
+-
+-##### Bug 1728537 unisoc sl8541e-smartpen ssh login reboot permission #####
+-
+-interface(`staff_unlabeled_t_lnk_file',`
+-        gen_require(`
+-                type unlabeled_t;
+-        ')
+-
+-        allow $1 unlabeled_t:lnk_file { read create };
+-')
+-
+-##### Bug 1794323 unisoc sl8541e-smartpen ssh BT  permission  denied#####
+-
+-interface(`staff_staff_t_capability',`
+-        gen_require(`
+-                type staff_t;
+-        ')
+-
+-        allow $1 staff_t:capability { sys_module setuid dac_override net_raw dac_read_search sys_ptrace sys_tty_config  sys_admin net_admin sys_boot };
+-')
+-
+-#1801603  WCN test permission denied#####
+-
+-interface(`staff_wireless_device_t_chr_file',`
+-	gen_require(`
+-		type wireless_device_t;
+-        ')
+-
+-        allow $1 wireless_device_t:chr_file { write };
+-')
+-
+-interface(`staff_commplex_link_port_t_tcp_socket',`
+-	gen_require(`
+-		type commplex_link_port_t;
+-	')
+-
+-	allow $1 commplex_link_port_t:tcp_socket { name_bind };
+-')
+-
+-interface(`staff_staff_t_bluetooth_socket',`
+-        gen_require(`
+-                type staff_t;
+-        ')
+-
+-        allow $1 staff_t:bluetooth_socket { create bind listen connect write read accept setopt getattr };
+-')
+-
+-interface(`staff_bluetooth_runtime_t_sock_file',`
+-        gen_require(`
+-                type bluetooth_runtime_t;
+-        ')
+-
+-        allow $1 bluetooth_runtime_t:sock_file { write };
+-')
+-
+-interface(`staff_bluetooth_t_unix_stream_socket',`
+-        gen_require(`
+-                type bluetooth_t;
+-        ')
+-
+-        allow $1 bluetooth_t:unix_stream_socket { connectto };
+-')
+-
+-###
+-
+-#1803705  scp uploads permission denied#####
+-
+-interface(`staff_bin_t_file',`
+-	gen_require(`
+-		type bin_t;
+-        ')
+-
+-        allow $1 bin_t:file { write create setattr };
+-')
+-
+-interface(`staff_bin_t_dir',`
+-	gen_require(`
+-		type bin_t;
+-        ')
+-
+-        allow $1 bin_t:dir { write add_name create };
+-')
+-
+-interface(`staff_var_run_t_dir',`
+-        gen_require(`
+-                type var_run_t;
+-        ')
+-
+-        allow $1 var_run_t:dir { write add_name remove_name };
+-')
+-
+-interface(`staff_var_run_t_file',`
+-        gen_require(`
+-                type var_run_t;
+-        ')
+-
+-        allow $1 var_run_t:file { create write open read unlink map execute };
+-')
+-
+-interface(`staff_var_run_t_sock_file',`
+-    gen_require(`
+-        type var_run_t;
+-    ')
+-    allow $1 var_run_t : sock_file { write };
+-')
+-
+-interface(`staff_initctl_t_fifo_file',`
+-        gen_require(`
+-                type initctl_t;
+-        ')
+-
+-        allow $1 initctl_t:fifo_file { write open };
+-')
+-
+-interface(`staff_initrc_t_unix_stream_socket',`
+-    gen_require(`
+-        type initrc_t;
+-    ')
+-    allow $1 initrc_t : unix_stream_socket { connectto };
+-')
+-
+-interface(`staff_staff_t_process',`
+-    gen_require(`
+-        type staff_t;
+-    ')
+-    allow $1 staff_t : process { execstack execmem };
+-')
+-
+-interface(`staff_lib_t_file',`
+-    gen_require(`
+-        type lib_t;
+-    ')
+-    allow $1 lib_t : file { execmod };
+-')
+-
+-##### Bug 1730001 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-interface(`staff_var_lock_t_file',`
+-        gen_require(`
+-                type var_lock_t;
+-        ')
+-
+-        allow $1 var_lock_t:file { lock write open };
+-')
+-
+-interface(`staff_removable_device_t_blk_file',`
+-        gen_require(`
+-                type removable_device_t;
+-        ')
+-
+-        allow $1 removable_device_t:blk_file { write };
+-')
+-
+-##### Bug 1730001 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-##### Bug 1731327 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-interface(`staff_unlabeled_t_filesystem',`
+-        gen_require(`
+-                type unlabeled_t;
+-        ')
+-
+-        allow $1 unlabeled_t:filesystem { getattr };
+-')
+-
+-interface(`staff_dosfs_t_filesystem',`
+-        gen_require(`
+-                type dosfs_t;
+-        ')
+-
+-        allow $1 dosfs_t:filesystem { unmount };
+-')
+-
+-##### Bug 1805061 unisoc sl8541e-smartpen ssh tf card  permission #####
+-
+-interface(`staff_dosfs_t_dir',`
+-        gen_require(`
+-                type dosfs_t;
+-        ')
+-
+-        allow $1 dosfs_t:dir { write add_name remove_name create rmdir rename };
+-')
+-
+-interface(`staff_dosfs_t_file',`
+-        gen_require(`
+-                type dosfs_t;
+-        ')
+-
+-        allow $1 dosfs_t:file { create write append unlink rename };
+-')
+-
+-##### Bug 1814910 unisoc sl8541e-smartpen ssh exft tf card  permission #####
+-
+-interface(`staff_mnt_t_dir',`
+-        gen_require(`
+-                type mnt_t;
+-        ')
+-
+-        allow $1 mnt_t:dir { write };
+-')
+-
+-interface(`staff_staff_t_capability2',`
+-        gen_require(`
+-                type staff_t;
+-        ')
+-
+-        allow $1 staff_t:capability2 { block_suspend };
+-')
+-
+-interface(`staff_configfs_t_dir',`
+-        gen_require(`
+-                type configfs_t;
+-        ')
+-
+-        allow $1 configfs_t:dir { read open };
+-')
+-
+-interface(`staff_tracefs_t_dir',`
+-        gen_require(`
+-                type tracefs_t;
+-        ')
+-
+-        allow $1 tracefs_t:dir { read open };
+-')
+-
+-interface(`staff_sysctl_irq_t_dir',`
+-        gen_require(`
+-                type sysctl_irq_t;
+-        ')
+-
+-        allow $1 sysctl_irq_t:dir { getattr read open };
+-')
+-
+-interface(`staff_sysctl_net_unix_t_dir',`
+-        gen_require(`
+-                type sysctl_net_unix_t;
+-        ')
+-
+-        allow $1 sysctl_net_unix_t:dir { getattr read open };
+-')
+-
+-interface(`staff_fixed_disk_device_t_blk_file',`
+-        gen_require(`
+-                type fixed_disk_device_t;
+-        ')
+-
+-        allow $1 fixed_disk_device_t:blk_file { read open ioctl };
+-')
+-
+-##### Bug 1731327 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-##### Bug 1730617 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-interface(`staff_staff_t_icmp_socket',`
+-        gen_require(`
+-                type staff_t;
+-        ')
+-
+-        allow $1 staff_t:icmp_socket { create };
+-')
+-
+-interface(`staff_staff_t_rawip_socket',`
+-        gen_require(`
+-                type staff_t;
+-        ')
+-
+-        allow $1 staff_t:rawip_socket { create setopt getopt write read };
+-')
+-
+-##### Bug 1730617 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-##### Bug 1741703 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-interface(`staff_pulseaudio_runtime_t_sock_file',`
+-        gen_require(`
+-                type pulseaudio_runtime_t;
+-        ')
+-
+-        allow $1 pulseaudio_runtime_t:sock_file { write };
+-')
+-
+-##### Bug 1741703 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-##### Bug 1741443 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-interface(`staff_initrc_t_dbus',`
+-        gen_require(`
+-                class dbus send_msg;
+-				type initrc_t;
+-        ')
+-
+-        allow $1 initrc_t:dbus send_msg;
+-')
+-
+-##### Bug 1741443 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-##### Bug 1730614 unisoc permission #####
+-interface(`staff_sysadm_t_dbus',`
+-        gen_require(`
+-                class dbus send_msg;
+-				type sysadm_t;
+-        ')
+-
+-        allow $1 sysadm_t:dbus send_msg;
+-')
+-
+-# Bug1791399
+-interface(`staff_modules_dep_t_file',`
+-        gen_require(`
+-                type modules_dep_t;
+-        ')
+-
+-        allow $1 modules_dep_t:file { open read write map };
+-')
+-
+-interface(`staff_modules_object_t_file',`
+-        gen_require(`
+-                type modules_object_t;
+-        ')
+-
+-        allow $1 modules_object_t:file { open read map};
+-')
+-
+-interface(`staff_modules_object_t_system',`
+-        gen_require(`
+-                type modules_object_t;
+-        ')
+-
+-        allow $1 modules_object_t:system { module_load};
+-')
+-
+-##### Bug 1793663 unisoc permission #####
+-interface(`staff_initrc_t_process',`
+-		gen_require(`
+-		type initrc_t;
+-      ')
+-
+-      allow $1 initrc_t:process {sigkill signal};
+-')
+-
+-interface(`staff_kernel_t_process',`
+-		gen_require(`
+-		type kernel_t;
+-      ')
+-
+-      allow $1 kernel_t:process {setsched};
+-')
+-
+-interface(`staff_tty_device_t_chr_file',`
+-		gen_require(`
+-		type tty_device_t;
+-      ')
+-
+-      allow $1 tty_device_t:chr_file {read write open ioctl};
+-')
+-
+-interface(`staff_event_device_t_chr_file',`
+-		gen_require(`
+-		type event_device_t;
+-      ')
+-
+-      allow $1 event_device_t:chr_file {write};
+-')
+-
+-interface(`staff_xkb_var_lib_t_file',`
+-		gen_require(`
+-		type xkb_var_lib_t;
+-      ')
+-
+-      allow $1 xkb_var_lib_t:file {map};
+-')
+-
+-interface(`staff_framebuf_device_t_chr_file',`
+-		gen_require(`
+-		type framebuf_device_t;
+-      ')
+-
+-      allow $1 framebuf_device_t:chr_file {read write open ioctl map};
+-')
+-
+-interface(`staff_fs_t_filesystem',`
+-      	gen_require(`
+-		type fs_t;
+-      ')
+-
+-      allow $1 fs_t:filesystem {remount};
+-')
+-
+-#
+-interface(`staff_sysctl_fs_t_file',`
+-      	gen_require(`
+-		type sysctl_fs_t;
+-      ')
+-
+-      allow $1 sysctl_fs_t:file { read open};
+-')
+-
+-##################bug 1804011########################
+-interface(`staff_security_t_security',`
+-	gen_require(`
+-		type security_t;
+-	')
+-
+-	allow $1 security_t:security {setenforce};
+-')
+-
+-################bug 1803864#########################
+-interface(`staff_proc_t_dir',`
+-     gen_require(`
+-         type proc_t;
+-     ')
+-
+-     allow $1 proc_t:dir { write add_name };
+-')
+-
+-interface(`staff_proc_t_file',`
+-		gen_require(`
+-	         type proc_t;
+-      ')
+-
+-      allow $1 proc_t:file { write create };
+-')
+-
+-interface(`staff_sysctl_kernel_t_file',`
+-      gen_require(`
+-          type sysctl_kernel_t;
+-      ')
+-
+-      allow $1 sysctl_kernel_t:file { write };
+-')
+-
+-#####bug 1801739##########################
+-interface(`staff_initrc_tmp_t_file',`
+-	gen_require(`
+-		type initrc_tmp_t;
+-    ')
+-
+-	allow $1 initrc_tmp_t:file { setattr execute read open map execute_no_trans };
+-')
+-
+-interface(`staff_sysctl_vm_t_dir',`
+-    gen_require(`
+-         type sysctl_vm_t;
+-    ')
+-
+-    allow $1 sysctl_vm_t:dir { search };
+-')
+-
+-interface(`staff_sysctl_vm_overcommit_t_file',`
+-    gen_require(`
+-          type sysctl_vm_overcommit_t; 
+-	')
+-
+-    allow $1 sysctl_vm_overcommit_t:file { read open };
+-')
+-
+-##### Bug 1802949 unisoc sl8541e-smartpen factorytest permission denied#####
+-interface(`staff_initrc_runtime_t_file',`
+-        gen_require(`
+-                type initrc_runtime_t;
+-    ')
+-
+-        allow $1 initrc_runtime_t:file { map };
+-')
+-
+-interface(`staff_tmp_t_dir',`
+-    gen_require(`
+-          type tmp_t;
+-        ')
+-
+-    allow $1 tmp_t:dir { setattr };
+-')
+-
+-interface(`staff_sysfs_t_dir',`
+-        gen_require(`
+-                type sysfs_t;
+-        ')
+-        allow $1 sysfs_t:dir { write };
+-')
+-
+-interface(`staff_dri_device_t_chr_file',`
+-        gen_require(`
+-                type dri_device_t;
+-        ')
+-        allow $1 dri_device_t:chr_file { setattr map };
+-')
+-
+-#### BUG#1907204 ./factorytest reboot fail error ###
+-interface(`staff_wtmp_t_file',`
+-        gen_require(`
+-                type wtmp_t;
+-        ')
+-        allow $1 wtmp_t:file { append };
+-')
+-
+-interface(`staff_init_t_process',`
+-        gen_require(`
+-                type init_t;
+-        ')
+-        allow $1 init_t:process { signal };
+-')
+-
+-
+-#Bug 1921814
+-interface(`staff_sysctl_t_file',`
+-        gen_require(`
+-            type sysctl_t;
+-        ')
+-        allow $1 sysctl_t:file { write open read };
+-')
+-
+-interface(`staff_console_device_t_chr_file',`
+-        gen_require(`
+-                type console_device_t;
+-        ')
+-        allow $1 console_device_t:chr_file { write open ioctl };
+-')
+-
+-
+-interface(`staff_init_t_dbus',`
+-        gen_require(`
+-                class dbus send_msg;
+-                type init_t;
+-        ')
+-
+-        allow $1 init_t:dbus { send_msg };
+-')
+-
+diff --git a/policy/modules/roles/staff.te b/policy/modules/roles/staff.te
+index f5588bd0f..5439f4c37 100644
+--- a/policy/modules/roles/staff.te
++++ b/policy/modules/roles/staff.te
+@@ -218,127 +218,3 @@ ifndef(`distro_redhat',`
+ 	')
+ ')
+ 
+-staff_unlabeled_t_file(staff_t)
+-staff_unlabeled_t_dir(staff_t)
+-staff_devlog_t_sock_file(staff_t)
+-staff_unreserved_port_t_tcp_socket(staff_t)
+-staff_syslogd_t_unix_dgram_socket(staff_t)
+-staff_node_t_tcp_socket(staff_t)
+-staff_device_t_chr_file(staff_t)
+-staff_sysfs_t_file(staff_t)
+-
+-##### Bug 1728537 unisoc sl8541e-smartpen ssh login reboot permission #####
+-
+-staff_unlabeled_t_lnk_file(staff_t)
+-staff_staff_t_capability(staff_t)
+-staff_var_run_t_dir(staff_t)
+-staff_var_run_t_file(staff_t)
+-staff_initctl_t_fifo_file(staff_t)
+-staff_var_run_t_sock_file(staff_t)
+-staff_initrc_t_unix_stream_socket(staff_t)
+-staff_staff_t_process(staff_t)
+-staff_lib_t_file(staff_t)
+-
+-##### Bug 1730001 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-staff_var_lock_t_file(staff_t)
+-staff_removable_device_t_blk_file(staff_t)
+-
+-##### Bug 1730001 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-##### Bug 1731327 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-staff_unlabeled_t_filesystem(staff_t)
+-staff_dosfs_t_filesystem(staff_t)
+-staff_dosfs_t_dir(staff_t)
+-staff_dosfs_t_file(staff_t)
+-staff_staff_t_capability2(staff_t)
+-staff_configfs_t_dir(staff_t)
+-staff_tracefs_t_dir(staff_t)
+-staff_sysctl_irq_t_dir(staff_t)
+-staff_sysctl_net_unix_t_dir(staff_t)
+-staff_fixed_disk_device_t_blk_file(staff_t)
+-
+-##### Bug 1731327 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-##### Bug 1730617 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-staff_staff_t_icmp_socket(staff_t)
+-staff_staff_t_rawip_socket(staff_t)
+-
+-##### Bug 1730617 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-##### Bug 1741703 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-staff_pulseaudio_runtime_t_sock_file(staff_t)
+-
+-##### Bug 1741703 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-##### Bug 1741443 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-staff_initrc_t_dbus(staff_t)
+-
+-##### Bug 1741443 unisoc sl8541e-smartpen ssh login function permission #####
+-
+-##### Bug 1730614 unisoc permission  #####
+-staff_sysadm_t_dbus(staff_t)
+-
+-# Bug1791399
+-staff_modules_dep_t_file(staff_t)
+-staff_modules_object_t_file(staff_t)
+-staff_modules_object_t_system(staff_t)
+-
+-staff_initrc_t_process(staff_t)
+-staff_kernel_t_process(staff_t)
+-staff_tty_device_t_chr_file(staff_t)
+-staff_event_device_t_chr_file(staff_t)
+-staff_xkb_var_lib_t_file(staff_t)
+-staff_framebuf_device_t_chr_file(staff_t)
+-staff_fs_t_filesystem(staff_t)
+-
+-######Bug 1801603 WCN selinux
+-staff_wireless_device_t_chr_file(staff_t)
+-staff_commplex_link_port_t_tcp_socket(staff_t)
+-staff_staff_t_bluetooth_socket(staff_t)
+-staff_bluetooth_runtime_t_sock_file(staff_t)
+-staff_bluetooth_t_unix_stream_socket(staff_t)
+-
+-######Bug 180375 scp selinux
+-staff_bin_t_file(staff_t)
+-staff_bin_t_dir(staff_t)
+-
+-staff_sysctl_fs_t_file(staff_t)
+-
+-######bug 1804011 ###########
+-staff_security_t_security(staff_t)
+-
+-######bug 1803864#########
+-staff_proc_t_dir(staff_t)
+-staff_proc_t_file(staff_t)
+-staff_sysctl_kernel_t_file(staff_t)
+-
+-#########bug1801739####
+-staff_initrc_tmp_t_file(staff_t)
+-staff_sysctl_vm_t_dir(staff_t)
+-staff_sysctl_vm_overcommit_t_file(staff_t)
+-
+-######Bug 1802949 factorytest permission denied#####
+-staff_initrc_runtime_t_file(staff_t)
+-staff_tmp_t_dir(staff_t)
+-staff_sysfs_t_dir(staff_t)
+-staff_dri_device_t_chr_file(staff_t)
+-
+-######Bug 1907204 factorytest permission denied#####
+-staff_wtmp_t_file(staff_t)
+-staff_init_t_process(staff_t)
+-
+-######Bug 1814910 ssh exfat tf card permission denied#####
+-staff_mnt_t_dir(staff_t)
+-
+-#Bug 1921814 echo c > /proc/sysrq-trigger permission denied
+-staff_sysctl_t_file(staff_t)
+-
+-######Bug 1925491 ssh run app_demo permission denied#####
+-staff_console_device_t_chr_file(staff_t)
+-staff_init_t_dbus(staff_t)
+-
+-- 
+2.17.1
+

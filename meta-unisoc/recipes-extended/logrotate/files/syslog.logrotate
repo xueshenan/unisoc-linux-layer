@@ -1,0 +1,74 @@
+# SPDX-FileCopyrightText: 2021 Unisoc (Shanghai) Technologies Co., Ltd.
+#
+# SPDX-License-Identifier: LicenseRef-Unisoc-General-1.0
+/mnt/data/log/kern.log
+/mnt/data/log/user.log
+/mnt/data/log/syslog
+/mnt/data/log/cache/syslog
+/mnt/data/log/cache/kern.log
+/mnt/data/log/cache/user.log
+{
+    su root adm
+    rotate 10
+    size 5M
+    notifempty
+    compress
+    create
+    prerotate
+    endscript
+    postrotate
+        logger "logrotate internal at `date`"
+    endscript
+}
+
+/mnt/media/log/kern.log
+/mnt/media/log/user.log
+/mnt/media/log/syslog
+/mnt/media/log/cache/syslog
+/mnt/media/log/cache/kern.log
+/mnt/media/log/cache/user.log
+{
+    su root adm
+    rotate 10
+    compress
+    size 200M
+    notifempty
+    delaycompress
+    create
+    prerotate
+    endscript
+    postrotate
+        logger "logrotate sd at `date`"
+    endscript
+}
+/mnt/data/log/current.log
+{
+    su root adm
+    rotate 10
+    compress
+    size 5M
+    notifempty
+    delaycompress
+    create
+    prerotate
+    endscript
+    postrotate
+        logger "logrotate internal at `date`"
+    endscript
+}
+/mnt/media/log/current.log
+{
+    su root adm
+    rotate 10
+    compress
+    size 200M
+    notifempty
+    delaycompress
+    create
+    prerotate
+    endscript
+    postrotate
+        logger "logrotate sd at `date`"
+    endscript
+}
+

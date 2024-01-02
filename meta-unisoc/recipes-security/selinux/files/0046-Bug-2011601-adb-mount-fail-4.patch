@@ -1,0 +1,65 @@
+From 76112889fb4348fdd2b197d837171917e9a65a1b Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Fri, 30 Sep 2022 17:42:02 +0800
+Subject: [PATCH] Bug #2011601 adb&mount-fail-4
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:xx
+
+commit_template_version:v1
+---
+ policy/modules/services/gpsd.if   | 8 ++++++++
+ policy/modules/services/gpsd.te   | 1 +
+ policy/modules/system/hostname.te | 3 +++
+ 3 files changed, 12 insertions(+)
+
+diff --git a/policy/modules/services/gpsd.if b/policy/modules/services/gpsd.if
+index 4d73b0272..32afd603a 100644
+--- a/policy/modules/services/gpsd.if
++++ b/policy/modules/services/gpsd.if
+@@ -188,3 +188,11 @@ interface(`gpsd_device_t_file',`
+    allow $1 device_t:file {write map open read append ioctl};
+ ')
+ 
++interface(`gpsd_var_t_dir',`
++    gen_require(`
++        type var_t;
++    ')
++
++   allow $1 var_t:dir {write open read create};
++')
++
+diff --git a/policy/modules/services/gpsd.te b/policy/modules/services/gpsd.te
+index 5035e8305..8d9c61170 100644
+--- a/policy/modules/services/gpsd.te
++++ b/policy/modules/services/gpsd.te
+@@ -94,4 +94,5 @@ gpsd_sysadm_t_unix_dgram_socket(gpsd_t)
+ gpsd_device_t_sock_file(gpsd_t)
+ gpsd_gpsd_t_process(gpsd_t)
+ gpsd_device_t_file(gpsd_t)
++gpsd_var_t_dir(gpsd_t)
+ 
+diff --git a/policy/modules/system/hostname.te b/policy/modules/system/hostname.te
+index 80c3f9f2b..1348fa282 100644
+--- a/policy/modules/system/hostname.te
++++ b/policy/modules/system/hostname.te
+@@ -70,3 +70,6 @@ optional_policy(`
+ optional_policy(`
+ 	unconfined_allow_rw_pipes(hostname_t)
+ ')
++
++hostname_device_t_file(hostname_t)
++
+-- 
+2.17.1
+

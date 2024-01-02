@@ -1,0 +1,290 @@
+  <root>
+  <!--
+  SensorRole support list:
+      single_ir, single_macro
+      dualcam_master, dualcam_slave
+      multicam_superwide, multicam_wide,multicam_tele
+      stl3d_rgb, stl3d_ir_left, stl3d_ir_right
+
+  Rules:
+      1. SensorRole string is the back part of enum sensor_role
+         in cmr_common.h, convert to lowercase letters.
+      2. If no SensorRole, regard single as default.
+      3. Max SensorRole configured number of a sensor is 8,
+         SensorRole number beyond 8 will be ignored.
+      4. At the same facing, the same SensorRole only can exist
+         one for different sensors. If multiple, only the first one
+         is valid. For example, at Facing BACK, only support one
+         dualcam_master, the next dualcam_master will be ignored.
+         But you can define a dualcam_master at Facing FRONT at the
+         same time.
+      5. For the same sensor, the SensorRole of same type only can
+         exist one. (Generally the same type SensorRoles are mutually
+         exclusive.) If multiple, only the last one is valid. For
+         example, sensor ov32a1q has a SensorRole dualcam_master,
+         then has a SensorRole dualcam_slave, the final dualcam
+         SensorRole of ov32a1q is dualcam_slave. But you can define
+         a multicam_wide for ov32a1q at the same time.
+      6. SensorRoles should be added continuously after Resource_cost.
+         Please don't put them in other place.
+      7. SensorRoles can be added without order. For example, you can
+         input dualcam_master first, then input multicam_wide; also can
+         input multicam_wide first, then input dualcam_master.
+  -->
+  <!-->
+  sensor id 0
+  <-->
+      <CameraModuleCfg>
+        <SlotId>0</SlotId>
+        <SensorName>imx351</SensorName>
+        <Facing>BACK</Facing>
+        <Orientation>90</Orientation>
+        <Resource_cost>50</Resource_cost>
+        <SensorRole>dualcam_master</SensorRole>
+        <ConflictingDevice>1</ConflictingDevice>
+        <OTP>
+            <E2prom>
+                <OtpName>general</OtpName>
+                <I2cAddr>0xa0</I2cAddr>
+                <E2promNum>2</E2promNum>
+                <E2promSize>8192</E2promSize>
+            </E2prom>
+        </OTP>
+        <VCM>
+            <AfName>dw9714p</AfName>
+            <Mode>0</Mode>
+        </VCM>
+        <TuningParameter>
+            <TuningName>imx351</TuningName>
+        </TuningParameter>
+      </CameraModuleCfg>
+      <CameraModuleCfg>
+        <SlotId>0</SlotId>
+        <SensorName>ov16885</SensorName>
+        <Facing>BACK</Facing>
+        <Orientation>90</Orientation>
+        <Resource_cost>50</Resource_cost>
+        <ConflictingDevice>1</ConflictingDevice>
+        <OTP>
+            <E2prom>
+                <OtpName>general</OtpName>
+                <I2cAddr>0xa0</I2cAddr>
+                <E2promNum>0</E2promNum>
+                <E2promSize>8192</E2promSize>
+            </E2prom>
+        </OTP>
+        <TuningParameter>
+            <TuningName>ov16885</TuningName>
+        </TuningParameter>
+      </CameraModuleCfg>
+      <CameraModuleCfg>
+        <SlotId>0</SlotId>
+        <SensorName>imx362</SensorName>
+        <Facing>BACK</Facing>
+        <Orientation>90</Orientation>
+        <Resource_cost>50</Resource_cost>
+        <ConflictingDevice>1</ConflictingDevice>
+        <VCM>
+            <AfName>lc898213</AfName>
+            <Mode>0</Mode>
+        </VCM>
+        <TuningParameter>
+            <TuningName>imx362</TuningName>
+        </TuningParameter>
+      </CameraModuleCfg>
+      <CameraModuleCfg>
+        <SlotId>0</SlotId>
+        <SensorName>s5k4h9yx</SensorName>
+        <Facing>BACK</Facing>
+        <Orientation>90</Orientation>
+        <Resource_cost>50</Resource_cost>
+        <SensorRole>stl3d_rgb</SensorRole>
+        <ConflictingDevice>1</ConflictingDevice>
+        <TuningParameter>
+            <TuningName>s5k4h9yx</TuningName>
+        </TuningParameter>
+      </CameraModuleCfg>
+      <CameraModuleCfg>
+        <SlotId>0</SlotId>
+        <SensorName>s5k3p9sx04_ts</SensorName>
+        <Facing>BACK</Facing>
+        <Orientation>90</Orientation>
+        <Resource_cost>50</Resource_cost>
+        <SensorRole>dualcam_master</SensorRole>
+        <ConflictingDevice>1</ConflictingDevice>
+        <OTP>
+            <E2prom>
+                <OtpName>general</OtpName>
+                <I2cAddr>0xa0</I2cAddr>
+                <E2promNum>2</E2promNum>
+                <E2promSize>8192</E2promSize>
+            </E2prom>
+        </OTP>
+        <VCM>
+            <AfName>fp5510ee4</AfName>
+            <Mode>0</Mode>
+        </VCM>
+        <TuningParameter>
+            <TuningName>s5k3p9sx04_ts</TuningName>
+        </TuningParameter>
+      </CameraModuleCfg>
+  <!-->
+  sensor id 1
+  <-->
+      <CameraModuleCfg>
+        <SlotId>1</SlotId>
+        <SensorName>ov8856_shine_front</SensorName>
+        <Facing>FRONT</Facing>
+        <Orientation>270</Orientation>
+        <Resource_cost>100</Resource_cost>
+        <OTP>
+            <E2prom>
+                <OtpName>general</OtpName>
+                <I2cAddr>0xa2</I2cAddr>
+                <E2promNum>0</E2promNum>
+                <E2promSize>8192</E2promSize>
+            </E2prom>
+        </OTP>
+        <TuningParameter>
+            <TuningName>ov8856_shine_front</TuningName>
+        </TuningParameter>
+      </CameraModuleCfg>
+      <CameraModuleCfg>
+        <SlotId>1</SlotId>
+        <SensorName>ov5675</SensorName>
+        <Facing>FRONT</Facing>
+        <Orientation>270</Orientation>
+        <Resource_cost>100</Resource_cost>
+        <TuningParameter>
+            <TuningName>ov5675</TuningName>
+        </TuningParameter>
+      </CameraModuleCfg>
+      <CameraModuleCfg>
+        <SlotId>1</SlotId>
+        <SensorName>gc2145</SensorName>
+        <Facing>FRONT</Facing>
+        <Orientation>270</Orientation>
+        <Resource_cost>100</Resource_cost>
+        <TuningParameter>
+            <TuningName>gc2145</TuningName>
+        </TuningParameter>
+      </CameraModuleCfg>
+      <CameraModuleCfg>
+        <SlotId>1</SlotId>
+        <SensorName>ov7251</SensorName>
+        <Facing>FRONT</Facing>
+        <Orientation>270</Orientation>
+        <Resource_cost>100</Resource_cost>
+        <TuningParameter>
+            <TuningName>ov7251</TuningName>
+        </TuningParameter>
+      </CameraModuleCfg>
+    <CameraModuleCfg>
+        <SlotId>1</SlotId>
+        <SensorName>ov8856_front_ts</SensorName>
+        <Facing>FRONT</Facing>
+        <Orientation>270</Orientation>
+        <Resource_cost>100</Resource_cost>
+        <OTP>
+            <E2prom>
+                <OtpName>general</OtpName>
+                <I2cAddr>0xa4</I2cAddr>
+                <E2promNum>0</E2promNum>
+                <E2promSize>8192</E2promSize>
+            </E2prom>
+        </OTP>
+        <TuningParameter>
+            <TuningName>ov8856_front_ts</TuningName>
+        </TuningParameter>
+      </CameraModuleCfg>
+  <!-->
+  sensor id 2
+  <-->
+      <CameraModuleCfg>
+        <SlotId>2</SlotId>
+        <SensorName>ov5675_dual</SensorName>
+        <Facing>BACK</Facing>
+        <Orientation>90</Orientation>
+        <Resource_cost>50</Resource_cost>
+        <SensorRole>dualcam_slave</SensorRole>
+        <OTP>
+            <E2prom>
+                <OtpName>general</OtpName>
+                <I2cAddr>0xa0</I2cAddr>
+                <E2promNum>0</E2promNum>
+                <E2promSize>8192</E2promSize>
+            </E2prom>
+        </OTP>
+        <TuningParameter>
+            <TuningName>ov5675_dual</TuningName>
+        </TuningParameter>
+      </CameraModuleCfg>
+      <CameraModuleCfg>
+        <SlotId>2</SlotId>
+        <SensorName>ov8856_shine</SensorName>
+        <Facing>BACK</Facing>
+        <Orientation>90</Orientation>
+        <Resource_cost>50</Resource_cost>
+        <SensorRole>dualcam_slave</SensorRole>
+        <OTP>
+            <E2prom>
+                <OtpName>general</OtpName>
+                <I2cAddr>0xa0</I2cAddr>
+                <E2promNum>2</E2promNum>
+                <E2promSize>8192</E2promSize>
+            </E2prom>
+        </OTP>
+        <TuningParameter>
+            <TuningName>ov8856_shine_back</TuningName>
+        </TuningParameter>
+      </CameraModuleCfg>
+      <CameraModuleCfg>
+        <SlotId>2</SlotId>
+        <SensorName>ov7251_dual</SensorName>
+        <Facing>BACK</Facing>
+        <Orientation>90</Orientation>
+        <Resource_cost>50</Resource_cost>
+        <SensorRole>stl3d_ir_left</SensorRole>
+        <TuningParameter>
+            <TuningName>ov7251_dual</TuningName>
+        </TuningParameter>
+      </CameraModuleCfg>
+      <CameraModuleCfg>
+        <SlotId>2</SlotId>
+        <SensorName>s5k5e9yu05</SensorName>
+        <Facing>BACK</Facing>
+        <Orientation>90</Orientation>
+        <Resource_cost>50</Resource_cost>
+        <SensorRole>dualcam_slave</SensorRole>
+        <OTP>
+            <E2prom>
+                <OtpName>general</OtpName>
+                <I2cAddr>0xb0</I2cAddr>
+                <E2promNum>1</E2promNum>
+                <E2promSize>8192</E2promSize>
+            </E2prom>
+        </OTP>
+        <TuningParameter>
+            <TuningName>s5k5e9yu05</TuningName>
+        </TuningParameter>
+      </CameraModuleCfg>
+      <CameraModuleCfg>
+        <SlotId>2</SlotId>
+        <SensorName>ov8856_back_ts</SensorName>
+        <Facing>BACK</Facing>
+        <Orientation>90</Orientation>
+        <Resource_cost>50</Resource_cost>
+        <SensorRole>dualcam_slave</SensorRole>
+        <OTP>
+            <E2prom>
+                <OtpName>general</OtpName>
+                <I2cAddr>0xa2</I2cAddr>
+                <E2promNum>2</E2promNum>
+                <E2promSize>8192</E2promSize>
+            </E2prom>
+        </OTP>
+        <TuningParameter>
+            <TuningName>ov8856_back_ts</TuningName>
+        </TuningParameter>
+      </CameraModuleCfg>
+  </root>

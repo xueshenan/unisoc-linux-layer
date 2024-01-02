@@ -1,0 +1,13 @@
+[Unit]
+Description=at-router test-demo app
+After=sprdrild.service
+
+
+[Service]
+ExecStart=/usr/bin/unitest_main
+Restart=always
+
+
+[Install]
+WantedBy=multi-user.target
+

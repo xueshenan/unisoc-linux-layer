@@ -1,0 +1,120 @@
+--- weston-3.0.0/libweston/compositor-fbdev.c	2017-08-09 02:57:03.000000000 +0800
++++ weston-3.0.0/libweston/compositor-fbdev.c	2020-04-16 20:05:02.000000000 +0800
+@@ -92,10 +92,19 @@
+ 	/* pixman details. */
+ 	pixman_image_t *hw_surface;
+ 	uint8_t depth;
++	int fd;
+ };
+ 
+ static const char default_seat[] = "seat0";
+ 
++static int
++fbdev_frame_buffer_open(struct fbdev_output *output, const char *fb_dev,
++                        struct fbdev_screeninfo *screen_info);
++
++static int
++fbdev_set_screen_info(struct fbdev_output *output, int fd,
++                        struct fbdev_screeninfo *info);
++
+ static inline struct fbdev_output *
+ to_fbdev_output(struct weston_output *base)
+ {
+@@ -123,6 +132,7 @@
+ {
+ 	struct fbdev_output *output = to_fbdev_output(base);
+ 	struct weston_compositor *ec = output->base.compositor;
++	int fb_fd;
+ 
+ 	/* Repaint the damaged region onto the back buffer. */
+ 	pixman_renderer_output_set_buffer(base, output->hw_surface);
+@@ -131,6 +141,21 @@
+ 	/* Update the damage region. */
+ 	pixman_region32_subtract(&ec->primary_plane.damage,
+ 	                         &ec->primary_plane.damage, damage);
++   	struct fbdev_screeninfo new_screen_info; 
++	/* Create the frame buffer. */
++	if (output->fd == 0) {
++		fb_fd = fbdev_frame_buffer_open(output, output->device,
++                                    &new_screen_info);
++		if (fb_fd < 0) {
++			weston_log("Creating frame buffer failed %d.\n", output->fd);
++		}
++		output->fd = fb_fd;
++	}
++    
++	if (fbdev_set_screen_info(output, output->fd,&output->fb_info) < 0) {
++		weston_log("Failed to restore mode settings. "
++               "Attempting to re-open output anyway.\n");
++	}
+ 
+ 	/* Schedule the end of the frame. We do not sync this to the frame
+ 	 * buffer clock because users who want that should be using the DRM
+@@ -328,6 +353,7 @@
+ 	varinfo.blue.offset = 0;
+ 	varinfo.blue.length = 8;
+ 	varinfo.blue.msb_right = 0;
++	varinfo.activate = FB_ACTIVATE_FORCE;
+ 
+ 	/* Set the device's screen information. */
+ 	if (ioctl(fd, FBIOPUT_VSCREENINFO, &varinfo) < 0) {
+@@ -473,6 +499,21 @@
+ }
+ 
+ static int
++fbdev_output_disable_handler(struct weston_output *base)
++{
++       if (!base->enabled)
++               return 0;
++
++       /* Close the frame buffer. */
++       fbdev_output_disable(base);
++
++       if (base->renderer_state != NULL)
++               pixman_renderer_output_destroy(base);
++
++       return 0;
++}
++
++static int
+ fbdev_output_create(struct fbdev_backend *backend,
+                     const char *device)
+ {
+@@ -497,7 +538,7 @@
+ 
+ 	output->base.name = strdup("fbdev");
+ 	output->base.destroy = fbdev_output_destroy;
+-	output->base.disable = NULL;
++	output->base.disable = fbdev_output_disable_handler;
+ 	output->base.enable = fbdev_output_enable;
+ 
+ 	weston_output_init(&output->base, backend->compositor);
+@@ -518,6 +559,8 @@
+ 
+ 	output->base.mm_width = output->fb_info.width_mm;
+ 	output->base.mm_height = output->fb_info.height_mm;
++
++	output->fd = 0;
+ 
+ 	close(fb_fd);
+ 
+@@ -539,17 +582,14 @@
+ 
+ 	weston_log("Destroying fbdev output.\n");
+ 
+-	/* Close the frame buffer. */
+-	fbdev_output_disable(base);
+-
+-	if (base->renderer_state != NULL)
+-		pixman_renderer_output_destroy(base);
++	fbdev_output_disable_handler(base);
+ 
+ 	/* Remove the output. */
+ 	weston_output_destroy(&output->base);
+ 
+ 	free(output->device);
+ 	free(output);
++	close(output->fd);
+ }
+ 
+ /* strcmp()-style return values. */

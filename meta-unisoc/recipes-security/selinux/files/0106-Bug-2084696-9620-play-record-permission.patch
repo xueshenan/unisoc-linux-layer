@@ -1,0 +1,86 @@
+From c5a0b739c834f5dc646b52a12982a5b66797f327 Mon Sep 17 00:00:00 2001
+From: "qingyuan.zhang" <qingyuan.zhang@unisoc.com>
+Date: Fri, 25 Nov 2022 19:26:21 +0800
+Subject: [PATCH] Bug #2084696
+
+[root cause  ]:x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:9620
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/system/locallogin.if | 25 ++++++++++++++++++++++++-
+ policy/modules/system/locallogin.te |  3 +++
+ 2 files changed, 27 insertions(+), 1 deletion(-)
+ mode change 100644 => 100755 policy/modules/system/locallogin.if
+ mode change 100644 => 100755 policy/modules/system/locallogin.te
+
+diff --git a/policy/modules/system/locallogin.if b/policy/modules/system/locallogin.if
+old mode 100644
+new mode 100755
+index ab8f6516c..c3ee9a13a
+--- a/policy/modules/system/locallogin.if
++++ b/policy/modules/system/locallogin.if
+@@ -495,7 +495,7 @@ interface(`locallogin_initrc_t_process',`
+         type initrc_t;
+     ')
+ 
+-    allow $1 initrc_t:process { signal };
++    allow $1 initrc_t:process { signal signull };
+ ')
+ 
+ interface(`locallogin_proc_net_t_file',`
+@@ -698,3 +698,26 @@ interface(`locallogin_local_login_t_capability',`
+     allow $1 local_login_t:capability { sys_admin };
+ ')
+ 
++interface(`locallogin_pulseaudio_var_run_t_dir',`
++    gen_require(`
++        type pulseaudio_var_run_t;
++    ')
++
++    allow $1 pulseaudio_var_run_t:dir { search };
++')
++
++interface(`locallogin_pulseaudio_var_run_t_sock_file',`
++    gen_require(`
++        type pulseaudio_var_run_t;
++    ')
++
++    allow $1 pulseaudio_var_run_t:sock_file { write };
++')
++
++interface(`locallogin_alsa_etc_t_lnk_file',`
++    gen_require(`
++        type alsa_etc_t;
++    ')
++
++    allow $1 alsa_etc_t:lnk_file { read };
++')
+\ No newline at end of file
+diff --git a/policy/modules/system/locallogin.te b/policy/modules/system/locallogin.te
+old mode 100644
+new mode 100755
+index 2accbde6e..1d462abe8
+--- a/policy/modules/system/locallogin.te
++++ b/policy/modules/system/locallogin.te
+@@ -359,4 +359,7 @@ locallogin_kernel_t_process(local_login_t)
+ locallogin_devpts_t_filesystem(local_login_t)
+ locallogin_init_exec_t_file(local_login_t)
+ locallogin_local_login_t_capability(local_login_t)
++locallogin_pulseaudio_var_run_t_dir(local_login_t)
++locallogin_pulseaudio_var_run_t_sock_file(local_login_t)
++locallogin_alsa_etc_t_lnk_file(local_login_t)
+ 
+-- 
+2.17.1
+

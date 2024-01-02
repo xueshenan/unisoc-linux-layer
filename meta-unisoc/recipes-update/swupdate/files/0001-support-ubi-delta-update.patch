@@ -1,0 +1,4380 @@
+Index: git/Makefile.flags
+===================================================================
+--- git.orig/Makefile.flags
++++ git/Makefile.flags
+@@ -175,6 +175,8 @@ endif
+ 
+ ifeq ($(CONFIG_RDIFFHANDLER),y)
+ LDLIBS += rsync
++LDLIBS += bz2
++LDLIBS += otaarith
+ endif
+ 
+ ifeq ($(CONFIG_REMOTE_HANDLER),y)
+Index: git/core/cpio_utils.c
+===================================================================
+--- git.orig/core/cpio_utils.c
++++ git/core/cpio_utils.c
+@@ -19,6 +19,9 @@
+ #include "util.h"
+ #include "sslapi.h"
+ #include "progress.h"
++#include "flash.h"
++#include "fcntl.h"
++#include "swupdate.h"
+ 
+ #define MODULE_NAME "cpio"
+ 
+@@ -26,6 +29,7 @@
+ 
+ #define NPAD_BYTES(o) ((4 - (o % 4)) % 4)
+ 
++
+ static int get_cpiohdr(unsigned char *buf, unsigned long *size,
+ 			unsigned long *namesize, unsigned long *chksum)
+ {
+@@ -330,7 +334,7 @@ int copyfile(int fdin, void *out, unsign
+ 
+ 	PipelineStep step = NULL;
+ 	void *state = NULL;
+-	uint8_t buffer[BUFF_SIZE];
++	uint8_t *buffer = NULL;
+ 
+ 	if (!callback) {
+ 		callback = copy_write;
+@@ -413,9 +417,15 @@ int copyfile(int fdin, void *out, unsign
+ #ifdef CONFIG_GUNZIP
+ 	}
+ #endif
++	buffer = malloc(BUFF_SIZE);
++	if(buffer == NULL) {
++		ERROR("malloc error");
++		ret = -EFAULT;
++		goto copyfile_exit;
++	}
+ 
+ 	for (;;) {
+-		ret = step(state, buffer, sizeof buffer);
++		ret = step(state, buffer, BUFF_SIZE);
+ 		if (ret < 0) {
+ 			goto copyfile_exit;
+ 		}
+@@ -478,6 +488,8 @@ int copyfile(int fdin, void *out, unsign
+ 	ret = 0;
+ 
+ copyfile_exit:
++	if (buffer != NULL)
++		free(buffer);
+ 	if (decrypt_state.dcrypt) {
+ 		swupdate_DECRYPT_cleanup(decrypt_state.dcrypt);
+ 	}
+@@ -545,6 +557,7 @@ int extract_sw_description(int fd, const
+ 	int fdout;
+ 	const char* TMPDIR = get_tmpdir();
+ 
++	TRACE("%s", descfile);
+ 	if (extract_cpio_header(fd, &fdh, &offset)) {
+ 		ERROR("CPIO Header wrong");
+ 		return -1;
+@@ -594,9 +607,103 @@ int extract_sw_description(int fd, const
+ 	return 0;
+ }
+ 
+-int extract_img_from_cpio(int fd, unsigned long offset, struct filehdr *fdh)
++int cpio_get_pos(int fd, struct filehdr *fdh, char * name, unsigned long *fileoffset)
++{
++	unsigned long offset = 0;
++
++	lseek(fd, 0, SEEK_SET);
++	while (1) {
++		if (extract_cpio_header(fd, fdh, &offset)) {
++			return -1;
++		}
++		if (strcmp("TRAILER!!!", fdh->filename) == 0) {
++			TRACE("check finished");
++			return 0;
++		}
++
++		INFO("Found filename %s size %lu, 0x%lx",
++			fdh->filename,
++			fdh->size,
++			offset);
++		if(strcmp(fdh->filename,name) == 0){
++			TRACE("find name");
++			*fileoffset = offset;
++			return 0;
++		}
++
++		offset +=fdh->size;
++		/* Next header must be 4-bytes aligned */
++		offset += NPAD_BYTES(offset);
++		if (lseek(fd, offset, SEEK_SET) < 0) {
++			ERROR("CPIO file corrupted : %s", strerror(errno));
++			return -1;
++		}
++	}
++
++	return 0;
++}
++
++int extract_rdiff_file_hash(int fd, const char *descfile, off_t *offs)
+ {
++	struct filehdr fdh;
++	unsigned long offset = 0;
++	char output_file[MAX_IMAGE_FNAME];
++	uint32_t checksum;
++	int fdout;
++	const char* TMPDIR = get_tmpdir();
++
++	cpio_get_pos(fd, &fdh, (char *)descfile, &offset);
++	if(offset == 0) {
++		INFO("current offset 0, file not exist");
++		return -1;
++	}
++
++	if (strcmp(fdh.filename, descfile)) {
++		ERROR("Expected %s but found %s.",
++			descfile,
++			fdh.filename);
++		return -1;
++	}
++	if ((strlen(TMPDIR) + strlen(fdh.filename)) > sizeof(output_file)) {
++		ERROR("File Name too long : %s", fdh.filename);
++		return -1;
++	}
++	strncpy(output_file, TMPDIR, sizeof(output_file));
++	strcat(output_file, fdh.filename);
++	fdout = openfileoutput(output_file);
++
++	if (lseek(fd, offset, SEEK_SET) < 0) {
++		ERROR("CPIO file corrupted : %s", strerror(errno));
++		close(fdout);
++		return -1;
++	}
++	if (copyfile(fd, &fdout, fdh.size, &offset, 0, 0, 0, &checksum, NULL, 0, NULL) < 0) {
++		ERROR("%s corrupted or not valid", descfile);
++		close(fdout);
++		return -1;
++	}
++
++	close(fdout);
++
++	INFO("Found diff hash file: %s", fdh.filename);
+ 
++	if (checksum != fdh.chksum) {
++		ERROR("Checksum WRONG ! Computed 0x%lx, it should be 0x%lx",
++			(unsigned long)checksum, fdh.chksum);
++		return -1;
++	}
++
++	/*offs = offset;*/
++	if (lseek(fd, *offs, SEEK_SET) < 0) {
++		ERROR("CPIO file seek failed: %s", strerror(errno));
++		return -1;
++	}
++
++	return 0;
++}
++
++int extract_img_from_cpio(int fd, unsigned long offset, struct filehdr *fdh)
++{
+ 	if (lseek(fd, offset, SEEK_SET) < 0) {
+ 		ERROR("CPIO file corrupted : %s",
+ 		strerror(errno));
+@@ -685,7 +792,7 @@ int cpio_scan(int fd, struct swupdate_cf
+ 		SEARCH_FILE(img, cfg->scripts, file_listed, start);
+ 		SEARCH_FILE(img, cfg->bootscripts, file_listed, start);
+ 
+-		TRACE("Found file:\n\tfilename %s\n\tsize %lu\n\t%s",
++		INFO("Found file:\n\tfilename %s\n\tsize %lu\n\t%s",
+ 			fdh.filename,
+ 			fdh.size,
+ 			file_listed ? "REQUIRED" : "not required");
+@@ -716,3 +823,428 @@ int cpio_scan(int fd, struct swupdate_cf
+ 
+ 	return 0;
+ }
++/***********************************************/
++// Unisoc Add: Support ubi delta update hash check
++static struct ubi_part *search_volume(const char *str, struct ubilist *list)
++{
++    struct ubi_part *vol;
++
++    LIST_FOREACH(vol, list, next) {
++        if (strcmp(vol->vol_info.name, str) == 0)
++            return vol;
++    }
++    return NULL;
++}
++int verify_file_sha(const char *file, unsigned char *hash, long long bfsize, long long seek)
++{
++	ssize_t len;
++	long long nbytes = 0;
++	void *dgst = NULL;
++	int fdin = -1;
++	int ret = -1;
++	uint8_t *buffer = NULL;
++	unsigned char md_value[64] = {0};
++	unsigned int md_len = 0;
++	char hashstring[2 * SHA256_HASH_LENGTH + 1];
++	char newhashstring[2 * SHA256_HASH_LENGTH + 1];
++	bool isover = false;
++
++	if ((file == NULL) || (hash == NULL)) {
++		ERROR("file or hash NULL");
++		return -1;
++	}
++
++	INFO("open %s", file);
++	fdin = open(file, O_RDONLY);
++	if (fdin < 0) {
++		ERROR("cannot open %s", file);
++		return -1;
++	}
++	dgst = swupdate_HASH_init(SHA_DEFAULT);
++	if (!dgst) {
++		ERROR("Failure in init %s ", strerror(errno));
++		close(fdin);
++		return -EFAULT;
++	}
++	lseek(fdin, seek, SEEK_SET);
++	buffer = malloc(BUFF_SIZE);
++	if(buffer == NULL) {
++		ERROR("malloc error");
++		if (dgst) {
++			swupdate_HASH_cleanup(dgst);
++		}
++		close(fdin);
++		return -1;
++	}
++	while(isover == false) {
++		len = read(fdin, buffer, BUFF_SIZE);
++		if (len < 0) {
++			ERROR("Failure in stream %d: %s", fdin, strerror(errno));
++			goto verify_file_sha_exit;
++		}
++		if (len == 0) {
++			break;
++		}
++		if ((nbytes + len) >= bfsize) {
++			len = bfsize - nbytes;
++			nbytes += len;
++			isover = true;
++		} else
++			nbytes += len;
++		if (swupdate_HASH_update(dgst, buffer, len) < 0) {
++			ERROR("update fail %s", strerror(errno));
++			goto verify_file_sha_exit;
++		}
++	}
++
++	if (swupdate_HASH_final(dgst, md_value, &md_len) < 0) {
++		ERROR("Failure %s", strerror(errno));
++		goto verify_file_sha_exit;
++	}
++
++	if (md_len != SHA256_HASH_LENGTH || swupdate_HASH_compare(hash, md_value)) {
++		INFO("HASH file size is %lld, %lld, %lld", bfsize, nbytes, seek);
++		hash_to_ascii(hash, hashstring);
++		hash_to_ascii(md_value, newhashstring);
++		INFO("HASH saved: %s", hashstring);
++		INFO("HASH base: %s", newhashstring);
++		goto verify_file_sha_exit;
++	}
++	ret = 0;
++verify_file_sha_exit:
++	if (buffer != NULL)
++		free(buffer);
++	if (dgst) {
++		swupdate_HASH_cleanup(dgst);
++	}
++	close(fdin);
++
++	return ret;
++}
++
++int verify_splitfile_sha(const char *hfile, const char *mfile, const char *tfile,
++							   unsigned char *hash, long long bfsize)
++{
++	bool isover = false;
++	int fdin[3];
++	int i;
++	int ret = -1;
++	unsigned int md_len = 0;
++	ssize_t len;
++	long long nbytes = 0;
++	void *dgst = NULL;
++	char *tmpfile[3];
++	unsigned char *buffer = NULL;
++	unsigned char md_value[64] = {0};
++	char hashstring[2 * SHA256_HASH_LENGTH + 1];
++	char newhashstring[2 * SHA256_HASH_LENGTH + 1];
++
++	if ((hfile == NULL) || (mfile == NULL) || (tfile == NULL) || (hash == NULL)) {
++		ERROR("file or hash NULL");
++		return -1;
++	}
++	dgst = swupdate_HASH_init(SHA_DEFAULT);
++	if (!dgst) {
++		ERROR("Failure in init %s ", strerror(errno));
++		return -EFAULT;
++	}
++	buffer = malloc(BUFF_SIZE);
++	if(buffer == NULL) {
++		ERROR("malloc error");
++		if (dgst) {
++			swupdate_HASH_cleanup(dgst);
++		}
++		return -1;
++	}
++
++	tmpfile[0] = hfile;
++	tmpfile[1] = mfile;
++	tmpfile[2] = tfile;
++	for (i=0; i<3; i++) {
++		if (access(tmpfile[i], 0) != 0) {
++			INFO("no file %s exist", tmpfile[i]);
++			continue;
++		}
++		INFO("ready to open %s", tmpfile[i]);
++		fdin[i] = open(tmpfile[i], O_RDONLY);
++		if (fdin[i] < 0) {
++			ERROR("cannot open %s, %s", tmpfile[i], strerror(errno));
++			goto verify_splitfile_sha_cleanup;
++		}
++		isover = false;
++		while(isover == false) {
++			len = read(fdin[i], buffer, BUFF_SIZE);
++			if (len < 0) {
++				ERROR("Failure in stream %d: %s", fdin[i], strerror(errno));
++				goto verify_splitfile_sha_cleanup;
++			}
++			if (len == 0) {
++				break;
++			}
++			if ((nbytes + len) >= bfsize) {
++				len = bfsize - nbytes;
++				nbytes += len;
++				isover = true;
++			} else
++				nbytes += len;
++			if (swupdate_HASH_update(dgst, buffer, len) < 0) {
++				ERROR("update fail %s", strerror(errno));
++				goto verify_splitfile_sha_cleanup;
++			}
++		}
++	}
++	if (swupdate_HASH_final(dgst, md_value, &md_len) < 0) {
++		ERROR("Failure %s", strerror(errno));
++		goto verify_splitfile_sha_cleanup;
++	}
++
++	if (md_len != SHA256_HASH_LENGTH || swupdate_HASH_compare(hash, md_value)) {
++		INFO("split HASH file size is %lld, %lld", bfsize, nbytes);
++		hash_to_ascii(hash, hashstring);
++		hash_to_ascii(md_value, newhashstring);
++		INFO("HASH saved: %s", hashstring);
++		INFO("HASH base: %s", newhashstring);
++		goto verify_splitfile_sha_cleanup;
++	}
++	ret = 0;
++verify_splitfile_sha_cleanup:
++	if (buffer != NULL)
++		free(buffer);
++	if (dgst) {
++		swupdate_HASH_cleanup(dgst);
++	}
++	for (i=0; i<3; i++) {
++		if(fdin[i] > 0)
++			close(fdin[i]);
++	}
++	return ret;
++}
++
++/***********************************************/
++// Unisoc Add: Support delta base img hash check
++// only check base 0; check base and target 1:only check base
++int check_delta_base_img_hash(struct swupdate_cfg *sw)
++{
++	int fdh, ret = 0;
++	unsigned int checksum;
++	struct img_type *img;
++	char filepath[64] = {'\0'};
++	s_diffproperty_t *s_diffpro;
++	long long foffset = 0;
++	int target_intalling_cnt = 0;
++
++	if (sw == NULL) {
++		ERROR("sw pointer error");
++		return -1;
++	}
++
++
++
++
++	s_diffpro = malloc(sizeof(s_diffproperty_t));
++	if (s_diffpro == NULL) {
++		ERROR("can't malloc for diffpro list.");
++		return -1;
++	}
++	memset(s_diffpro, 0, sizeof(s_diffproperty_t));
++	LIST_FOREACH(img, &sw->images, next) {
++
++		if ((strcmp(img->type, "rdiff_image") != 0) &&
++			(strcmp(img->type, "bsdiff_image") != 0)) {
++			continue;
++		}
++		INFO("diff: filename %s, type %s",
++				img->fname, img->type);
++
++		if(get_diffproperty(img, s_diffpro) != 0)
++			continue;
++
++		if(s_diffpro->basesize == 0){ /* not use now? */
++			INFO("Target %s is more than base, skip this verify ",
++				  img->fname);
++			continue;
++		}
++		if (strlen(img->volname)) {
++#ifdef CONFIG_MTD
++			struct flash_description *flash = get_flash_info();
++			struct mtd_info *mtd = &flash->mtd;
++			struct mtd_ubi_info *mtd_info;
++			struct ubi_part *ubivol = NULL;
++
++			for (int i = mtd->lowest_mtd_num; i <= mtd->highest_mtd_num; i++) {
++				mtd_info = &flash->mtd_info[i];
++				ubivol = search_volume(img->volname,
++										&mtd_info->ubi_partitions);
++				if (ubivol)
++					break;
++			}
++			if (ubivol != NULL) {
++				snprintf(filepath, sizeof(filepath), "/dev/ubi%d_%d",
++						ubivol->vol_info.dev_num,
++						ubivol->vol_info.vol_id);
++				INFO("img base:%s", filepath);
++			} else {
++				ERROR("img can not find %s", img->volname);
++				free(s_diffpro);
++				return -1;
++			}
++#endif
++			INFO("img filepath %s", filepath);
++		} else if (strlen(img->device)) {
++			sprintf(filepath, img->device, sizeof(img->device));
++			INFO("dev base:%s", filepath);
++		} else {
++			ERROR("continue");
++			continue;
++		}
++
++		foffset = (s_diffpro->posall == 0)? 0: s_diffpro->psize*(s_diffpro->pos - 1);
++		ret = verify_file_sha(filepath, s_diffpro->basesha256, s_diffpro->basesize, foffset);
++		if (ret != 0) {
++			ret = verify_file_sha(filepath, s_diffpro->targsha256, s_diffpro->targsize, foffset);
++			if (ret != 0) {
++				++target_intalling_cnt;
++				if (target_intalling_cnt>1) {
++					ERROR("verify failed %d, more than one different, not the restart update env\n", ret);
++					free(s_diffpro);	
++					return -1;
++				}
++				img->diffinstallflag = DIFF_INSTALLING;
++				WARN("verify failed %d for the 1st time, maybe is interrupted when update.\n", ret);
++				continue;
++			} else {
++				img->diffinstallflag = DIFF_INSTALLED;
++			}
++		} else {
++			img->diffinstallflag = DIFF_NOTINSTALLED;
++		}
++	}
++	free(s_diffpro);
++	return 0;
++}
++
++
++/***********************************************/
++// Unisoc Add: for check base hash and target hash 
++// before update to ensure the update result is correct
++//fix the B-A base A update result is ok issue
++int check_base_hash(struct swupdate_cfg *sw)
++{
++	int fdh, ret = 0;
++	struct img_type *img;
++	char filepath[64] = {'\0'};
++	s_diffproperty_t *s_diffpro;
++	long long foffset = 0;
++	char *base_checked_value = NULL;
++	char *nvmerge_value = NULL;
++	FILE *fp = NULL;
++	if (sw == NULL) {
++		ERROR("sw pointer error");
++		return -1;
++	}
++	
++	//if file exist, base sha has been checked,may power dropped and return false
++	INFO("before get base_images_checked");
++	system("fw_printenv");
++	base_checked_value =  bootloader_env_get(BASE_IMAGES_CHECKED);
++	if (NULL == base_checked_value) {
++		//need to check base file hash
++		INFO("BASE_IMAGES_CHECKED is not found in Bootloader's environment.Go on check base images");
++		//INFO("BASE_IMAGES_CHECKED is not found in Bootloader's environment.\n Check if nvmerge is interrupted");
++		//check whether the nvmerge is interrupted, if yes means swupdate is finished and base checked is clear
++		/*nvmerge_value =  bootloader_env_get(NVMERGE_INSTALLING);
++		if(NULL != nvmerge_value && strcmp(nvmerge_value, "1") == 0)
++		{
++			INFO("nvmerge is interrupted during last update");
++			return 0;
++		}*/
++	}else if(strcmp(base_checked_value, "1") == 0){
++		INFO("base hash checked flag exist, drop power and restart continue upgrade");
++		return 0;
++	}else{
++		ERROR("BASE_CHECKED value in Bootloader's environment is %s wrong!",base_checked_value);
++		return -1;
++	}
++	
++
++	s_diffpro = malloc(sizeof(s_diffproperty_t));
++	if (s_diffpro == NULL) {
++		ERROR("can't malloc for diffpro list.");
++		return -1;
++	}
++	memset(s_diffpro, 0, sizeof(s_diffproperty_t));
++	LIST_FOREACH(img, &sw->images, next) {
++
++		if ((strcmp(img->type, "rdiff_image") != 0) &&
++			(strcmp(img->type, "bsdiff_image") != 0)) {
++			continue;
++		}
++		INFO("diff: filename %s, type %s",
++				img->fname, img->type);
++
++		if(get_diffproperty(img, s_diffpro) != 0)
++			continue;
++
++		if(s_diffpro->basesize == 0){ /* not use now? */
++			INFO("Target %s is more than base, skip this verify ",
++				  img->fname);
++			continue;
++		}
++		if (strlen(img->volname)) {
++#ifdef CONFIG_MTD
++			struct flash_description *flash = get_flash_info();
++			struct mtd_info *mtd = &flash->mtd;
++			struct mtd_ubi_info *mtd_info;
++			struct ubi_part *ubivol = NULL;
++
++			for (int i = mtd->lowest_mtd_num; i <= mtd->highest_mtd_num; i++) {
++				mtd_info = &flash->mtd_info[i];
++				ubivol = search_volume(img->volname,
++										&mtd_info->ubi_partitions);
++				if (ubivol)
++					break;
++			}
++			if (ubivol != NULL) {
++				snprintf(filepath, sizeof(filepath), "/dev/ubi%d_%d",
++						ubivol->vol_info.dev_num,
++						ubivol->vol_info.vol_id);
++				INFO("img base:%s", filepath);
++			} else {
++				ERROR("img can not find %s", img->volname);
++				free(s_diffpro);
++				return -1;
++			}
++#endif
++			INFO("img filepath %s", filepath);
++		} else if (strlen(img->device)) {
++			sprintf(filepath, img->device, sizeof(img->device));
++			INFO("dev base:%s", filepath);
++		} else {
++			ERROR("continue");
++			continue;
++		}
++
++		foffset = (s_diffpro->posall == 0)? 0: s_diffpro->psize*(s_diffpro->pos - 1);
++		ret = verify_file_sha(filepath, s_diffpro->basesha256, s_diffpro->basesize, foffset);
++		if(ret != 0){
++			//means that base version is not corrects
++			ERROR("img: %s base sha verify failed", img->volname);
++			return -1;
++		}		
++	}
++	free(s_diffpro);
++	
++	
++	//set BASE_CHECKED in misc 1
++	INFO("software set: %s mode: %s\n", sw->software_set, sw->running_mode);
++	if(strcmp(sw->running_mode, "preextact")!=0){
++		ret = bootloader_env_set(BASE_IMAGES_CHECKED, "1");
++		if(ret !=0){
++			ERROR("set BASE_CHECKED 1 to misc error， ret = %d",ret);
++			return -1;
++		}
++	}
++	system("fw_printenv\n");
++	return 0;
++}
++
+Index: git/core/notifier.c
+===================================================================
+--- git.orig/core/notifier.c
++++ git/core/notifier.c
+@@ -62,6 +62,92 @@ static int notifyfd = -1;
+ static bool console_priority_prefix = false;
+ static bool console_ansi_colors = false;
+ 
++/* for log file rec */
++#define SWULOGNAME "swulog.txt"
++#define SWULOG_MAX_SIZE 0xC800
++char *swulogfile = NULL;
++
++static int get_file_size(char* fname)
++{
++	int size = 0;
++	FILE *temfp=fopen(fname,"r");
++
++	if(!temfp) return -1;
++	fseek(temfp,0L,SEEK_END);
++	size=ftell(temfp);
++	fclose(temfp);
++
++	return size;
++}
++
++static int logfile_rec(char *msg)
++{
++	char buf[MAX_IMAGE_FNAME] = {'\0'};
++	FILE *tmpfp = NULL;
++	static unsigned int filesize = 0;
++	unsigned int buflen = 0;
++
++	if ((msg == NULL) || (swulogfile == NULL)) {
++		return 0;
++	}
++	if (filesize == 0) {
++		if (access(swulogfile, 0) == 0)
++			filesize = get_file_size(swulogfile);
++	}
++	tmpfp = fopen(swulogfile, "at+");
++	if (!tmpfp) {
++		fprintf(stderr, "log file can open\n");
++		return -1;
++	}
++
++	snprintf((char *)buf, MAX_IMAGE_FNAME-5, "%s\n", msg);
++	fseek(tmpfp, SEEK_END, 0);
++	buflen = strlen(buf);
++	fwrite(buf, 1, buflen, tmpfp);
++	filesize += buflen;
++	fflush(tmpfp);
++	fsync(fileno(tmpfp));
++	fclose(tmpfp);
++	if (filesize > SWULOG_MAX_SIZE) {
++		char logfile_bk[MAX_IMAGE_FNAME] = {'\0'};
++		sprintf(logfile_bk, "%s%s", swulogfile, "bak");
++			rename(swulogfile, logfile_bk);
++		filesize = 0;
++	}
++	return 0;
++}
++
++int logfile_init(char *updatefolder)
++{
++	int filesize = 0;
++	char logfile_bk[MAX_IMAGE_FNAME] = {'\0'};
++
++	if ((updatefolder != NULL)&&(swulogfile == NULL)) {
++		swulogfile = malloc(MAX_IMAGE_FNAME);
++		if (swulogfile == NULL) {
++			ERROR("file malloc failed");
++			return -1;
++		}
++		memset(swulogfile, '\0', MAX_IMAGE_FNAME);
++		sprintf(swulogfile, "%s%s", updatefolder, SWULOGNAME);
++		if (strlen(swulogfile) >= MAX_IMAGE_FNAME) {
++			ERROR("file path is too long, %d", strlen(swulogfile));
++			free(swulogfile);
++			swulogfile = NULL;
++			return -1;
++		}
++	}
++
++	sprintf(logfile_bk, "%s%s", swulogfile, "bak");
++	filesize = get_file_size(swulogfile);
++	if (filesize > SWULOG_MAX_SIZE) {
++		rename(swulogfile, logfile_bk);
++	}
++	INFO("Log file is inited");
++
++	return 0;
++}
++
+ /*
+  * This allows to extend the list of notifier.
+  * One can register a new notifier and it will
+@@ -113,6 +199,7 @@ void notify(RECOVERY_STATUS status, int
+ 		STAILQ_FOREACH(elem, &clients, next)
+ 			(elem->client)(status, error, level, msg);
+ 	}
++	logfile_rec(msg);
+ }
+ 
+ /*
+Index: git/core/parser.c
+===================================================================
+--- git.orig/core/parser.c
++++ git/core/parser.c
+@@ -290,3 +290,51 @@ int parse(struct swupdate_cfg *sw, const
+ 
+ 	return ret;
+ }
++
++int parse_rdiff_targhashlist(FILE *fp, rdiff_sha_t *hashcfg, unsigned int listnum)
++{
++	int i = 0;
++	char buf[1024] = {0};
++	char *addr = NULL;
++	char *nextaddr = NULL;
++	char temp[50] = {0};
++	unsigned int listlength = 0, deltalen = 0;
++	char temp1[80] = {'\0'};
++	long long val = 0;
++	char hashstring[2 * SHA256_HASH_LENGTH + 1];
++
++	fseek(fp,0L,SEEK_SET);
++	for(i=0; i<listnum; i++){
++		memset(hashcfg+i, '\0', sizeof(rdiff_sha_t));
++		memset(buf, 0, 1024);
++		fgets(buf, 1024, fp);
++		listlength = strlen(buf);
++		addr = strstr(buf,":");
++		if (addr == NULL) {
++			ERROR("addr can't find");
++			return -1;
++		}
++		deltalen = addr-(char *)buf;
++		memcpy(((rdiff_sha_t *)(hashcfg+i))->name, (char *)buf, deltalen);
++		((rdiff_sha_t *)(hashcfg+i))->name[deltalen] = '\0';
++
++		nextaddr = strstr(addr+1,":");
++		if (nextaddr == NULL) {
++			ERROR("nextaddr can't find");
++			return -1;
++		}
++		deltalen = nextaddr-(addr+1);
++		memcpy(temp1, (char *)(addr+1), deltalen);
++		ascii_to_hash(((rdiff_sha_t *)(hashcfg+i))->sha256, temp1);
++		hash_to_ascii(((rdiff_sha_t *)(hashcfg+i))->sha256, hashstring);
++
++		deltalen = listlength-(nextaddr-(char *)buf+1);
++		memcpy((char *)temp, (char *)(nextaddr+1), deltalen);
++		sscanf((char *)temp, "%lld", &val);
++		((rdiff_sha_t *)(hashcfg+i))->size = val;
++		INFO("list name: %s, HASH: %s, size: %lld", (hashcfg+i)->name,
++			hashstring, ((rdiff_sha_t *)(hashcfg+i))->size);
++	}
++	return 0;
++}
++
+Index: git/core/swupdate.c
+===================================================================
+--- git.orig/core/swupdate.c
++++ git/core/swupdate.c
+@@ -24,6 +24,7 @@
+ #include <signal.h>
+ #include <sys/wait.h>
+ #include <ftw.h>
++#include <time.h>
+ 
+ #include "bsdqueue.h"
+ #include "cpiohdr.h"
+@@ -47,18 +48,17 @@
+ #include "swupdate_settings.h"
+ #include "pctl.h"
+ #include "state.h"
+-
+ #ifdef CONFIG_SYSTEMD
+ #include <systemd/sd-daemon.h>
+ #endif
+ 
++#include "otaarith.h"
+ #define MODULE_NAME	"swupdate"
+ 
+ static pthread_t network_daemon;
+ 
+ /* Tree derived from the configuration file */
+ static struct swupdate_cfg swcfg;
+-
+ #ifdef CONFIG_MTD
+ /* Global MTD configuration */
+ static struct flash_description flashdesc;
+@@ -112,6 +112,20 @@ static struct option long_options[] = {
+ 
+ int loglevel = ERRORLEVEL;
+ 
++/* for powerdown protect when diff upgrade */
++#define SWUFILENAME "ota.swu"
++#define SWUFILEPATHSIZE 60
++#define SVFILEPATHSIZE 60
++#define DIFF_DEFAUTL_FILE "difflist.txt"
++#define DIFF_REC_FILENAME_LEN  120 
++#define DIFFBKFILE "diffbackuppt"
++char *diff_list_file = NULL;
++int diff_finishfilescnt = 0;
++diffdone_rec *diff_donelist =NULL;
++char diff_bkfile[100] = {'\0'};
++char *swufilepath = NULL;
++char *svfilepath = NULL;
++
+ static void usage(char *programname)
+ {
+ 	fprintf(stdout, "%s (compiled %s)\n", programname, __DATE__);
+@@ -149,6 +163,7 @@ static void usage(char *programname)
+ 		" -H, --hwrevision <board>:<rev> : Set hardware revision\n"
+ #endif
+ 		" -c, --check                    : check image and exit, use with -i <filename>\n"
++		" -s, --savepath <save path>	 : set path on saving bin for power down protect  \n"
+ 		" -h, --help                     : print this help and exit\n"
+ 		);
+ #ifdef CONFIG_DOWNLOAD
+@@ -218,6 +233,183 @@ static int opt_to_hwrev(char *param, str
+ 
+ 	return 0;
+ }
++int diff_sync_path(void)
++{
++	int ret = -1;
++	FILE *pathfd = NULL;
++
++	pathfd = fopen(swufilepath,"r");
++	if (pathfd) {
++		ret = fsync(fileno(pathfd));
++		if(ret != 0) {
++			INFO("fsync fail:%d, %s", ret, strerror(errno));
++			fclose(pathfd);
++			return ret;
++		}
++		ret = fclose(pathfd);
++	}
++	INFO("fd:%d, %d", pathfd, ret);
++	return ret;
++}
++int rdiff_finishlist_recfileopen(void)
++{
++	char tchar;
++	int cnt = 0 , i;
++	char buf[1024] = {'\0'};
++	diffdone_rec *temprec = NULL;
++	int ret = 0, ret1, ret2;
++	char checkfilecmd[DIFF_REC_FILENAME_LEN + 30] = {'\0'};
++	FILE *tmpdifffp = NULL;
++
++	if(swufilepath != NULL) {
++		sprintf(checkfilecmd, "ls -al %s", swufilepath);
++		system(checkfilecmd);
++		diff_list_file = malloc(DIFF_REC_FILENAME_LEN);
++		if (diff_list_file == NULL) {
++			fprintf(stderr, "diff Error malloc..\n");
++			exit(EXIT_FAILURE);
++		}
++		memset(diff_list_file, '\0', DIFF_REC_FILENAME_LEN);
++		if (strlen(swcfg.running_mode) != 0)
++			sprintf(diff_list_file, "%s%s%s", swufilepath, swcfg.running_mode,".txt");
++		else
++			sprintf(diff_list_file, "%s%s", swufilepath, DIFF_DEFAUTL_FILE);
++		if (strlen(diff_list_file) >= DIFF_REC_FILENAME_LEN) {
++			ERROR("file path is too long, %d",	strlen(diff_list_file));
++			free(diff_list_file);
++			diff_list_file = NULL;
++			return -1;
++		}
++
++		tmpdifffp = fopen(diff_list_file, "at+");
++		if (!tmpdifffp) {
++			ERROR("Couldn't open file %s", diff_list_file);
++			free(diff_list_file);
++			diff_list_file = NULL;
++			return -1;
++		}
++		while(!feof(tmpdifffp))
++			if((tchar=fgetc(tmpdifffp))=='\n')
++				cnt++;
++		diff_sync_path();
++		INFO("name %s, count %d", diff_list_file, cnt);
++		diff_finishfilescnt = cnt;
++		diff_donelist = malloc(cnt*sizeof(diffdone_rec));
++		memset(diff_donelist, 0, cnt*sizeof(diffdone_rec));
++		fseek(tmpdifffp,0L,SEEK_SET);
++		for(i=0; i<cnt; i++){
++			temprec = diff_donelist+i;
++			memset(buf, 0, 1024);
++			fgets(buf, 1024, tmpdifffp);
++			INFO("diff list %d: %s", i, buf);
++			sscanf((char *)buf, "%s %lld:%lld:%d:%d:%d:%d", temprec->name,
++				&temprec->basesize, &temprec->targsize, &temprec->partsize,
++				&temprec->partnums, &temprec->partpos,&temprec->flag);
++			if (strlen(temprec->name) >= DIFF_NAME_SIZE) {
++				ERROR("name len is too long, %d", strlen(temprec->name));
++				free(diff_list_file);
++				diff_list_file = NULL;
++				ret = -1;
++				break;
++			}
++		}
++		fclose(tmpdifffp);
++		return ret;
++	}
++	return ret;
++}
++
++void sw_msdelay(int delms)
++{
++	struct timespec del_begin, del_end;
++	long del_ns;
++	time_t del_sec;
++	unsigned int del_ms;
++
++	if (-1 == clock_gettime(CLOCK_MONOTONIC, &del_begin)) {
++		ERROR("get start time error \n");
++		return;
++	}
++	do {
++		if (-1 == clock_gettime(CLOCK_MONOTONIC, &del_end)) {
++			ERROR("get end time error \n");
++			return;
++		}
++		del_ns = del_end.tv_nsec - del_begin.tv_nsec;
++		del_sec = del_end.tv_sec - del_begin.tv_sec;
++		del_ms = del_sec * 1000 + del_ns / 1000000;
++		if (del_ms == 0) del_ms = 1;
++	} while (del_ms < delms);
++}
++
++
++int rdiff_finishlist_recfileupdate(diffdone_rec *diffrec)
++{
++	char buf[1024] = {'\0'};
++	int ret[5] = {0};
++	FILE *tmpdifffp = NULL;
++ 
++	if ((diffrec == NULL) || (diff_list_file == NULL)) {
++		ERROR("pointer NULL");
++		return -1;
++	}
++	INFO("rdiff debug:diff_list_file :%s",diff_list_file);
++	tmpdifffp = fopen(diff_list_file, "at+");
++	if (!tmpdifffp) {
++		ERROR("Couldn't open file %s", diff_list_file);
++		return -1;
++	}
++	sprintf((char *)buf, "%s %lld:%lld:%d:%d:%d:%d\n", diffrec->name,
++		diffrec->basesize, diffrec->targsize, diffrec->partsize,
++		diffrec->partnums, diffrec->partpos,diffrec->flag);
++
++	INFO("rdiff debug: %s %lld:%lld:%d:%d:%d:%d\n", diffrec->name,
++		diffrec->basesize, diffrec->targsize, diffrec->partsize,
++		diffrec->partnums, diffrec->partpos,diffrec->flag);
++
++	ret[0] = fseek(tmpdifffp, SEEK_END, 0);
++	ret[1] = fwrite(buf, 1, strlen(buf), tmpdifffp);
++	diff_sync_path();
++	ret[2] = fflush(tmpdifffp);
++	ret[3] = fsync(fileno(tmpdifffp));
++	ret[4] = fclose(tmpdifffp);
++	sw_msdelay(5);
++	INFO("%s ret:%d,%d,%d,%d,%d", buf, ret[0], ret[1], ret[2], ret[3], ret[4]);
++	return 0;
++}
++
++char* diff_recpath(void)
++{
++	if (svfilepath != NULL)
++		return svfilepath;
++	else
++		return swufilepath;
++}
++
++int rdiff_checke_if_file_isinterrupted(char *flname, diffdone_rec *curlist)
++{
++	int i= 0;
++	diffdone_rec *listrec = 0;
++
++	if (diff_donelist == NULL) {
++		TRACE("diff list isn't inited");
++		exit(EXIT_FAILURE);
++	}
++	if ((flname == NULL) || (curlist == NULL)){
++		TRACE("pointer error");
++		exit(EXIT_FAILURE);
++	}
++	for (i = 0; i < diff_finishfilescnt; i++) {
++		listrec = diff_donelist + diff_finishfilescnt - i - 1;
++		if (strcmp(flname, listrec->name) == 0) {
++			memcpy(curlist, listrec, sizeof(diffdone_rec));
++			//TRACE("diff state %d", listrec->flag);
++			INFO("rdiff debug:diff state listrec->flag %d", listrec->flag);
++			return listrec->flag;
++		}
++	}
++	return DIFF_NONE;
++}
+ 
+ static int searching_for_image(char *name)
+ {
+@@ -300,6 +492,7 @@ static int install_from_file(char *fname
+ 		exit(EXIT_FAILURE);
+ 	}
+ 
++	INFO("rdiff debug: in install_images(), fname:%s",fname);
+ 	fdsw = open(fname, O_RDONLY);
+ 	if (fdsw < 0) {
+ 		fdsw = searching_for_image(fname);
+@@ -366,6 +559,62 @@ static int install_from_file(char *fname
+ 		mtd_cleanup();
+ 		scan_mtd_devices();
+ #endif
++	//get diff type from images
++	struct img_type *img;
++	int diff_type = BSDIFF;
++	LIST_FOREACH(img, &(swcfg.images), next) {
++		INFO("image->fname = %s, img->type = %s",img->fname,img->type);
++		if(strcmp(img->type, "rdiff_image") == 0){
++			diff_type = RDIFF;
++			break;
++		}
++	}
++	INFO("rdiff debug: diff_type = %d",diff_type);
++	
++
++//#ifdef SPLITDIFF_FEATURE /* can be deleted later */
++	if(diff_type == RDIFF){
++		INFO("rdiff debug: enter SPLITDIFF_FEATURE");
++		ret = rdiff_finishlist_recfileopen();
++		INFO("rdiff debug: enter ret of rdiff_finishlist_recfileopen() is %d diff_finishfilescnt = %d", ret,diff_finishfilescnt);
++
++		if (ret < 0) {
++			ERROR("failed to open rec file!");
++			exit(EXIT_FAILURE);
++		}
++
++		INFO("diff_finishfilescnt = %d ",diff_finishfilescnt);
++
++		if (diff_finishfilescnt == 0) {
++			//diff_finishfilescnt == 0 means this is the fresh update 
++			//before check delta base image hash ,check base if it is the correct base
++			ret = check_base_hash(&swcfg);
++			if (ret) {
++				ERROR("the base images is wrong!");	
++				exit(EXIT_FAILURE);
++			}
++
++		} else {
++			INFO("RDIFF check diff_finishfilescnt = %d Do not need to check Rdiff ",diff_finishfilescnt);
++		}
++	}else{
++//#else  
++		//for BSDIFF process
++		//before check delta base image hash ,check base if it is the correct base
++		ret = check_base_hash(&swcfg);
++		if (ret) {
++			ERROR("the base images is wrong!");	
++			bootloader_env_unset(BASE_IMAGES_CHECKED);
++			exit(EXIT_FAILURE);
++		}
++		//check delta base image hash
++		ret = check_delta_base_img_hash(&swcfg);
++		if (ret) {
++			ERROR("failed to check rdiff images!");
++			exit(EXIT_FAILURE);
++		}
++	}	
++//#endif
+ 	/*
+ 	 * Set "recovery_status" as begin of the transaction"
+ 	 */
+@@ -387,9 +636,10 @@ static int install_from_file(char *fname
+ 	if (swcfg.bootloader_transaction_marker) {
+ 		reset_state((char*)BOOTVAR_TRANSACTION);
+ 	}
++#if 0
+ 	fprintf(stdout, "Software updated successfully\n");
+ 	fprintf(stdout, "Please reboot the device to start the new software\n");
+-
++#endif
+ 	return EXIT_SUCCESS;
+ }
+ 
+@@ -574,6 +824,7 @@ int main(int argc, char **argv)
+ {
+ 	int c;
+ 	char fname[MAX_IMAGE_FNAME];
++	char svfile_path[SVFILEPATHSIZE];
+ 	char *cfgfname = NULL;
+ 	const char *software_select = NULL;
+ 	int opt_i = 0;
+@@ -632,7 +883,8 @@ int main(int argc, char **argv)
+ 	strcat(main_options, "K:");
+ #endif
+ 
+-	memset(fname, 0, sizeof(fname));
++	memset(fname, '\0', sizeof(fname));
++	memset(svfile_path, '\0', sizeof(svfile_path));
+ 
+ 	/* Initialize internal database */
+ 	swupdate_init(&swcfg);
+@@ -642,7 +894,7 @@ int main(int argc, char **argv)
+ 	 * on the console
+ 	 */
+ 	notify_init();
+-
++	
+ 	/*
+ 	 * Check if there is a configuration file and parse it
+ 	 * Parse once the command line just to find if a
+@@ -716,8 +968,30 @@ int main(int argc, char **argv)
+ #endif
+ 		case 'i':
+ 			strncpy(fname, optarg, sizeof(fname));
++			swufilepath = malloc(SWUFILEPATHSIZE);
++			if (swufilepath == NULL) {
++				fprintf(stderr, "swu Error malloc..\n");
++				exit(EXIT_FAILURE);
++			}
++			if ((strlen(fname)-strlen(SWUFILENAME)) >= SWUFILEPATHSIZE) {
++				fprintf(stderr, "path is too long..\n");
++				exit(EXIT_FAILURE);
++			}
++			memset(swufilepath, '\0', SWUFILEPATHSIZE);
++			strncpy(swufilepath, fname, strlen(fname)-strlen(SWUFILENAME));
++			logfile_init(swufilepath);
+ 			opt_i = 1;
+ 			break;
++		case 's':
++			strncpy(svfile_path, optarg, sizeof(svfile_path));
++			svfilepath = malloc(SVFILEPATHSIZE);
++			if (svfilepath == NULL) {
++				fprintf(stderr, "bk file Error malloc..\n");
++				exit(EXIT_FAILURE);
++			}
++			memset(svfilepath, '\0', SVFILEPATHSIZE);
++			strncpy(svfilepath, svfile_path, strlen(svfile_path));
++			break;
+ 		case 'o':
+ 			strncpy(swcfg.output, optarg, sizeof(swcfg.output));
+ 			break;
+@@ -808,6 +1082,12 @@ int main(int argc, char **argv)
+ 			break;
+ 		}
+ 	}
++	INFO("swupdate update para: %s", software_select);
++
++	/* init arith interface */
++	ota_set_path(diff_recpath());
++	ota_setmsgcb(notify);
++	ota_setloglevel(loglevel);
+ 
+ 	if (optind < argc) {
+ 		/* SWUpdate has no non-option arguments, fail on them */
+@@ -903,7 +1183,6 @@ int main(int argc, char **argv)
+ 		 * Start all processes added in the config file
+ 		 */
+ 		struct extproc *proc;
+-
+ 		LIST_FOREACH(proc, &swcfg.extprocs, next) {
+ 			dwlav = splitargs(proc->exec, &dwlac);
+ 
+@@ -969,7 +1248,10 @@ int main(int argc, char **argv)
+ 	}
+ 
+ 	if (opt_i) {
+-
++		//TRACE("swu file path %s", swufilepath);
++		INFO("swu file path %s", swufilepath);
++		//TRACE("save file path %s",	svfilepath);
++		INFO("save file path %s",	svfilepath);
+ 		result = install_from_file(fname, opt_c);
+ 		switch (result) {
+ 		case EXIT_FAILURE:
+Index: git/corelib/installer.c
+===================================================================
+--- git.orig/corelib/installer.c
++++ git/corelib/installer.c
+@@ -222,7 +222,7 @@ int install_single_image(struct img_type
+ 		TRACE("Image Type %s not supported", img->type);
+ 		return -1;
+ 	}
+-	TRACE("Found installer for stream %s %s", img->fname, hnd->desc);
++	INFO("Found installer for stream %s %s", img->fname, hnd->desc);
+ 
+ 	swupdate_progress_inc_step(img->fname);
+ 
+@@ -284,6 +284,10 @@ int install_images(struct swupdate_cfg *
+ 		if (!fromfile && img->install_directly)
+ 			continue;
+ 
++		/* skip when diff file is installed */
++		if (DIFF_INSTALLED == img->diffinstallflag)
++			continue;
++
+ 		if (!fromfile) {
+ 		    if (asprintf(&filename, "%s%s", TMPDIR, img->fname) ==
+ 				ENOMEM_ASPRINTF) {
+@@ -299,6 +303,7 @@ int install_images(struct swupdate_cfg *
+ 			}
+ 			img->size = buf.st_size;
+ 
++			INFO("rdiff debug: image fdin open filename :%s",filename);
+ 			img->fdin = open(filename, O_RDONLY);
+ 			free(filename);
+ 			if (img->fdin < 0) {
+@@ -451,6 +456,9 @@ void cleanup_files(struct swupdate_cfg *
+ 		free(fn);
+ 	}
+ #endif
++	
++	//INFO("remove checked flag when install finished");
++	//bootloader_env_unset(BASE_IMAGES_CHECKED);
+ }
+ 
+ int postupdate(struct swupdate_cfg *swcfg, const char *info)
+Index: git/corelib/mtd-interface.c
+===================================================================
+--- git.orig/corelib/mtd-interface.c
++++ git/corelib/mtd-interface.c
+@@ -268,7 +268,7 @@ static void scan_ubi_volumes(struct mtd_
+ 		}
+ 
+ 		LIST_INSERT_HEAD(&info->ubi_partitions, ubi_part, next);
+-		TRACE("mtd%d:\tVolume found : \t%s",
++		INFO("mtd%d:\tVolume found : \t%s",
+ 			info->dev_info.mtd_num,
+ 			ubi_part->vol_info.name);
+ 	}
+Index: git/handlers/raw_handler.c
+===================================================================
+--- git.orig/handlers/raw_handler.c
++++ git/handlers/raw_handler.c
+@@ -48,13 +48,14 @@ static int install_raw_image(struct img_
+ static int install_raw_file(struct img_type *img,
+ 	void __attribute__ ((__unused__)) *data)
+ {
+-	char path[255];
++	char path[255] = {'\0'};
+ 	int fdout;
+ 	int ret = 0;
+ 	int use_mount = (strlen(img->device) && strlen(img->filesystem)) ? 1 : 0;
+ 	char* DATADST_DIR = alloca(strlen(get_tmpdir())+strlen(DATADST_DIR_SUFFIX)+1);
+ 	sprintf(DATADST_DIR, "%s%s", get_tmpdir(), DATADST_DIR_SUFFIX);
+ 	char* make_path;
++	char setpathcmd[280] = {'\0'};
+ 
+ 	if (strlen(img->path) == 0) {
+ 		ERROR("Missing path attribute");
+@@ -84,6 +85,9 @@ static int install_raw_file(struct img_t
+ 	TRACE("Installing file %s on %s",
+ 		img->fname, path);
+ 
++	sprintf(setpathcmd, "fw_setenv extractpath %s", path);
++	system(setpathcmd);
++
+ 	make_path = dict_get_value(&img->properties, "create-destination");
+ 
+ 	if (make_path != NULL && strcmp(make_path, "true") == 0) {
+Index: git/handlers/rdiff_handler.c
+===================================================================
+--- git.orig/handlers/rdiff_handler.c
++++ git/handlers/rdiff_handler.c
+@@ -22,7 +22,73 @@
+ #include "swupdate.h"
+ #include "handler.h"
+ #include "util.h"
+-
++#include "bootloader.h"
++// Unisoc Add
++#include <mtd/libubi.h>
++#include <sys/ioctl.h>
++#include "flash.h"
++#include <sys/types.h>
++#include <fcntl.h>
++#include "bzlib.h"
++#include "zlib.h"
++
++#include <utime.h>
++#include "otaarith.h"
++
++#define FILEPATHLEN 200
++#define MTD_LEBSIZE 126976
++#define RES_FREE_SPACE 0x100000 /* reserved 1Mb for log and others */
++#define DEF_LIMITED_SPACE_INUPRECOVERY 0x900000 /* MAX 9Mb because resource issue when update rec */ 
++#define DEF_LIMITED_SPACE_INUPNORM 0x1400000 /* MAX 20Mb because resource issue when swu in media */
++static int g_lebsize = MTD_LEBSIZE;
++#include <sys/statfs.h>
++
++
++/* records the diff process state for using in power dropped */
++typedef enum {
++	DIFF_UPDATE_FULL = 0,  /* one time can finish update */
++	DIFF_UPDATE_1ST = 1,   /* the 1st update in loop */
++	DIFF_UPDATE_EXISTONE = 2,  /* exist one stored files when other update stages in loop */
++	DIFF_UPDATE_EXISTTWO = 3,  /* exist two stored files when other update stages in loop */
++	DIFF_UPDATE_EXISTFULL = 4,  /* exist full files when drop */
++	DIFF_UPDATE_EXIST1ST = 5,  /* exist 1st update file */ 
++	DIFF_UPDATE_END = 6,   /* the lasted update in loop */
++}e_DIFF_UPDATESTEP_REC;
++#define DIFFPARTFILE_MASK 0x554e4953
++
++/* shows that base and target file's zip state */
++typedef enum {
++	OTA_FILE_TYPE_NONE_ZIP = 0,
++	OTA_FILE_TYPE_ONLY_BASE_ZIP = 1,
++	OTA_FILE_TYPE_ONLY_TARG_ZIP = 2,
++	OTA_FILE_TYPE_BOTH_ZIP = 3,
++}e_OTA_FILE_TYPE_E;
++#define GZBUFLEN      16384
++#define SIGN_ALIGN_SIZE 16
++#define DEF_ALIGN_SIZE  1
++#define VLR_SIGN_HEAD_SIZE 0x200
++#define VLR_SIGN_TAIL_SIZE 0x294
++
++typedef enum {
++	BASEZ2F = 0,  /* zip decompress to file for base */
++	BASEF2Z = 1,  /* file compress to zip for base */
++	TARGZ2F = 2,  /* zip decompress to file for target */
++	TARGF2Z = 3,  /* file compress to zip for target */
++}e_ZIP_AND_FILE_RELATED_E;
++struct stat fileMetaInfo;
++
++#define ORIG_BASEZIP 0 /* orginal zipped base img */
++#define DECTARG_FORTARGZIP  1/* dec targ used to zipped to the final zip targ */
++/* cached special data in bsdiff delta, more need to check bsdiff protocal */
++#define CACHEFILE_NAME "cache"
++
++static long int iused_size = 0;
++static char * tmpfolder_path = NULL;
++
++#define BUFF_SIZE	 16384
++#define DIFF_NAME_END  ".delta"
++#define BOOTIMGNAME "boot.img"
++#define RECOVERYNIMGAME "recovery.img"
+ /* Use rdiff's default inbuf and outbuf size of 64K */
+ #define RDIFF_BUFFER_SIZE 64 * 1024
+ 
+@@ -35,6 +101,7 @@
+ 
+ void rdiff_file_handler(void);
+ void rdiff_image_handler(void);
++void bsddiff_file_handler(void);
+ 
+ struct rdiff_t
+ {
+@@ -97,7 +164,7 @@ static rs_result fill_inbuffer(struct rd
+ 	rs_buffers_t *buffers = &rdiff_state->buffers;
+ 
+ 	if (buffers->eof_in == true) {
+-		TRACE("EOF on rdiff chunk input, not reading more data.");
++		/*TRACE("EOF on rdiff chunk input, not reading more data.");*/
+ 		return RS_DONE;
+ 	}
+ 
+@@ -155,7 +222,7 @@ static rs_result drain_outbuffer(struct
+ 	}
+ #endif
+ 	if (len > 0) {
+-		TRACE("Draining %d bytes from rdiff output buffer", len);
++		/*TRACE("Draining %d bytes from rdiff output buffer", len);*/
+ 		buffers->next_out = rdiff_state->outbuf;
+ 		buffers->avail_out = RDIFF_BUFFER_SIZE;
+ 		int dest_file_fd = fileno(rdiff_state->dest_file);
+@@ -178,7 +245,7 @@ static inline void rdiff_stats(const cha
+ 		case RS_RUNNING: strresult = (char*)"RUNNING"; break;
+ 		default: break;
+ 	}
+-	TRACE("%s avail_in=%ld eof_in=%s avail_out=%ld remaining=%lld result=%s",
++	TRACE("%s avail_in=%d eof_in=%s avail_out=%d remaining=%lld result=%s",
+ 		  msg, buffers->avail_in, buffers->eof_in == true ? "true":"false",
+ 		  buffers->avail_out, rdiff_state->cpio_input_len, strresult);
+ }
+@@ -213,7 +280,7 @@ static int apply_rdiff_chunk_cb(void *ou
+ 		rdiff_stats("[post]", rdiff_state, result);
+ 
+ 		if (result == RS_DONE && buffers->eof_in == true) {
+-			TRACE("rdiff processing done.");
++			INFO("rdiff processing done.");
+ 			break;
+ 		}
+ 		if (result == RS_DONE && buffers->eof_in == false) {
+@@ -225,57 +292,972 @@ static int apply_rdiff_chunk_cb(void *ou
+ 	return 0;
+ }
+ 
+-static int apply_rdiff_patch(struct img_type *img,
+-							 void __attribute__((__unused__)) * data)
++/***********************************************/
++// Unisoc Add: Support ubi delta update
++#ifdef CONFIG_MTD
++static struct ubi_part *search_volume(const char *str, struct ubilist *list)
++{
++    struct ubi_part *vol;
++
++    LIST_FOREACH(vol, list, next) {
++        if (strcmp(vol->vol_info.name, str) == 0)
++            return vol;
++    }
++    return NULL;
++}
++#endif
++static off_t offtin(u_char *buf)
++{
++	off_t y;
++
++	y=buf[7]&0x7F;
++	y=y*256;y+=buf[6];
++	y=y*256;y+=buf[5];
++	y=y*256;y+=buf[4];
++	y=y*256;y+=buf[3];
++	y=y*256;y+=buf[2];
++	y=y*256;y+=buf[1];
++	y=y*256;y+=buf[0];
++
++	if(buf[7]&0x80) y=-y;
++
++	return y;
++}
++
++/* check if the new data more than one block*/
++static int diff_get_operate_size(void)
++{
++	//iused_size = 126976*30;
++	return iused_size;
++}
++
++int diff_clean_files(char *pt1file, char *pt2file, char *dest_file_name)
+ {
++	char cachefilepath[MAX_IMAGE_FNAME] = {'\0'};
++	snprintf(cachefilepath, MAX_IMAGE_FNAME, "%s%s%s", diff_recpath(),
++			 dest_file_name, CACHEFILE_NAME);
++	if (access(cachefilepath, 0) == 0) {
++		INFO("Delete rubbish cachefile %s\n",cachefilepath);
++		remove(cachefilepath);
++	}
++	if (access(pt1file, 0) == 0) {
++		INFO("Delete rubbish pt1file %s\n",pt1file);
++		remove(pt1file);
++	}
++	if (access(pt2file, 0) == 0) {
++		INFO("Delete rubbish pt2file %s\n",pt2file);
++		remove(pt2file);
++	}
++	return 0;
++}
++static int diff_read_part_tofilebyfileid(FILE * fdread, FILE * fdout, long long offset, long long size)
++{
++	int op_bytes = 0;
+ 	int ret = 0;
++	long long fsize = size;
++	unsigned char *buffer = NULL;
+ 
+-	struct rdiff_t rdiff_state = {};
+-	rdiff_state.type =
+-	    strcmp(img->type, "rdiff_image") == 0 ? IMAGE_HANDLER : FILE_HANDLER;
++	if ((fdout == NULL) || (fdread == NULL)) {
++		ERROR("fname null");
++		return -1;
++	}
++	buffer = malloc(BUFF_SIZE);
++	if(buffer == NULL) {
++		ERROR("malloc error");
++		return -1;
++	}
++	fseek(fdread, offset, SEEK_SET);
++	while(fsize) {
++		if (fsize < BUFF_SIZE) {
++			op_bytes = fsize;
++		} else {
++			op_bytes = BUFF_SIZE;
++		}
++		op_bytes = fread(buffer, 1, op_bytes, fdread);
++		if (op_bytes < 0) {
++			ERROR("Read file failed %s", strerror(errno));
++			free(buffer);
++			return -1;
++		}
++		ret = fwrite(buffer, 1, op_bytes, fdout);
++		if (ret < 0) {
++			ERROR("Write file failed %s", strerror(errno));
++			free(buffer);
++			return -1;
++		}
++		fsize -= op_bytes;
++	}
++	free(buffer);
++
++	return 0;
++}
++
++static int diff_read_part_tosplitfile(char type, FILE * fdread, char *headfile, char * mainfile,
++											 char *tailfile, char *img, s_diffproperty_t *dproperty)
++{
++	int op_bytes = 0, ret = -1;
++	FILE *fdhout = NULL;
++	FILE *fdmout = NULL;
++	FILE *fdtout = NULL;
++	long int dec_size, tailsize = 0;
++	long int imgsize, headsize, mainsize;
++
++	if ((fdread == NULL) || (headfile == NULL) || (mainfile == NULL) ||
++		(tailfile == NULL) || (img == NULL) || (dproperty == NULL)) {
++		ERROR("null ptr");
++		return -1;
++	}
++	if (type == ORIG_BASEZIP) { /* h/m/t to storage */
++		headsize = dproperty->zipbaseoff; /* head size in base zfile */
++		mainsize = dproperty->zipbasesize; /* zipped pt size in zfile */
++		imgsize = dproperty->basesize; /* full size about zfile */
++		tailsize = imgsize - headsize - mainsize; /* tail size */
++	} else if (type == DECTARG_FORTARGZIP) { /* h/t to storage m to tmp */
++		headsize = dproperty->ziptargoff; /* head size in targ zfile */
++		tailsize = dproperty->targsize - headsize - dproperty->ziptargsize; /* tail size */
++		imgsize = dproperty->dectargsize; /* dec full size in zfile */
++		mainsize = imgsize - headsize - tailsize; /* dec pt size in DECTARG */
++	} else {
++		ERROR("not supported now");
++		goto diff_read_part_tosplitfile_cleanup;
++	}
++
++	if (headsize > 0) { /* head */
++		fdhout = fopen(headfile, "wb");
++		if (fdhout == NULL) {
++			ERROR("fdhout open error");
++			goto diff_read_part_tosplitfile_cleanup;
++		}
++		ret = diff_read_part_tofilebyfileid(fdread, fdhout, 0, headsize);
++		if (ret < 0) {
++			ERROR("read h part error %d", ret);
++			goto diff_read_part_tosplitfile_cleanup;
++		}
++	}
++	fdmout = fopen(mainfile, "wb");
++	if (fdmout == NULL) {
++		ERROR("fdmout open error");
++		goto diff_read_part_tosplitfile_cleanup;
++	}
++	ret = diff_read_part_tofilebyfileid(fdread, fdmout, headsize, mainsize);
++	if (ret < 0) {
++		ERROR("read main part error %d", ret);
++		goto diff_read_part_tosplitfile_cleanup;
++	}
++	if (tailsize > 0) {/* head */
++		fdtout = fopen(tailfile, "wb");
++		if (fdtout == NULL) {
++			ERROR("fdtout open error");
++			goto diff_read_part_tosplitfile_cleanup;
++		}
++		ret = diff_read_part_tofilebyfileid(fdread, fdtout, (headsize + mainsize), tailsize);
++		if (ret < 0) {
++			ERROR("read t part error %d", ret);
++			goto diff_read_part_tosplitfile_cleanup;
++		}
++	}
++
++	ret = 0;
++diff_read_part_tosplitfile_cleanup:
++	diff_sync_path();
++	if (fdhout != NULL) {
++		fflush(fdhout);
++		fsync(fileno(fdhout));
++		fclose(fdhout);
++	}
++	if (fdmout != NULL) {
++		fflush(fdmout);
++		fsync(fileno(fdmout));
++		fclose(fdmout);
++	}
++	if (fdtout != NULL) {
++		fflush(fdtout);
++		fsync(fileno(fdtout));
++		fclose(fdtout);
++	}
++	return ret;
++}
++
++static int diff_read_part_tofile(FILE * fdread, char *fname, long long offset,long long size, char* mode)
++{
++	FILE * fdout = NULL;
++	int op_bytes = 0, ret = 0;
++	long long fsize = size;
++	unsigned char *buffer = NULL;
++
++	if ((fname == NULL) || (fdread == NULL) || (mode == NULL)) {
++		ERROR("fname null");
++		return -1;
++	}
++	TRACE("write file %s, offset: 0x%llx, size:0x%llx", fname, offset, fsize);
++	INFO("write file %s, offset: 0x%llx, size:0x%llx", fname, offset, fsize);
++	fseek(fdread, offset, SEEK_SET);
++	fdout = fopen(fname, mode);
++	if (fdout < 0) {
++		ERROR("cannot open UBI volume \"%s\" %s", fname, strerror(errno));
++		return -1;
++	}
++	buffer = malloc(BUFF_SIZE);
++	if(buffer == NULL) {
++		ERROR("malloc error");
++		fclose(fdout);
++		return -1;
++	}
++	while(fsize) {
++		if (fsize < BUFF_SIZE) {
++			op_bytes = fsize;
++		} else {
++			op_bytes = BUFF_SIZE;
++		}
++		op_bytes = fread(buffer, 1, op_bytes, fdread);
++		if (op_bytes < 0) {
++			ERROR("Read file failed %s", strerror(errno));
++			fclose(fdout);
++			free(buffer);
++			return -1;
++		}
++		ret = fwrite(buffer, 1, op_bytes, fdout);
++		if (ret < 0) {
++			ERROR("Write file failed %s", strerror(errno));
++			fclose(fdout);
++			free(buffer);
++			return -1;
++		}
++		fsize -= op_bytes;
++	}
++	free(buffer);
++	diff_sync_path();
++	fflush(fdout);
++	fsync(fileno(fdout));
++	fclose(fdout);
++	return 0;
++}
++
++static int splitfile_update_volume(char *hfile, char *mfile, char *tfile,
++										  char *targetpart, long int size, int alignsize, char type)
++{
++	int fdin[3]; /* head file, compress related file, tail file for whole file */
++	int fdout;
++	int ret = -1;
++	int i;
++	int addsize = 0;
++	long int bytes, op_bytes = 0, allsize = 0;
++	unsigned char *buffer = NULL;
++	char *tmpfile[3];
++#ifdef CONFIG_MTD
++	struct flash_description *flash = get_flash_info();
++	libubi_t libubi;
++#endif
++
++	if ((mfile == NULL) || (mfile == NULL) || (tfile == NULL) ||
++		(targetpart == NULL) || (alignsize == 0)) {
++		ERROR("Invalid argument file or volume!!");
++		return -1;
++	}
++
++	if (type == TYPE_UBIVOL) {
++#ifdef CONFIG_MTD
++		libubi = flash->libubi;
++		if (!libubi) {
++			ERROR("Request to write into UBI, but no UBI on system");
++			return -1;
++		}
++#endif
++	}
++	tmpfile[0] = hfile;
++	tmpfile[1] = mfile;
++	tmpfile[2] = tfile;
++
++	/* open storage part */
++	fdout = open(targetpart, O_RDWR);
++	if (fdout < 0) {
++		ERROR("cannot open part \"%s\" %s", targetpart, strerror(errno));
++		return -1;
++	}
++	if (type == TYPE_UBIVOL) {
++#ifdef CONFIG_MTD
++		INFO("libubi = %p fdout = %d, size = %d",libubi,fdout,size);
++		ret = ubi_update_start(libubi, fdout, size);
++		if (ret < 0) {
++			ERROR("cannot start vol update, %d, %s", ret, strerror(errno));
++			goto splitfile_update_volume_cleanup;
++		}
++#endif
++	}
++	buffer = malloc(BUFF_SIZE);
++	if(buffer == NULL) {
++		ERROR("malloc error");
++		ret = -1;
++		goto splitfile_update_volume_cleanup;
++	}
++	INFO("size %ld align %d, type %d", size, alignsize, type);
++	for (i=0; i<3; i++) {
++		if (access(tmpfile[i], 0) != 0) {
++			INFO("no file %s exist", tmpfile[i]);
++			continue;
++		}
++		fdin[i] = open(tmpfile[i], O_RDONLY);
++		if (fdin[i] < 0) {
++			ERROR("cannot open %s, %s", tmpfile[i], strerror(errno));
++			goto splitfile_update_volume_cleanup;
++		}
++		bytes = lseek(fdin[i],0,SEEK_END);
++		addsize = 0;
++		if ((bytes%alignsize) && (i == 1)) { /* signed full zip file need to align */
++			addsize = alignsize - bytes%alignsize;
++		}
++		lseek(fdin[i], 0, SEEK_SET);
++		allsize += bytes;
++		while(bytes) {
++			if (bytes < BUFF_SIZE) {
++				op_bytes = bytes;
++			} else {
++				op_bytes = BUFF_SIZE;
++			}
++			op_bytes = read(fdin[i], buffer, op_bytes);
++			if (op_bytes < 0) {
++				ERROR("Read file failed, %s", strerror(errno));
++				ret = -1;
++				goto splitfile_update_volume_cleanup;
++			}
++			ret = copy_write(&fdout, buffer, op_bytes);
++			if (ret < 0) {
++				ERROR("Write file failed, %d, i %d, op_bytes %lld, %s", fdout,
++					  i, op_bytes, strerror(errno));
++				goto splitfile_update_volume_cleanup;
++			}
++			bytes -= op_bytes;
++		}
++		if (addsize > 0) {
++			char *tmpbuf = NULL;
++			tmpbuf = malloc(addsize);
++			if (tmpbuf == NULL)
++			{
++				ERROR("malloc failed, %d", addsize);
++				goto splitfile_update_volume_cleanup;
++			}
++			memset(tmpbuf, 0, addsize);
++			ret = copy_write(&fdout, tmpbuf, addsize);
++			if (ret < 0) {
++				ERROR("Write aligned file failed, %d, i %d, addsize %lld, %s", fdout,
++					  i, addsize, strerror(errno));
++				free(tmpbuf);
++				goto splitfile_update_volume_cleanup;
++			}
++			free(tmpbuf);
++			allsize += addsize;
++		}
++	}
++	if(allsize != size) {
++		ERROR("Write file failed, allsize is %ld, inputsize %ld", allsize, size);
++		ret = -1;
++		goto splitfile_update_volume_cleanup;
++	}
++	ret = 0;
++
++splitfile_update_volume_cleanup:
++	if (buffer != NULL)
++		free(buffer);
++	close(fdout);
++	for (i=0; i<3; i++) {
++		if(fdin[i] >= 0)
++			close(fdin[i]);
++	}
++
++	return ret;
++}
++
++static int file_update_volume(char *file, const char *targetpart, char type)
++{
++	int fdout, fdin;
++	int ret;
++	long long bytes, op_bytes = 0;
++	unsigned char *buffer = NULL;
++#ifdef CONFIG_MTD
++	struct flash_description *flash = get_flash_info();
++	libubi_t libubi;
++#endif
++
++	if ((file == NULL) || (targetpart == NULL)) {
++		ERROR("Invalid argument file or volume!!");
++		return -1;
++	}
++
++	if (type == TYPE_UBIVOL) {
++#ifdef CONFIG_MTD
++		libubi = flash->libubi;
++		if (!libubi) {
++			ERROR("Request to write into UBI, but no UBI on system");
++			return -1;
++		}
++#endif
++	}
++
++	fdin = open(file, O_RDONLY);
++	if (fdin < 0) {
++		ERROR("cannot open %s, %s", file, strerror(errno));
++		return -1;
++	}
++	bytes = lseek(fdin,0,SEEK_END);
++	lseek(fdin, 0, SEEK_SET);
++
++	fdout = open(targetpart, O_RDWR);
++	if (fdout < 0) {
++		close(fdin);
++		ERROR("cannot open UBI volume \"%s\" %s", targetpart, strerror(errno));
++		return -1;
++	}
++
++	if (type == TYPE_UBIVOL) {
++#ifdef CONFIG_MTD
++		ret = ubi_update_start(libubi, fdout, bytes);
++		if (ret) {
++			ERROR("cannot start vol update, %d, %s", ret, strerror(errno));
++			goto file_update_volume_end;
++		}
++#endif
++	}
++	buffer = malloc(BUFF_SIZE);
++	if(buffer == NULL) {
++		ERROR("malloc error");
++		ret = -1;
++		goto file_update_volume_end;
++	}
++
++	while(bytes) {
++		if (bytes < BUFF_SIZE) {
++			op_bytes = bytes;
++		} else {
++			op_bytes = BUFF_SIZE;
++		}
++		op_bytes = read(fdin, buffer, op_bytes);
++		if (op_bytes < 0) {
++			ERROR("Read file failed");
++			ret = -1;
++			goto file_update_volume_end;
++		}
++		ret = copy_write(&fdout, buffer, op_bytes);
++		if (ret < 0) {
++			ERROR("Write file failed");
++			goto file_update_volume_end;
++		}
++		bytes -= op_bytes;
++	}
++	ret = 0;
++file_update_volume_end:
++	if (buffer != NULL)
++		free(buffer);
++	close(fdin);
++	close(fdout);
++	return ret;
++}
++
++static int unisoc_update_volume(const char *file, const char *targetpart, char type, s_diffproperty_t *property)
++{
++	int fdout = -1, fdin = -1, ret = 0;
++	/* unsigned char *rbuf = NULL; */
++	unsigned char *wbuf = NULL;
++	long long bytes = 0, op_bytes = 0;
++	unsigned char *buffer = NULL;
++#ifdef CONFIG_MTD
++	struct flash_description *flash = get_flash_info();
++	libubi_t libubi;
++#endif
++
++	if ((file == NULL) || (targetpart == NULL) || (property == NULL)) {
++		ERROR("Invalid argument file or volume!!");
++		return -1;
++	}
++
++	if (type == TYPE_UBIVOL) {
++#ifdef CONFIG_MTD
++		if (flash == NULL) {
++			ERROR("Invalid flash description!");
++			return -1;
++		}
++		libubi = flash->libubi;
++		if (!libubi) {
++			ERROR("Request to write into UBI, but no UBI on system");
++			return -1;
++		}
++#endif
++	}
++	INFO("rdiff debug: in file:%s out file:%s",file,targetpart);
++	fdin = open(file, O_RDONLY);
++	if (fdin < 0) {
++		ERROR("cannot open file %s, %s", file, strerror(errno));
++		return -1;
++	}
++	bytes = lseek(fdin,0,SEEK_END);
++	lseek(fdin, 0, SEEK_SET);
++
++	fdout = open(targetpart, O_RDWR);
++	if (fdout < 0) {
++		close(fdin);
++		ERROR("cannot open \"%s\" %s", targetpart, strerror(errno));
++		return -1;
++	}
++	INFO("posall is %d, type %d, bytes 0x%llx", property->posall, type, bytes);
++	if (property->posall > 1)
++	{
++		off_t offs = 0;
++		int readlen = 0, i = 0;
++		int lebbegin, lebend, tlebsize;
++
++		if (type == TYPE_UBIVOL) {
++#ifdef CONFIG_MTD
++			ret = ubi_set_property(fdout, UBI_VOL_PROP_DIRECT_WRITE, 1);
++			if (ret) {
++				ERROR("cannot set \"%s\" %s", targetpart, strerror(errno));
++				goto uupdate_end;
++			}
++#endif
++		}
++
++		if (g_lebsize <= 0) {
++			INFO("leb size error %d", g_lebsize);
++			goto uupdate_end;
++		}
++		tlebsize = g_lebsize;
++		lebbegin = (property->pos - 1)*property->psize/tlebsize;
++		lebend = lebbegin + property->targsize/tlebsize;
++		if (property->targsize%tlebsize > 0)
++			lebend += 1;
++
++		lseek(fdin, 0, SEEK_SET);
++		wbuf = malloc(tlebsize);
++		/* rbuf = malloc(tlebsize);
++		if ((rbuf  == NULL) || (wbuf  == NULL)) { */
++		if (wbuf == NULL) {
++			INFO("malloc NULL");
++			goto uupdate_end;
++		}
++		for (i = lebbegin; i< lebend; i ++) {
++			offs = tlebsize*i;
++			/* memset(rbuf, 0xff, tlebsize); */
++			memset(wbuf, 0xff, tlebsize);
++			if (type == TYPE_UBIVOL) {
++#ifdef CONFIG_MTD
++				ret = ubi_leb_unmap(fdout, i);
++				if (ret) {
++					ERROR("cannot unmap LEB %d, %s", i, strerror(errno));
++					goto uupdate_end;
++				}
++#endif
++			}
++			readlen = read(fdin, wbuf, tlebsize);
++			if (readlen <= 0) {
++				ERROR("Read file failed, read %d, %s", readlen, strerror(errno));
++				ret = -1;
++				goto uupdate_end;
++			}
++			if (readlen != tlebsize) {
++				INFO("Read part data end, %d: %d", readlen, tlebsize);
++			}
++
++			//TRACE("kk1 %d, %d ,readlen = %d ,offs = 0x%lx", kk, tlebsize, readlen, offs);
++			ret = pwrite(fdout, wbuf, tlebsize, offs);
++			if (ret != tlebsize) {
++				ERROR("cannot write %d bytes to offs %ld, wrote %d, %s",
++					readlen, offs, ret, strerror(errno));
++				ret = -1;
++				goto uupdate_end;
++			}
++#if 0 /* disable it firstly because always right, and it can reduce update time. */
++			//TRACE("kk2 %d, %d ,readlen = %d ", i, tlebsize, readlen);
++			/* read data back and check */
++			ret = pread(fdout, rbuf, tlebsize, offs);
++			if (ret != tlebsize) {
++				ERROR("failed to read %d bytes at offset %ld :%s", readlen, offs,
++					   strerror(errno));
++				ret = -1;
++				goto uupdate_end;
++			}
++			//TRACE("kk4 %d, %d ,readlen = %d ", i, tlebsize, readlen);
++			if (memcmp(rbuf, wbuf, readlen)) {
++				ERROR("written and read data are different");
++				ret = -1;
++				goto uupdate_end;
++			}
++#endif
++		}
++		TRACE("finished lebs %d: %d", i, lebend);
++	}else {
++		long long bytes = 0;
++
++		bytes = lseek(fdin,0,SEEK_END);
++		lseek(fdin, 0, SEEK_SET);
++		if (type == TYPE_UBIVOL) {
++#ifdef CONFIG_MTD
++			ret = ubi_update_start(libubi, fdout, bytes);
++			if (ret) {
++				ERROR("cannot start vol update, %d, %d, %s", ret, fdout, strerror(errno));
++				goto uupdate_end;
++			}
++#endif
++		}
++		buffer = malloc(BUFF_SIZE);
++		if(buffer == NULL) {
++			ERROR("malloc error");
++			ret = -1;
++			goto uupdate_end;
++		}
++		while(bytes) {
++			if (bytes < BUFF_SIZE) {
++				op_bytes = bytes;
++			} else {
++				op_bytes = BUFF_SIZE;
++			}
++			op_bytes = read(fdin, buffer, op_bytes);
++			if (op_bytes < 0) {
++				ERROR("Read file failed");
++				ret = -1;
++				goto uupdate_end;
++			}
++			ret = copy_write(&fdout, buffer, op_bytes);
++			if (ret < 0) {
++				ERROR("Write file failed");
++				goto uupdate_end;
++			}
++			bytes -= op_bytes;
++		}
++	}
++	ret = 0;
++uupdate_end:
++	if (buffer != NULL)
++		free(buffer);
++	close(fdin);
++	close(fdout);
++	if (property->posall > 1) {
++#if 0
++		if (rbuf != NULL)
++			free(rbuf);
++#endif
++		if (wbuf != NULL)
++			free(wbuf);
++	}
++	sw_msdelay(10);
++	return ret;
++}
++
++static void find_vol_by_volname(char *vname, char *node)
++{
++#ifndef CONFIG_MTD
++	if ((vname == NULL) || (node == NULL)) {
++		TRACE("input pointer NULL");
++	}
++	INFO("no need find firstly");
++#else
++	struct flash_description *flash = get_flash_info();
++	struct mtd_info *mtd = &flash->mtd;
++	struct mtd_ubi_info *mtd_info;
++	struct ubi_part *ubivol;
++
++	if ((vname == NULL) || (node == NULL)) {
++		ERROR("input pointer NULL");
++		exit(EXIT_FAILURE);
++	}
++	for (int i = mtd->lowest_mtd_num; i <= mtd->highest_mtd_num; i++) {
++		mtd_info = &flash->mtd_info[i];
++		ubivol = search_volume(vname, &mtd_info->ubi_partitions);
++		if (ubivol)
++			break;
++	}
++	if (ubivol == NULL) {
++		ERROR("Can't find volume");
++		exit(EXIT_FAILURE);
++	}
++	snprintf(node, 60, "/dev/ubi%d_%d",	ubivol->vol_info.dev_num,
++			ubivol->vol_info.vol_id);
++	INFO("%s, size is %d", node, strlen(node));
++	INFO("mtd_dev:lebsize-%d, totalleb-%d, avail_lebs-%d",
++			mtd_info->dev_info.leb_size,
++		    mtd_info->dev_info.total_lebs,
++		    mtd_info->dev_info.avail_lebs);
++	INFO("mtd: ebsize-%d, eb_cnt-%d",
++			mtd_info->mtd.eb_size,
++		    mtd_info->mtd.eb_cnt);
++	INFO("ubivol: leb_size-%d, rsvd_lebs-%d, dev_num-%d",
++		     ubivol->vol_info.leb_size,
++		     ubivol->vol_info.rsvd_lebs,
++		     ubivol->vol_info.dev_num
++		     );
++	g_lebsize = ubivol->vol_info.leb_size;
++#endif
++}
++
++int get_diffproperty(struct img_type *img, s_diffproperty_t *property)
++{
++	char *var;
++
++	if ((img == NULL) || (property == NULL)) {
++		ERROR("point null");
++		return -1;
++	}
++	var = dict_get_value(&img->properties, DIFF_BASE_SHA);
++	if (var == NULL) {
++		TRACE("base sha don't exist");
++		return -1;
++	}
++	memset(property->basesha256, '\0', SHA256_HASH_LENGTH);
++	ascii_to_hash(property->basesha256, var);
++
++	var = dict_get_value(&img->properties, DIFF_TARG_SHA);
++	if (var == NULL) {
++		ERROR("targ sha don't exist");
++		return -1;
++	}
++	memset(property->targsha256, '\0', SHA256_HASH_LENGTH);
++	ascii_to_hash(property->targsha256, var);
++
++	var = dict_get_value(&img->properties, DIFF_BASE_SIZE);
++	if (var == NULL) {
++		ERROR("base size don't exist");
++		return -1;
++	}
++	property->basesize = strtol(var, NULL, 0);
++	TRACE("basesize: %s: %lld", var, property->basesize);
++
++	var = dict_get_value(&img->properties, DIFF_TARG_SIZE);
++	if (var == NULL) {
++		ERROR("targ size don't exist");
++		return -1;
++	}
++	property->targsize = strtol(var, NULL, 0);
++	TRACE("targsize: %s: %lld", var,property->targsize);
++
++	var = dict_get_value(&img->properties, DIFF_PART_SIZE);
++	if (var != NULL) {
++		property->psize = strtol(var, NULL, 0);
++		TRACE("psize: %s: %d", var, property->psize);
++	}
++
++	var = dict_get_value(&img->properties, DIFF_UPDATE_POS);
++	if (var != NULL) {
++		property->pos = strtol(var, NULL, 0);
++		TRACE("pos: %s: %d", var, property->pos);
++	}
++
++	var = dict_get_value(&img->properties, DIFF_UPDATE_ALL);
++	if (var != NULL) {
++		property->posall = strtol(var, NULL, 0);
++		TRACE("posall: %s: %d", var, property->posall);
++	}
++
++	var = dict_get_value(&img->properties, DIFF_DECBASE_SHA);
++	if (var != NULL) {
++		TRACE("dec base sha ");
++		memset(property->decbasesha256, '\0', SHA256_HASH_LENGTH);
++		ascii_to_hash(property->decbasesha256, var);
++	}
++
++	var = dict_get_value(&img->properties, DIFF_DECTARG_SHA);
++	if (var != NULL) {
++		TRACE("dec targ sha");
++		memset(property->dectargsha256, '\0', SHA256_HASH_LENGTH);
++		ascii_to_hash(property->dectargsha256, var);
++	}
++
++	var = dict_get_value(&img->properties, DIFF_DECBASE_SIZE);
++	if (var != NULL) {
++		property->decbasesize = strtol(var, NULL, 0);
++		TRACE("decbasesize: %s: %ld", var, property->decbasesize);
++	}
++
++	var = dict_get_value(&img->properties, DIFF_DECTARG_SIZE);
++	if (var != NULL) {
++		property->dectargsize = strtol(var, NULL, 0);
++		TRACE("dectargsize: %s: %ld", var, property->dectargsize);
++	}
++
++	var = dict_get_value(&img->properties, DIFF_ZIPBASE_OFF);
++	if (var != NULL) {
++		property->zipbaseoff = strtol(var, NULL, 0);
++		TRACE("zipbaseoff: %s: %ld", var, property->zipbaseoff);
++	}
++
++	var = dict_get_value(&img->properties, DIFF_ZIPBASE_SIZE);
++	if (var != NULL) {
++		property->zipbasesize = strtol(var, NULL, 0);
++		TRACE("zipbasesize: %s: %ld", var, property->zipbasesize);
++	}
++
++	var = dict_get_value(&img->properties, DIFF_ZIPTARG_OFF);
++	if (var != NULL) {
++		property->ziptargoff = strtol(var, NULL, 0);
++		TRACE("ziptargoff: %s: %ld", var, property->ziptargoff);
++	}
++
++	var = dict_get_value(&img->properties, DIFF_ZIPTARG_SIZE);
++	if (var != NULL) {
++		property->ziptargsize = strtol(var, NULL, 0);
++		TRACE("ziptargsize: %s: %ld", var, property->ziptargsize);
++	}
++
++	var = dict_get_value(&img->properties, DIFF_COMPRESS);
++	if (var == NULL) {
++		ERROR("update size don't exist");
++	} else {
++		property->compress = strtol(var, NULL, 0);
++		TRACE("compress: %s: %d", var, property->compress);
++	}
++
++	INFO("%ld-%ld-%d-%d-%d-%d", property->basesize, property->targsize,
++			property->psize, property->pos, property->posall,
++			property->compress);
++	return 0;
++}
+ 
++/***********************************************/
++
++static int apply_rdiff_patch_ori(struct img_type *img,
++							 void __attribute__((__unused__)) * data)
++{
++	int ret = 0, ret1 = 0, diff_proc_type = 0;
++	char node[64];
++	char tmp[80], tmpbasefile[80] = {'\0'};
++	char real_type = 0;
++	diffdone_rec *s_diffrec;
++	s_diffproperty_t *s_diffpro;
++	long long basepart_offset = 0;
++	struct rdiff_t rdiff_state = {};
+ 	char *mountpoint = NULL;
+ 	bool use_mount = (strlen(img->device) && strlen(img->filesystem)) ? true : false;
+-
+ 	char *base_file_filename = NULL;
+ 	char *dest_file_filename = NULL;
++	FILE * basepart_fd = NULL;
+ 
++	rdiff_state.type =
++		strcmp(img->type, "rdiff_image") == 0 ? IMAGE_HANDLER : FILE_HANDLER;
++	s_diffrec = malloc(sizeof(diffdone_rec));
++	if (s_diffrec == NULL) {
++		ERROR("can't malloc for rdiff list.");
++		return -1;
++	}
++	memset(s_diffrec, 0, sizeof(diffdone_rec));
++
++	s_diffpro = malloc(sizeof(s_diffproperty_t));
++	if (s_diffpro == NULL) {
++		ERROR("can't malloc for diffpro list.");
++		free(s_diffrec);
++		return -1;
++	}
++	memset(s_diffpro, 0, sizeof(s_diffproperty_t));
++	ret = get_diffproperty(img, s_diffpro);
++	if (ret != 0) {
++		ERROR("get property error.");
++		free(s_diffrec);
++		free(s_diffpro);
++		return -1;
++	}
+ 	if (rdiff_state.type == IMAGE_HANDLER) {
+ 		if (img->seek) {
+ 			/*
+ 			 * img->seek mandates copyfile()'s out parameter to be a fd, it
+ 			 * isn't. So, the seek option is invalid for the rdiff handler.
+ 			 * */
++			free(s_diffrec);
++			free(s_diffpro);
+ 			ERROR("Option 'seek' is not supported for rdiff.");
+ 			return -1;
+ 		}
+ 
+-		base_file_filename = dict_get_value(&img->properties, "rdiffbase");
+-		if (base_file_filename == NULL) {
+-			ERROR("Property 'rdiffbase' is missing in sw-description.");
+-			return -1;
++		if (strlen(img->volname)) {
++			find_vol_by_volname(img->volname, node);
++			base_file_filename = node;
++			real_type = TYPE_UBIVOL;
++		} else {
++			base_file_filename = dict_get_value(&img->properties, "rdiffbase");
++			if (base_file_filename == NULL) {
++				//ERROR("Property 'rdiffbase' is missing in sw-description.");
++				//return -1;
++				TRACE("Device property as rdiffbase!!");
++				base_file_filename = img->device;
++			}
++			real_type = TYPE_RAW;
+ 		}
++	}
+ 
+-		if ((rdiff_state.dest_file = fopen(img->device, "wb+")) == NULL) {
+-			ERROR("%s cannot be opened for writing: %s", img->device, strerror(errno));
+-			return -1;
+-		}
++	snprintf(tmp, sizeof(tmp), "%s%s", diff_recpath(), img->fname);
++	tmp[strlen(tmp)- strlen(DIFF_NAME_END)] = '\0';
++	INFO("Start: part:%s temporary file:%s, diff:%s", base_file_filename, tmp, img->fname);
++	diff_proc_type = rdiff_checke_if_file_isinterrupted(img->fname, s_diffrec);
++	if (diff_proc_type == DIFF_FINISH) {
++		INFO("Img has updated ,no need anymore.");
++		free(s_diffrec);
++		free(s_diffpro);
++		return 0;
++	} else if (diff_proc_type == DIFF_NONE) {
++		INFO("diff begin %s", img->fname);
++		s_diffrec->basesize = (long long int)s_diffpro->basesize;
++		sprintf(s_diffrec->name, "%s", img->fname);
++		INFO("diff %s bsize %lld progress", s_diffrec->name, s_diffrec->basesize);
++		s_diffrec->name[strlen(img->fname)] = '\0';
++		s_diffrec->partnums = 1;
++		s_diffrec->partpos = 1;
++		s_diffrec->flag = DIFF_BEGIN;
++		rdiff_finishlist_recfileupdate(s_diffrec);
++	} else if (diff_proc_type == DIFF_BEGIN) {
++		if(access(tmp, F_OK) == 0) {
++			if(remove(tmp))
++				ERROR("cannot rm %s %s", tmp, strerror(errno));
++		}
++		INFO("diff %s continue", s_diffrec->name);
++	} else if (diff_proc_type == DIFF_UPDATE) {
++		if(access(tmp, F_OK) == 0) {
++			if(remove(tmp))
++				ERROR("cannot rm %s %s", tmp, strerror(errno));
++		}
++		s_diffrec->flag = DIFF_FINISH;
++		rdiff_finishlist_recfileupdate(s_diffrec);
++		INFO("The diff has done, prog delete the temporary file and return");
++		free(s_diffrec);
++		free(s_diffpro);
++		return 0;
++	} else if (diff_proc_type == DIFF_PATCH) {
++		if(access(tmp, F_OK) == 0) {
++			INFO("The diff file exist, continue update");
++			goto updatebybackup;
++		}
++		INFO("The temporary file doesn't exist, error");
++		free(s_diffrec);
++		free(s_diffpro);
++		return -1;
++	} else {
++		INFO("Something error.");
++		free(s_diffrec);
++		free(s_diffpro);
++		return -1;
+ 	}
++
++	if ((rdiff_state.dest_file = fopen(tmp, "wb+")) == NULL) {
++		ERROR("%s cannot be opened for writing: %s", img->volname, strerror(errno));
++		free(s_diffrec);
++		free(s_diffpro);
++		return -1;
++	}
++
+ 	if (rdiff_state.type == FILE_HANDLER) {
+ 		int fd;
+ 
+ 		if (strlen(img->path) == 0) {
+ 			ERROR("Missing path attribute");
++			free(s_diffrec);
++			free(s_diffpro);
+ 			return -1;
+ 		}
+ 
+ 		if (asprintf(&dest_file_filename, "%srdiffpatch.XXXXXX", get_tmpdir()) == -1) {
+ 			ERROR("Cannot allocate memory for temporary filename creation.");
++			free(s_diffrec);
++			free(s_diffpro);
+ 			return -1;
+ 		}
+ 		if ((fd = mkstemp(dest_file_filename)) == -1) {
+ 			ERROR("Cannot create temporary file %s: %s", dest_file_filename,
+ 				  strerror(errno));
++			free(s_diffrec);
++			free(s_diffpro);
+ 			return -1;
+ 		}
+ 
+@@ -283,6 +1265,8 @@ static int apply_rdiff_patch(struct img_
+ 			(void)close(fd);
+ 			ERROR("%s cannot be opened for writing: %s", dest_file_filename,
+ 				  strerror(errno));
++			free(s_diffrec);
++			free(s_diffpro);
+ 			return -1;
+ 		}
+ 
+@@ -314,12 +1298,40 @@ static int apply_rdiff_patch(struct img_
+ 		}
+ 	}
+ 
+-	if ((rdiff_state.base_file = fopen(base_file_filename, "rb+")) == NULL) {
+-		ERROR("%s cannot be opened for reading: %s", base_file_filename, strerror(errno));
++	if ((basepart_fd = fopen(base_file_filename, "rb")) == NULL) {
++		ERROR("%s cannot be opened for reading1: %s", base_file_filename, strerror(errno));
++		ret = -1;
++		goto cleanup;
++	}
++	snprintf(tmpbasefile, sizeof(tmpbasefile), "%s%s", get_tmpdir(), img->fname);
++	INFO("rdiff debug: tmpbasefile:%s get_tmpdir():%s, img->fname:%s", tmpbasefile, get_tmpdir(), img->fname);
++	
++	INFO("rdiff debug: tmpbasefile:%s get_tmpdir():%s, img->fname:%s", tmpbasefile, get_tmpdir(), img->fname);
++
++	basepart_offset = s_diffpro->psize*(s_diffpro->pos - 1);
++	ret = diff_read_part_tofile(basepart_fd, tmpbasefile, basepart_offset, s_diffpro->basesize,"wb");
++	if (ret != 0)
++	{
++		ERROR("%s cannot get %s", tmpbasefile, strerror(errno));
++		ret = -1;
++		fclose(basepart_fd);
++		goto cleanup;
++	}
++	fclose(basepart_fd);
++
++	
++	if ((rdiff_state.base_file = fopen(tmpbasefile, "rb")) == NULL) {
++		ERROR("%s cannot be opened for reading1: %s", tmpbasefile, strerror(errno));
+ 		ret = -1;
+ 		goto cleanup;
+ 	}
+ 
++	/*if ((rdiff_state.base_file = fopen(tmpbasefile, "rb")) == NULL) {
++		ERROR("%s cannot be opened for reading1: %s", tmpbasefile, strerror(errno));
++		ret = -1;
++		goto cleanup;
++	}*/
++
+ 	if (!(rdiff_state.inbuf = malloc(RDIFF_BUFFER_SIZE))) {
+ 		ERROR("Cannot allocate memory for rdiff input buffer.");
+ 		ret = -1;
+@@ -336,7 +1348,7 @@ static int apply_rdiff_patch(struct img_
+ 
+ 	int loglevelmap[] =
+ 	{
+-		[OFF]        = RS_LOG_ERR,
++		[OFF]		 = RS_LOG_ERR,
+ 		[ERRORLEVEL] = RS_LOG_ERR,
+ 		[WARNLEVEL]  = RS_LOG_WARNING,
+ 		[INFOLEVEL]  = RS_LOG_INFO,
+@@ -362,6 +1374,8 @@ static int apply_rdiff_patch(struct img_
+ 		ERROR("Error %d running rdiff job, aborting.", ret);
+ 		goto cleanup;
+ 	}
++	diff_sync_path();
++	fsync(fileno(rdiff_state.dest_file)); /* write hw truelly */
+ 
+ 	if (rdiff_state.type == FILE_HANDLER) {
+ 		struct stat stat_dest_file;
+@@ -408,7 +1422,7 @@ static int apply_rdiff_patch(struct img_
+ 		if (sendfile(fileno(rdiff_state.base_file), fileno(rdiff_state.dest_file),
+ 					 NULL, stat_dest_file.st_size) == -1) {
+ 			ERROR("Cannot copy from %s to %s: %s", dest_file_filename,
+-			      base_file_filename, strerror(errno));
++				  base_file_filename, strerror(errno));
+ 			ret = -1;
+ 			goto cleanup;
+ 		}
+@@ -425,33 +1439,1722 @@ cleanup:
+ 		if (fclose(rdiff_state.base_file) == EOF) {
+ 			ERROR("Error while closing rdiff base: %s", strerror(errno));
+ 		}
++		remove(tmpbasefile);
+ 	}
+ 	if (rdiff_state.dest_file != NULL) {
+ 		if (fclose(rdiff_state.dest_file) == EOF) {
+ 			ERROR("Error while closing rdiff destination: %s",
+-			      strerror(errno));
++				  strerror(errno));
+ 		}
+ 	}
++	sw_msdelay(5);
++	INFO("close temp file");
+ 	if (rdiff_state.type == FILE_HANDLER) {
+ 		if (unlink(dest_file_filename) == -1) {
+ 			ERROR("Cannot delete temporary file %s, please clean up manually: %s",
+-			      dest_file_filename, strerror(errno));
++				  dest_file_filename, strerror(errno));
+ 		}
+ 		if (use_mount == true) {
+ 			swupdate_umount(mountpoint);
+ 		}
+ 	}
++	s_diffrec->flag = DIFF_PATCH;
++	rdiff_finishlist_recfileupdate(s_diffrec);
++updatebybackup:
++	INFO("fsource: %s, fdes: %s", tmp, base_file_filename);
++	ret = unisoc_update_volume(tmp, base_file_filename, real_type, s_diffpro);
++	if (ret != 0) {
++		ERROR("update error");
++		free(s_diffrec);
++		free(s_diffpro);
++		return -1;
++	}
++	s_diffrec->flag = DIFF_UPDATE;
++	rdiff_finishlist_recfileupdate(s_diffrec);
++	ret1 = remove(tmp);
++	s_diffrec->flag = DIFF_FINISH;
++	rdiff_finishlist_recfileupdate(s_diffrec);
++	free(s_diffrec);
++	free(s_diffpro);
++	INFO("End: part:%s, rm %d", base_file_filename, ret1);
+ 	return ret;
+ }
+ 
+-__attribute__((constructor))
+-void rdiff_image_handler(void)
++#ifdef BZIP2_IMG
++static int unbz2Stream_manual( FILE *zStream, FILE *stream, int size )
+ {
+-	register_handler("rdiff_image", apply_rdiff_patch, IMAGE_HANDLER, NULL);
++	BZFILE* bzf = NULL;
++	int bzerr, bzerr_dummy, ret, nread, streamNo, i;
++	unsigned char	obuf[5000];
++	unsigned char	unused[BZ_MAX_UNUSED];
++	int   nUnused;
++	void*	unusedTmpV;
++	unsigned char*	unusedTmp;
++	int fsize = 0;
++
++	nUnused = 0;
++	streamNo = 0;
++	if ((zStream == NULL) || (stream == NULL)) {
++		ERROR("stream is NULL");
++		return -1;
++	}
++ 
++ 	bzf = BZ2_bzReadOpen(&bzerr, zStream, 0, 0, unused, nUnused);
++ 	if (bzf == NULL || bzerr != BZ_OK) goto errhandler;
++ 	streamNo++;
++ 
++ 	while (bzerr == BZ_OK) {
++ 		nread = BZ2_bzRead(&bzerr, bzf, obuf, 5000);
++ 		if (bzerr == BZ_DATA_ERROR_MAGIC) {
++ 			ERROR ( "BZ_DATA_ERROR_MAGIC, fsize %d\n", fsize );
++ 			goto errhandler;
++ 		}
++ 		fsize = fsize+nread;
++ 		if ((bzerr == BZ_OK || bzerr == BZ_STREAM_END) && (nread > 0))
++ 			fwrite(obuf, 1, nread, stream );
++ 		if(bzerr == BZ_STREAM_END) {
++ 			ERROR ( "BZ_STREAM_END, fsize %d\n", fsize);
++ 			break;
++ 		}
++ 		if(fsize == size) {
++ 			ERROR( "have done size %d\n", fsize);
++ 			break;
++ 		}
++ 	}
++ 	if (bzerr != BZ_STREAM_END) {
++ 		ERROR( "not the end %d\n", bzerr);
++ 		goto errhandler;
++ 	}
++ 	BZ2_bzReadClose(&bzerr, bzf );
++ 	if (bzerr != BZ_OK) {
++ 		ERROR ( "decompress 1:bzReadGetUnused, fsize %d", fsize );
++ 		goto errhandler;
++ 	}
++ 	DEBUG ( "decompress finish, fsize %d", fsize );
++ 	return 0;
++ errhandler:
++ 	BZ2_bzReadClose(&bzerr_dummy, bzf );
++ 	INFO("errhandler %d\n", bzerr_dummy);
++	return -1; /*notreached*/
+ }
++static int bz2Stream_manual ( FILE *stream, FILE *zStream, int size )
++{
++	BZFILE* bzf = NULL;
++	unsigned char	ibuf[5000];
++	int   nIbuf;
++	unsigned int  nbytes_in_lo32, nbytes_in_hi32;
++	unsigned int  nbytes_out_lo32, nbytes_out_hi32;
++	int  bzerr, bzerr_dummy, ret;
++	int  leftsize = size;
++	int  readsize = leftsize;
++	int tmpsize = 0;
++
++	if ((zStream == NULL) || (stream == NULL)) {
++		ERROR("stream is NULL");
++		return -1;
++	}
++
++	bzf = BZ2_bzWriteOpen(&bzerr, zStream, 9, 0, 30 );
++	if (bzerr != BZ_OK) goto errhandler;
++	TRACE("compress 0\n");
++
++	while (1) {
++		readsize = (leftsize > 5000)? 5000 : leftsize;
++		nIbuf = fread(ibuf, 1, readsize, stream );
++		tmpsize = tmpsize + nIbuf;
++		if (ferror(stream)) goto errhandler;
++		if (nIbuf > 0) BZ2_bzWrite(&bzerr, bzf, (void*)ibuf, nIbuf );
++		if (bzerr != BZ_OK) goto errhandler;
++		leftsize = leftsize - readsize;
++		if (leftsize <= 0) {
++			TRACE("compress left size is 0 ,tmpsize %d\n", tmpsize);
++			break;
++		}
++	}
++	BZ2_bzWriteClose64(&bzerr, bzf, 0,
++						&nbytes_in_lo32, &nbytes_in_hi32,
++						&nbytes_out_lo32, &nbytes_out_hi32 );
++	if (bzerr != BZ_OK) goto errhandler;
+ 
+-__attribute__((constructor))
+-void rdiff_file_handler(void)
++	ret = fflush ( zStream );
++	if (ret == EOF) goto errhandler;
++	return 0;
++
++errhandler:
++	BZ2_bzWriteClose64(&bzerr_dummy, bzf, 1,
++						&nbytes_in_lo32, &nbytes_in_hi32,
++						&nbytes_out_lo32, &nbytes_out_hi32 );
++	ERROR("compress fail, error %d\n", bzerr);
++	return -1;
++}
++#endif
++
++static int gz_compress(FILE *in, gzFile out, long int size)
+ {
+-	register_handler("rdiff_file", apply_rdiff_patch, FILE_HANDLER, NULL);
++	char buf[GZBUFLEN];
++	int len;
++	int err;
++
++	for (;;) {
++		len = (int)fread(buf, 1, sizeof(buf), in);
++		if (ferror(in)) {
++			ERROR("fread error ");
++			return -1;
++		}
++		if (len == 0) break;
++
++		if (gzwrite(out, buf, (unsigned)len) != len) {
++			ERROR("gzwrite error ");
++			return -1;
++		}
++	}
++	fclose(in);
++	if (gzclose(out) != Z_OK) {
++		ERROR("failed gzclose");
++		return -1;
++	}
+ }
++static void gz_uncompress(gzFile in, FILE *out, long int size)
++{
++    char buf[GZBUFLEN];
++    int len;
++    int err;
++	int leftlen = size;
++	int opsize;
++
++    while (leftlen >0){
++		opsize = (leftlen > GZBUFLEN)? GZBUFLEN : leftlen;
++        len = gzread(in, buf, opsize);
++        if (len < 0) {
++			ERROR("fread error ");
++			return -1;
++		}
++        if (len == 0) break;
++
++        if ((int)fwrite(buf, 1, (unsigned)len, out) != len) {
++            ERROR("fwrite error");
++			return -1;
++        }
++		leftlen -= opsize;
++		if (leftlen == 0) {
++			INFO("finished");
++			break;
++		}
++    }
++	if (gzclose(in) != Z_OK) {
++		ERROR("failed gzclose");
++		return -1;
++	}
++}
++char* tmp_filepath(void)
++{
++	static int init = 0;
++	char *value = NULL;
++	char *offset = NULL;
++
++	if (init == 1)
++		return tmpfolder_path;
++	init = 1;
++	value = bootloader_env_get("extractpath");
++	if (value != NULL) {
++		offset = strstr(value, "tmp");
++		if (offset != NULL) {
++			*(offset + 4) = '\0';
++			INFO("tmp is: %s, size %d", value, strlen(value));
++			tmpfolder_path = malloc(MAX_IMAGE_FNAME);
++			if (tmpfolder_path == NULL) {
++				fprintf(stderr, "tmp file Error malloc..\n");
++				exit(EXIT_FAILURE);
++			}
++			memset(tmpfolder_path, '\0', MAX_IMAGE_FNAME);
++			strncpy(tmpfolder_path, value, strlen(value));
++			return tmpfolder_path;
++		} else {
++			return NULL;
++		}
++	}
++	else
++		return NULL;
++}
++
++static int zippedfile_process(char type, char * infile, char * outfile)
++{
++	char sys_cmd[255] = {'\0'};
++	char gzippath[255] = {'\0'};
++	char istmp = 0;
++
++	if((infile == NULL ) || (outfile == NULL))
++	{
++		ERROR("file NULL");
++		return -1;
++	}
++#if 0
++	if (access(outfile, 0) == 0)
++		remove(outfile);
++#endif
++	INFO("type: %d, infile %s, outfile %s", type, infile, outfile);
++	sprintf(gzippath, "%sgzip", tmp_filepath());
++	INFO("gzip path: %s", gzippath);
++	if (access(gzippath, 0) == 0) {
++		INFO("exist gzip");
++		chmod(gzippath, S_IRWXU | S_IRWXG | S_IRWXO);
++		istmp = 1;
++	} else {
++		INFO("use default gzip");
++		istmp = 0;
++	}
++	/* data with zipped */
++	if(type == BASEZ2F) { /* infile in storage, outfile in tmp */
++		if (istmp == 1)
++			sprintf(sys_cmd, "%s -dc %s > %s", gzippath, infile, outfile);
++		else
++			sprintf(sys_cmd, "gzip -dc %s > %s", infile, outfile);
++		system(sys_cmd); /* gzip */
++	} else if (type == TARGF2Z) { /* infile in tmp, outfile in storage */
++		if (istmp == 1)
++			sprintf(sys_cmd, "%s -cfkn %s > %s", gzippath, infile, outfile);
++		else
++			sprintf(sys_cmd, "gzip -cfkn %s > %s", infile, outfile);
++		system(sys_cmd); /* gzip */
++	} else {
++		ERROR("not supported");
++		return -1;
++	}
++#if 0
++	{
++		char tmpsys_cmd[255] = {0};
++		char tmpsys_cmd1[255] = {0};
++		char tmpsys_cmd2[255] = {0};
++		sprintf(tmpsys_cmd, "ls -al %s", get_tmpdir());
++		sprintf(tmpsys_cmd1, "ls -al %s", diff_recpath());
++		sprintf(tmpsys_cmd2, "ls -al %s%s", diff_recpath(),"tmp");
++		system(tmpsys_cmd); /* gzip */
++		system(tmpsys_cmd1); /* gzip */
++		system(tmpsys_cmd2); /* gzip */
++	}
++#endif
++	if (type == TARGF2Z) {
++		diff_sync_path();
++	}
++
++	return 0;
++}
++#if 0
++static int zippedfile_process(char type, char * infile, char *headfile, char * outfile,
++									char *tailfile, char *img, s_diffproperty_t *dproperty)
++{
++	int fd = -1;
++	int ret = -1;
++	FILE *inStr = NULL;
++	FILE *outStr = NULL;
++	FILE *headStr = NULL;
++	FILE *tailStr = NULL;
++	FILE *tmpStr = NULL;
++	long int len = 0;
++	long int dec_size, tailsize = 0;
++	long int imgsize, headsize, ziprelatesize;
++	char sys_cmd[255] = {0};
++	char tmp_stored[MAX_IMAGE_FNAME] = {'\0'};
++	snprintf(tmp_stored, MAX_IMAGE_FNAME, "%stmp%s", get_tmpdir(), img);
++
++	if((infile == NULL )||(outfile == NULL ))
++	{
++		ERROR("file NULL");
++		return -1;
++	}
++#if 0
++	if (access(outfile, 0) == 0)
++		remove(outfile);
++#endif
++	INFO("type: %d, infile %s, outfile %s", type, infile, outfile);
++	inStr = fopen(infile, "rb");
++	outStr = fopen(outfile, "wb");
++	headStr = fopen(headfile, "wb");
++	tailStr = fopen(tailfile, "wb");
++	tmpStr = fopen(tmp_stored, "wb");
++	if ((inStr == NULL) || (outStr == NULL) || (leftStr == NULL) ||
++		(tailStr == NULL)) {
++		ERROR("file open error");
++		goto zippedfile_process_cleanup;
++	}
++	if (type == BASEZ2F) {
++		headsize = dproperty->zipbaseoff;
++		ziprelatesize = dproperty->zipbasesize;
++		imgsize = dproperty->basesize;
++		tailsize = imgsize - headsize - ziprelatesize;
++		dec_size = dproperty->decbasesize - headsize - tailsize;
++	} else if (type == TARGF2Z) {
++		headsize = dproperty->ziptargoff;
++		imgsize = dproperty->dectargsize;
++		tailsize = dproperty->targsize - headsize - dproperty->ziptargsize;
++		ziprelatesize = imgsize - headsize - tailsize;
++		dec_size = ziprelatesize;
++	} else {
++		ERROR("not supported now");
++		goto zippedfile_process_cleanup;
++	}
++#if 0
++	if(imgsize == 0) { /* only can get this from file */
++		fseek( inStr,0,SEEK_END );
++		file_size=ftell( inStr );
++	} else {
++		file_size = imgsize;
++	}
++#endif
++	if (headsize > 0) /* head */
++		diff_read_part_tofilebyfileid(inStr, headStr, 0, headsize);
++
++	/* data with zipped */
++	diff_read_part_tofilebyfileid(inStr, tmpStr, headsize, ziprelatesize);
++	if (tmpStr != NULL)
++		fclose(tmpStr);
++	if(type == BASEZ2F) {
++		sprintf(sys_cmd, "gzip -dc %s > %s", tmp_stored, outfile);
++		system(sys_cmd); /* gzip */
++	} else if (type == TARGF2Z) {
++		sprintf(sys_cmd, "gzip -knf %s > %s", tmp_stored, outfile);
++		system(sys_cmd); /* gzip */
++	} else {
++		ERROR("not supported");
++		goto zippedfile_process_cleanup;
++	}
++	if (tailsize > 0)
++		diff_read_part_tofilebyfileid(inStr, tailStr, (headsize + ziprelatesize), tailsize);
++
++	diff_sync_path();
++	fflush(outStr);
++	fsync(fileno(outStr));
++	ret = 0;
++zippedfile_process_cleanup:
++	if (outStr != NULL)
++		fclose(outStr);
++	if (inStr != NULL)
++		fclose(inStr);
++
++	return ret;
++}
++#endif
++static int get_alignsizefromproperty(s_diffproperty_t *diffproperty)
++{
++	long int headsize = 0;
++	long int tailsize = 0;
++
++	headsize = diffproperty->ziptargoff; /* head size in targ zfile */
++	tailsize = diffproperty->targsize - headsize - diffproperty->ziptargsize; /* tail size */
++	if ((headsize == VLR_SIGN_HEAD_SIZE) && (tailsize == VLR_SIGN_TAIL_SIZE)){
++		return SIGN_ALIGN_SIZE;
++	} else {
++		return DEF_ALIGN_SIZE;
++	}
++}
++static int pre_process_partition(s_diffproperty_t *diffproperty,
++									   char *part, char* imgname, int inststate, int type)
++{
++	int ret = 0;
++	FILE * part_fd = NULL;
++	unsigned long offset = 0;
++	char prepart_stored[MAX_IMAGE_FNAME] = {'\0'};
++	char mainfile[MAX_IMAGE_FNAME] = {'\0'};
++	char headfile[MAX_IMAGE_FNAME] = {'\0'};
++	char tailfile[MAX_IMAGE_FNAME] = {'\0'};
++	char tmpfile[MAX_IMAGE_FNAME] = {'\0'};
++	int  align_size = 0;
++
++	snprintf(headfile, MAX_IMAGE_FNAME, "%sh%s", diff_recpath(), imgname);
++	snprintf(tailfile, MAX_IMAGE_FNAME, "%st%s", diff_recpath(), imgname);
++	snprintf(tmpfile, MAX_IMAGE_FNAME, "%stmp%s", get_tmpdir(), imgname);
++
++	/* fix the drop after the partition data need to be updated by ziped data */
++	if (diffproperty->compress == OTA_FILE_TYPE_NONE_ZIP) {
++		return 0;
++	} else if ((diffproperty->compress == OTA_FILE_TYPE_ONLY_TARG_ZIP) ||
++				(diffproperty->compress == OTA_FILE_TYPE_BOTH_ZIP) ) {
++		if (inststate == DIFF_INSTALLING) {
++			/*char post_part_z[MAX_IMAGE_FNAME] = {'\0'};*/
++			char post_part_stored[MAX_IMAGE_FNAME] = {'\0'};
++			snprintf(post_part_stored, MAX_IMAGE_FNAME, "%spst%s.gz", diff_recpath(), imgname);
++			/* 1. new zip is existed? */
++			if (access(post_part_stored, 0) == 0) {
++				// post_part_stored file is exsited
++				ret = verify_splitfile_sha(headfile, post_part_stored, tailfile,
++										   diffproperty->targsha256, diffproperty->targsize);
++				if (ret == 0) { /* find new zip and update it */
++					INFO("zip have been down, update partition");
++					align_size = get_alignsizefromproperty(diffproperty);
++					splitfile_update_volume(headfile, post_part_stored, tailfile, part,
++											diffproperty->targsize, align_size, type);
++					remove(post_part_stored);
++					if (access(headfile, 0) == 0)
++						remove(headfile);
++					if (access(tailfile, 0) == 0)
++						remove(tailfile);
++					return 2;
++				}
++				remove(post_part_stored);
++				if (access(headfile, 0) == 0)
++					remove(headfile);
++				if (access(tailfile, 0) == 0)
++					remove(tailfile);
++			}
++
++			/* 2. verify the part is new version but not zipped */
++			ret = verify_file_sha(part, diffproperty->dectargsha256, diffproperty->dectargsize, 0);
++			if(ret == 0) {
++				INFO("will zip this file and update partition");
++				/* zip the data part of partition */
++				if ((part_fd = fopen(part, "rb")) == NULL) {
++					ERROR("%s cannot be open: %s", part, strerror(errno));
++					return -1;
++				}
++				ret = diff_read_part_tosplitfile(DECTARG_FORTARGZIP, part_fd, headfile, tmpfile,
++												 tailfile, imgname, diffproperty);
++				fclose(part_fd);
++				if (ret < 0) {
++					ERROR("read error");
++					return -1;
++				}
++				ret = zippedfile_process(TARGF2Z, tmpfile, post_part_stored);
++				if (ret < 0) {
++					ERROR("zipped error");
++					return -1;
++				}
++				align_size = get_alignsizefromproperty(diffproperty);
++				ret = splitfile_update_volume(headfile, post_part_stored, tailfile, part,
++											  diffproperty->targsize, align_size, type);
++				return 2;
++			}
++			INFO("continue pre");
++		}else if (inststate == DIFF_NOTINSTALLED){
++			if (diffproperty->compress == OTA_FILE_TYPE_ONLY_TARG_ZIP){
++				INFO("don't need extract targ");
++				return 0;
++			}
++		}
++	}
++
++	/* need to prepare when base is zipped file */
++	if ((diffproperty->compress != OTA_FILE_TYPE_ONLY_BASE_ZIP) &&
++				(diffproperty->compress != OTA_FILE_TYPE_BOTH_ZIP)) {
++		INFO("return error");
++		return 0;
++	}
++
++	snprintf(prepart_stored, MAX_IMAGE_FNAME, "%spre%s.gz", diff_recpath(), imgname);
++	if (inststate == DIFF_NOTINSTALLED) {
++#if 0 /* seems that don't need */
++		if (access(part_stored, 0) == 0) {
++			remove(part_stored);
++		}
++#endif
++		if ((part_fd = fopen(part, "rb")) == NULL) {
++			ERROR("%s cannot be open: %s", part, strerror(errno));
++			return -1;
++		}
++		ret = diff_read_part_tosplitfile(ORIG_BASEZIP, part_fd, headfile, prepart_stored,
++										 tailfile, imgname, diffproperty);
++		fclose(part_fd);
++	} else if (inststate == DIFF_INSTALLING) {
++		if (access(prepart_stored, 0) == 0) {
++			ret = verify_splitfile_sha(headfile, prepart_stored, tailfile,
++									   diffproperty->basesha256, diffproperty->basesize);
++			if (ret != 0) { /* if the zipped file is bad ,shows drop when from part */
++				ERROR("error verify sha");
++				return -1;
++			}
++		} else { /* means begin to patch */
++			return 1;
++		}
++	} else {
++		INFO("No this state");
++		return 1;
++	}
++
++	zippedfile_process(BASEZ2F, prepart_stored, tmpfile);
++	/* update partition by decompressed data from part_stored file */
++	ret = splitfile_update_volume(headfile, tmpfile, tailfile, part,
++								  diffproperty->decbasesize, DEF_ALIGN_SIZE, type);
++	if (ret != 0) {
++		ERROR("error file_update_volume");
++		return -1;
++	}
++	remove(tmpfile);
++	remove(prepart_stored);
++	if (access(headfile, 0) == 0)
++		remove(headfile);
++	if (access(tailfile, 0) == 0)
++		remove(tailfile);
++	return 1;
++}
++
++static int post_process_partition(s_diffproperty_t *diffproperty,
++										char *part, char* imgname, int type)
++{
++	int ret = 0;
++	int align_size = 0;
++	FILE * part_fd = NULL;
++	unsigned long offset = 0;
++	char headfile[MAX_IMAGE_FNAME] = {'\0'};
++	char tailfile[MAX_IMAGE_FNAME] = {'\0'};
++	char tmpfile[MAX_IMAGE_FNAME] = {'\0'};
++	char post_part_stored[MAX_IMAGE_FNAME] = {'\0'};
++
++	snprintf(post_part_stored, MAX_IMAGE_FNAME, "%spst%s.gz", diff_recpath(), imgname);
++	snprintf(headfile, MAX_IMAGE_FNAME, "%sh%s", diff_recpath(), imgname);
++	snprintf(tailfile, MAX_IMAGE_FNAME, "%st%s", diff_recpath(), imgname);
++	snprintf(tmpfile, MAX_IMAGE_FNAME, "%stmp%s", get_tmpdir(), imgname);
++	/* fix the drop after the partition data need to be updated by ziped data */
++	if ((diffproperty->compress == OTA_FILE_TYPE_NONE_ZIP) ||
++		(diffproperty->compress == OTA_FILE_TYPE_ONLY_BASE_ZIP)) {
++		INFO("no base zip and is new install");
++		return 0;
++	} else if ((diffproperty->compress == OTA_FILE_TYPE_ONLY_TARG_ZIP) ||
++				(diffproperty->compress == OTA_FILE_TYPE_BOTH_ZIP) ) {
++		/* verify the part is new version but not zipped */
++		ret = verify_file_sha(part, diffproperty->dectargsha256, diffproperty->dectargsize, 0);
++		if(ret == 0) {
++			/* zip the data part of partition */
++			if ((part_fd = fopen(part, "rb")) == NULL) {
++				ERROR("%s cannot be open: %s", part, strerror(errno));
++				return -1;
++			}
++			ret = diff_read_part_tosplitfile(DECTARG_FORTARGZIP, part_fd, headfile, tmpfile,
++											 tailfile, imgname, diffproperty);
++			fclose(part_fd);
++			if (ret < 0) {
++				INFO("read part error %d", ret);
++				return ret;
++			}
++			INFO("will zip this file and update partition %d", ret);
++			ret = zippedfile_process(TARGF2Z, tmpfile, post_part_stored);
++			if (ret < 0) {
++				INFO("zip process error %d", ret);
++				return ret;
++			}
++			align_size = get_alignsizefromproperty(diffproperty);
++			ret = splitfile_update_volume(headfile, post_part_stored, tailfile, part,
++										  diffproperty->targsize, align_size, type);
++			remove(tmpfile);
++			#if 1
++			remove(post_part_stored);
++			if (access(headfile, 0) == 0)
++				remove(headfile);
++			if (access(tailfile, 0) == 0)
++				remove(tailfile);
++			#endif
++			return ret;
++		} else {
++			ERROR("need to check update");
++			return -1;
++		}
++	}
++	return 0;
++}
++
++long long get_folder_capacity(char *fpath)
++{
++	struct statfs fsbuf;
++	long long frspace = -1;
++
++	if (fpath == NULL)
++		return 0;
++	if(statfs(fpath, &fsbuf) < 0){
++		INFO("get %s file info error", fpath);
++		return 0;
++	}
++	frspace = (long long)((long long)fsbuf.f_bsize * (long long)fsbuf.f_bfree);
++	INFO("folder %s has free %lld 0x%llx size ", fpath,frspace,frspace);
++	return frspace;
++}
++
++static int apply_bsdiff_patch(struct img_type *img,
++							void __attribute__((__unused__)) * data)
++{
++	int ret = 0;
++	int diff_filefd = -1;
++	int tmpstate = 0;
++	int updatemode = 0; /* val in e_DIFF_UPDATESTEP_REC */
++	char *storedfile = NULL;
++	char *oth_storedfile = NULL;
++	s_diffproperty_t *s_diffpro = NULL;
++	char *base_file_filename = NULL;
++	FILE *basepart_fd = NULL;
++	long long op_size = 0;
++	long long left_size = 0;
++	long long lsrcoffset = 0;
++	long long lsrcsize = 0;
++	long long normaltargsize = 0;
++	char real_type;
++	char node[64];
++	char dest_file[MAX_IMAGE_FNAME] = {'\0'};
++	char diff_file[MAX_IMAGE_FNAME] = {'\0'};
++	char pt1storedfile[MAX_IMAGE_FNAME] = {'\0'};
++	char pt2storedfile[MAX_IMAGE_FNAME] = {'\0'};
++	char dest_file_name[MAX_IMAGE_FNAME] = {'\0'};
++	char cachefilepath[MAX_IMAGE_FNAME] = {'\0'};
++	s_DIFF_PARTFILE_INFO part1fileinfo, part2fileinfo, tmpfileinfo;
++
++	snprintf(dest_file_name, (strlen(img->fname)-strlen(DIFF_NAME_END) + 1),
++			 "%s", img->fname);
++	s_diffpro = malloc(sizeof(s_diffproperty_t));
++	if (s_diffpro == NULL) {
++		ERROR("can't malloc for diffpro list.");
++		return -1;
++	}
++	memset(s_diffpro, 0, sizeof(s_diffproperty_t));
++	ret = get_diffproperty(img, s_diffpro);
++	if (ret != 0) {
++		ERROR("get property error.");
++		ret = -1;
++		goto apply_bsdiff_patch_cleanup;
++	}
++
++	if (strlen(img->volname)) {
++		find_vol_by_volname(img->volname, node);
++		base_file_filename = node;
++		real_type = TYPE_UBIVOL;
++	} else {
++		base_file_filename = dict_get_value(&img->properties, "bsddiffbase");
++		if (base_file_filename == NULL) {
++			TRACE("Device property as diffbase!!");
++			base_file_filename = img->device;
++		}
++		real_type = TYPE_RAW;
++	}
++	tmpstate = img->diffinstallflag;
++	INFO("intall state %d", tmpstate);
++	/* get the part file name */
++	if ((tmpstate == DIFF_INSTALLING) ||
++		(tmpstate == DIFF_NOTINSTALLED)) {
++		ret = pre_process_partition(s_diffpro, base_file_filename, dest_file_name, tmpstate, real_type);
++		if (ret < 0) {
++			ERROR("pre error.");
++			ret = -1;
++			goto apply_bsdiff_patch_cleanup;
++		} else if(ret == 1) {
++			tmpstate = DIFF_NOTINSTALLED;
++		} else if(ret == 2) { /* power droped the last data, recovery in pre process */
++			ERROR("goto the last end");
++			ret = 0;
++			goto apply_bsdiff_patch_cleanup;
++		}
++	}
++
++	if ((s_diffpro->compress == OTA_FILE_TYPE_ONLY_TARG_ZIP) ||
++		(s_diffpro->compress == OTA_FILE_TYPE_BOTH_ZIP)){
++		normaltargsize = s_diffpro->dectargsize;
++	} else {
++		normaltargsize = s_diffpro->targsize;
++	}
++
++	/* diff_file: get diff img data from swu file */
++	snprintf(diff_file, sizeof(diff_file), "%s/%s", get_tmpdir(), img->fname);
++	diff_filefd = open(diff_file, O_WRONLY|O_CREAT|O_TRUNC, 0666);
++	INFO("delta fname %s, size:%lld, pos: %ld, intall state %d", img->fname, img->size,
++		img->offset, tmpstate);
++
++	if (diff_filefd < 0) {
++		ERROR("%s(%s) cannot be opened for writing: %s", diff_file,
++				img->volname, strerror(errno));
++		goto apply_bsdiff_patch_cleanup;
++	}
++	ret = copyfile(img->fdin,
++					&diff_filefd,
++					img->size,
++					(unsigned long *)&img->offset,
++					img->seek,
++					0, /* no skip */
++					img->compressed,
++					&img->checksum,
++					img->sha256,
++					img->is_encrypted,
++					NULL);
++	if (ret != 0) {
++		ERROR("Error %d copy", ret);
++		goto apply_bsdiff_patch_cleanup;
++	}
++	close(diff_filefd);
++
++	/* check if is interrupted */
++	snprintf(dest_file, MAX_IMAGE_FNAME, "%s%s", get_tmpdir(), dest_file_name);
++	snprintf(pt1storedfile, MAX_IMAGE_FNAME, "%s%s1pt", diff_recpath(), dest_file_name);
++	snprintf(pt2storedfile, MAX_IMAGE_FNAME, "%s%s2pt", diff_recpath(), dest_file_name);
++	snprintf(cachefilepath, MAX_IMAGE_FNAME, "%s%s%s",diff_recpath(), dest_file_name,
++			 CACHEFILE_NAME);
++	INFO("dest_file %s, file %s: Part:%s, difffile size:%lld\n",
++		  dest_file, dest_file_name, base_file_filename, img->size);
++	//system("ls -al /mnt/data/recovery/");
++	memset(&tmpfileinfo, 0 , sizeof(s_DIFF_PARTFILE_INFO));
++	memset(&part1fileinfo, 0 , sizeof(s_DIFF_PARTFILE_INFO));
++	memset(&part2fileinfo, 0 , sizeof(s_DIFF_PARTFILE_INFO));
++	//INFO("before: part1.mask 0x%x, part2.mask 0x%x\n",
++		//	part1fileinfo.mask, part2fileinfo.mask);
++	if(tmpstate == DIFF_NOTINSTALLED) {
++		int isinmedia = 0;
++		int isupdaterecovery = 0;
++		struct statfs fsbuf;
++		long long frspace = -1;
++		long long tmpspace = -1;
++		long long recspace = -1;
++
++		diff_clean_files(pt1storedfile, pt2storedfile, dest_file_name);
++
++#ifdef CONFIG_MTD
++		recspace = get_folder_capacity(diff_recpath());
++		if (recspace <= RES_FREE_SPACE) {
++			ERROR("no free space, can't upgrade");
++			goto apply_bsdiff_patch_cleanup;
++		}
++		tmpspace = get_folder_capacity(get_tmpdir());
++		if (tmpspace <= RES_FREE_SPACE) {
++			INFO("no free tmp space, can't upgrade");
++			goto apply_bsdiff_patch_cleanup;
++		}
++		INFO("rec 0x%llx, tmp free 0x%llx, targ 0x%llx", recspace, tmpspace,
++			  normaltargsize);
++		frspace = recspace;
++		if (strncmp("recovery.img", dest_file_name, strlen("recovery.img"))== 0) {
++			isupdaterecovery = 1;
++			frspace = (recspace > DEF_LIMITED_SPACE_INUPRECOVERY)?
++						DEF_LIMITED_SPACE_INUPRECOVERY : recspace;
++		} else if (strncmp("/mnt/media/", diff_recpath(), strlen("/mnt/media/"))== 0) {
++			isinmedia = 1;
++			frspace = (recspace > DEF_LIMITED_SPACE_INUPNORM)?
++						DEF_LIMITED_SPACE_INUPNORM : recspace;
++		}
++
++		if ((recspace >= normaltargsize) && (tmpspace >= normaltargsize) &&
++			(frspace >= normaltargsize) && (isupdaterecovery == 0)) /* update one time */
++#else /* emmc project need to update fully */
++		frspace = normaltargsize + 1;
++		if (frspace >= normaltargsize)
++#endif
++		{
++			op_size = normaltargsize;
++			updatemode = DIFF_UPDATE_FULL;
++		} else {  /* need more than one time */
++			int trysize = (((frspace - RES_FREE_SPACE)/2)/g_lebsize)*g_lebsize;
++			//int trysize = (((frspace - RES_FREE_SPACE)/4)/g_lebsize)*g_lebsize;
++			int cfilesize = 0;
++			INFO("add for debug trysize = %d\n ", trysize);
++
++			if (trysize < 0) {
++				ERROR("size is less than 1M(0x%x), quit update", frspace);
++				ret = -1;
++				goto apply_bsdiff_patch_cleanup;
++			} else if (trysize > ((tmpspace - RES_FREE_SPACE)/g_lebsize)*g_lebsize) {
++				trysize = ((tmpspace - RES_FREE_SPACE)/g_lebsize)*g_lebsize;
++				INFO("add for debug trysize in tmpspace - RES_FREE_SPACE)  = %d\n ", trysize);
++			}
++			updatemode = DIFF_UPDATE_1ST;
++			left_size = normaltargsize;
++			if (isinmedia == 0) {
++				do{
++					cfilesize = 0;
++					ret = bsdiff_cachedata_init(base_file_filename, diff_file, cachefilepath,
++												trysize, &cfilesize, 1);
++					if (ret != 0) {
++						ERROR("bsdiff_cachedata_init error %d", ret);
++						ret = -1;
++						goto apply_bsdiff_patch_cleanup;
++					}
++					//if((cfilesize + 2*trysize + RES_FREE_SPACE) <= frspace) {
++					if((cfilesize + 2*trysize + RES_FREE_SPACE) <= frspace) {
++						INFO("cache pre init, free:%d, size:%d", trysize, cfilesize);
++						break;
++					}
++					trysize = (((frspace - cfilesize - RES_FREE_SPACE)*45/100)/g_lebsize)*g_lebsize;
++					INFO("add for debug trysize after ((frspace - cfilesize - RES_FREE_SPACE)*45/100)/g_lebsize)*g_lebsize = %d\n ", trysize);
++					if(trysize<=g_lebsize) {
++						ERROR("free space is small, try:%d, cachefile:%d", trysize, cfilesize);
++						ret = -1;
++						goto apply_bsdiff_patch_cleanup;
++					}
++				}while(1);
++			}
++			if ((cfilesize>0) || (isinmedia == 1)){
++				ret = bsdiff_cachedata_init(base_file_filename, diff_file, cachefilepath,
++											trysize, &cfilesize, 0);
++				if (ret != 0) {
++					ERROR("bsdiff_cachedata_init 0 error %d", ret);
++					ret = -1;
++					goto apply_bsdiff_patch_cleanup;
++				}
++			}
++			op_size = trysize;
++		}
++		INFO("add for debug op_size = %d\n ", op_size);
++
++		lsrcoffset	= 0;
++		storedfile = pt1storedfile;
++		diff_fill_store_finfo(&tmpfileinfo, DIFFPARTFILE_MASK, lsrcoffset, op_size, dest_file_name);
++		INFO("DIFF_NOTINSTALLED: src'offset 0x%llx, size:%lld, backupfile:%s \n",
++			   tmpfileinfo.srcoffset, tmpfileinfo.srcsize, storedfile);
++		iused_size = op_size;
++		bsdiff_cachedata_list_get(cachefilepath);
++	} else if(tmpstate == DIFF_INSTALLING) {
++		if (access(pt1storedfile, 0) == 0) {
++			part1fileinfo = diff_getflag_fromfiletail(pt1storedfile);
++		}
++		if (access(pt2storedfile, 0) == 0) {
++			part2fileinfo = diff_getflag_fromfiletail(pt2storedfile);
++		}
++		INFO("DIFF_INSTALLING: part1.mask 0x%x, part2.mask 0x%x\n",
++				part1fileinfo.mask, part2fileinfo.mask);
++
++		if ((DIFFPARTFILE_MASK == part1fileinfo.mask) &&
++			(DIFFPARTFILE_MASK == part2fileinfo.mask)) {
++			if (part1fileinfo.srcoffset == part2fileinfo.srcoffset) {
++				ret = -1;
++				ERROR("Error happen than srcoffset is same.");
++				goto apply_bsdiff_patch_cleanup;
++			}
++			lsrcoffset = (part1fileinfo.srcoffset > part2fileinfo.srcoffset) ?
++						 part1fileinfo.srcoffset : part2fileinfo.srcoffset;
++			storedfile = (part1fileinfo.srcoffset > part2fileinfo.srcoffset) ?
++						 pt1storedfile : pt2storedfile;
++			oth_storedfile = (part1fileinfo.srcoffset > part2fileinfo.srcoffset) ?
++						 pt2storedfile : pt1storedfile;
++			op_size = (part1fileinfo.srcsize < part2fileinfo.srcsize) ?
++						 part1fileinfo.srcsize : part2fileinfo.srcsize;
++			diff_fill_store_finfo(&tmpfileinfo, DIFFPARTFILE_MASK, lsrcoffset, op_size, dest_file_name);
++			updatemode = DIFF_UPDATE_EXISTTWO;
++			iused_size = (part1fileinfo.srcsize > part2fileinfo.srcsize) ?
++						 part1fileinfo.srcsize : part2fileinfo.srcsize;
++		} else if (DIFFPARTFILE_MASK == part1fileinfo.mask) { /* interrupted in backup pro */
++			/*op_size = diff_get_operate_size();
++			op_size = (op_size < part1fileinfo.srcsize)? op_size : part1fileinfo.srcsize;*/
++			if (part1fileinfo.srcsize != normaltargsize) {
++				if (part1fileinfo.srcoffset == 0) {
++					op_size = part1fileinfo.srcsize;
++					iused_size = op_size;
++					lsrcoffset	= 0;
++					storedfile = pt1storedfile;
++					diff_fill_store_finfo(&tmpfileinfo, DIFFPARTFILE_MASK, lsrcoffset, op_size, dest_file_name);
++					updatemode = DIFF_UPDATE_EXIST1ST;
++				} else {
++					op_size = part1fileinfo.srcsize;
++					iused_size = op_size;
++					lsrcoffset = part1fileinfo.srcoffset + part1fileinfo.srcsize;
++					left_size = normaltargsize - lsrcoffset;
++					op_size = (op_size > left_size)? left_size: op_size;
++					diff_fill_store_finfo(&tmpfileinfo, DIFFPARTFILE_MASK, lsrcoffset, op_size, dest_file_name);
++					storedfile = pt2storedfile;
++					oth_storedfile = pt1storedfile;
++					updatemode = DIFF_UPDATE_EXISTONE;
++				}
++			} else {
++				op_size = normaltargsize;
++				lsrcoffset	= 0;
++				storedfile = pt1storedfile;
++				updatemode = DIFF_UPDATE_EXISTFULL;
++				diff_fill_store_finfo(&tmpfileinfo, DIFFPARTFILE_MASK, lsrcoffset, op_size, dest_file_name);
++				iused_size = op_size; /* notice it, maybe change it later */
++			}
++		} else if (DIFFPARTFILE_MASK == part2fileinfo.mask) { /* interrupted in backup pro */
++			/*op_size = diff_get_operate_size();
++			op_size = (op_size < part2fileinfo.srcsize)? op_size : part2fileinfo.srcsize;*/
++			op_size = part2fileinfo.srcsize;
++			iused_size = op_size;
++			lsrcoffset = part2fileinfo.srcoffset + part2fileinfo.srcsize;
++			left_size = normaltargsize - lsrcoffset;
++			op_size = (op_size > left_size)? left_size: op_size;
++			diff_fill_store_finfo(&tmpfileinfo, DIFFPARTFILE_MASK, lsrcoffset, op_size, dest_file_name);
++			storedfile = pt1storedfile;
++			oth_storedfile = pt2storedfile;
++			updatemode = DIFF_UPDATE_EXISTONE;
++		} else {
++			ret = -1;
++			ERROR("There is no stored file and please have a check.");
++			goto apply_bsdiff_patch_cleanup;
++		}
++		bsdiff_cachedata_list_get(cachefilepath);
++		INFO("backup file:%s, oth file:%s, lsrcoffset is %lld, size:%lld, mode is %d",
++			   storedfile, oth_storedfile,lsrcoffset, lsrcsize, updatemode);
++	} else {
++		ERROR("This situation can't happen");
++		ret = -1;
++		goto apply_bsdiff_patch_cleanup;
++	}
++	ota_set_opsize(iused_size);
++
++	INFO("start update\n");
++	do { // normal process
++		s_diffproperty_t actual_pro;
++		memset(&actual_pro, 0 , sizeof(s_diffproperty_t));
++		/* need to back again when be interrupted in back pro */
++		if ((updatemode == DIFF_UPDATE_1ST) || (updatemode == DIFF_UPDATE_FULL)
++			|| (updatemode == DIFF_UPDATE_EXISTONE)) {
++			if ((basepart_fd = fopen(base_file_filename, "rb")) == NULL) {
++				ERROR("%s cannot be opened rb: %s", base_file_filename, strerror(errno));
++				ret = -1;
++				goto apply_bsdiff_patch_cleanup;
++			}
++
++			ret = diff_read_part_tofile(basepart_fd, storedfile, tmpfileinfo.srcoffset,
++										tmpfileinfo.srcsize, "wb");
++			if (ret != 0)
++			{
++				ERROR("%s cannot get %s", storedfile, strerror(errno));
++				ret = -1;
++				fclose(basepart_fd);
++				goto apply_bsdiff_patch_cleanup;
++			}
++			diff_addfinfo_toftail(storedfile, tmpfileinfo);
++			fclose(basepart_fd);
++		}
++
++		ret = bsdiff_patch(base_file_filename, dest_file, diff_file, tmpfileinfo.srcoffset,
++						tmpfileinfo.srcsize, storedfile, oth_storedfile);
++		if (ret != 0) {
++			ERROR("bsdiff_patch error");
++			goto apply_bsdiff_patch_cleanup;
++		}
++		actual_pro.pos=2;
++		actual_pro.psize = (unsigned int)tmpfileinfo.srcoffset;
++		actual_pro.targsize = (long int)tmpfileinfo.srcsize;
++		if ((updatemode == DIFF_UPDATE_FULL) || (updatemode == DIFF_UPDATE_EXISTFULL))
++			actual_pro.posall = 1;
++		else
++			actual_pro.posall = 2;
++		//system("ls -al /mnt/data/recovery/");
++		INFO("dest file %s", dest_file);
++		ret = unisoc_update_volume(dest_file, base_file_filename, real_type, &actual_pro);
++		if (ret != 0) {
++			ERROR("update error");
++			free(s_diffpro);
++			return -1;
++		}
++
++		if ((updatemode == DIFF_UPDATE_FULL) || (updatemode == DIFF_UPDATE_EXISTFULL)) {
++			remove(storedfile);
++			remove(dest_file);
++			break;
++		}
++
++		lsrcoffset = tmpfileinfo.srcoffset + tmpfileinfo.srcsize;
++		left_size = normaltargsize - lsrcoffset;
++		if (left_size <= 0) {
++			remove(storedfile);
++			remove(dest_file);
++			remove(oth_storedfile);
++			INFO("has done ");
++			break;
++		}
++
++		op_size = diff_get_operate_size();
++		op_size = (op_size > left_size)? left_size: op_size;
++		diff_fill_store_finfo(&tmpfileinfo, DIFFPARTFILE_MASK, lsrcoffset, op_size, dest_file_name);
++		if (memcmp(storedfile, pt1storedfile, strlen(pt1storedfile)) == 0) {
++			oth_storedfile = pt1storedfile;
++			storedfile = pt2storedfile; /* unused */
++		} else {
++			oth_storedfile = pt2storedfile;
++			storedfile = pt1storedfile;  /* unused */
++		}
++		/* current storedfile is useless, so delete it, next loop will create new one */
++		if ((updatemode == DIFF_UPDATE_EXISTONE) || (updatemode == DIFF_UPDATE_EXISTTWO)) {
++			remove(storedfile);
++		}
++		if ((updatemode == DIFF_UPDATE_EXISTTWO) || (updatemode == DIFF_UPDATE_EXIST1ST))
++			updatemode = DIFF_UPDATE_EXISTONE;
++
++		remove(dest_file);
++	}while(1);
++	diff_sync_path();
++	sw_msdelay(5);
++	INFO("close temp file");
++	if (diff_filefd >= 0) {
++		remove(diff_file);
++		diff_filefd = -1;
++	}
++	ret = post_process_partition(s_diffpro, base_file_filename, dest_file_name, real_type);
++apply_bsdiff_patch_cleanup:
++	bsdiff_cachedata_deinit(cachefilepath);
++	if (s_diffpro != NULL)
++		free(s_diffpro);
++	INFO("End: part:%s", base_file_filename);
++
++	return ret;
++}
++
++
++
++
++
++
++
++
++static int rdiff_pre_process_partition(s_diffproperty_t *diffproperty,
++									   char *part, char* imgname, int inststate, int type)
++{
++	int ret = 0;
++	FILE * part_fd = NULL;
++	unsigned long offset = 0;
++	char prepart_stored[MAX_IMAGE_FNAME] = {'\0'};
++	char mainfile[MAX_IMAGE_FNAME] = {'\0'};
++	char headfile[MAX_IMAGE_FNAME] = {'\0'};
++	char tailfile[MAX_IMAGE_FNAME] = {'\0'};
++	char tmpfile[MAX_IMAGE_FNAME] = {'\0'};
++	int  align_size = 0;
++
++	snprintf(headfile, MAX_IMAGE_FNAME, "%sh%s", diff_recpath(), imgname);
++	snprintf(tailfile, MAX_IMAGE_FNAME, "%st%s", diff_recpath(), imgname);
++	snprintf(tmpfile, MAX_IMAGE_FNAME, "%stmp%s", get_tmpdir(), imgname);
++
++	INFO("rdiff debug: part: %s  imgname: %s  inststate: %d  type: %d", part, imgname,inststate,type);
++	/* fix the drop after the partition data need to be updated by ziped data */
++	if (diffproperty->compress == OTA_FILE_TYPE_NONE_ZIP) {
++		return 0;
++	} else if ((diffproperty->compress == OTA_FILE_TYPE_ONLY_TARG_ZIP) ||
++				(diffproperty->compress == OTA_FILE_TYPE_BOTH_ZIP) ) {
++		//if (inststate == DIFF_INSTALLING) {
++		if (inststate == DIFF_BEGIN) {
++			/*char post_part_z[MAX_IMAGE_FNAME] = {'\0'};*/
++			char post_part_stored[MAX_IMAGE_FNAME] = {'\0'};
++			snprintf(post_part_stored, MAX_IMAGE_FNAME, "%spst%s.gz", diff_recpath(), imgname);
++			/* 1. new zip is existed? */
++			if (access(post_part_stored, 0) == 0) {
++				// post_part_stored file is exsited
++				ret = verify_splitfile_sha(headfile, post_part_stored, tailfile,
++										   diffproperty->targsha256, diffproperty->targsize);
++				if (ret == 0) { /* find new zip and update it */
++					INFO("zip have been down, update partition");
++					align_size = get_alignsizefromproperty(diffproperty);
++					splitfile_update_volume(headfile, post_part_stored, tailfile, part,
++											diffproperty->targsize, align_size, type);
++					remove(post_part_stored);
++					if (access(headfile, 0) == 0)
++						remove(headfile);
++					if (access(tailfile, 0) == 0)
++						remove(tailfile);
++					return 2;
++				}
++				remove(post_part_stored);
++				if (access(headfile, 0) == 0)
++					remove(headfile);
++				if (access(tailfile, 0) == 0)
++					remove(tailfile);
++			}
++
++			/* 2. verify the part is new version but not zipped */
++			ret = verify_file_sha(part, diffproperty->dectargsha256, diffproperty->dectargsize, 0);
++			if(ret == 0) {
++				INFO("will zip this file and update partition");
++				/* zip the data part of partition */
++				if ((part_fd = fopen(part, "rb")) == NULL) {
++					ERROR("%s cannot be open: %s", part, strerror(errno));
++					return -1;
++				}
++				ret = diff_read_part_tosplitfile(DECTARG_FORTARGZIP, part_fd, headfile, tmpfile,
++												 tailfile, imgname, diffproperty);
++				fclose(part_fd);
++				if (ret < 0) {
++					ERROR("read error");
++					return -1;
++				}
++				ret = zippedfile_process(TARGF2Z, tmpfile, post_part_stored);
++				if (ret < 0) {
++					ERROR("zipped error");
++					return -1;
++				}
++				align_size = get_alignsizefromproperty(diffproperty);
++				ret = splitfile_update_volume(headfile, post_part_stored, tailfile, part,
++											  diffproperty->targsize, align_size, type);
++				return 2;
++			}
++			INFO("continue pre");
++		}else if (inststate == DIFF_NONE){
++			if (diffproperty->compress == OTA_FILE_TYPE_ONLY_TARG_ZIP){
++				INFO("don't need extract targ");
++				return 0;
++			}
++		}
++	}
++
++	/* need to prepare when base is zipped file */
++	if ((diffproperty->compress != OTA_FILE_TYPE_ONLY_BASE_ZIP) &&
++				(diffproperty->compress != OTA_FILE_TYPE_BOTH_ZIP)) {
++		INFO("return error");
++		return 0;
++	}
++
++	snprintf(prepart_stored, MAX_IMAGE_FNAME, "%spre%s.gz", diff_recpath(), imgname);
++	INFO("rdiff debug: prepart_stored:%s",prepart_stored);
++	if (inststate == DIFF_NONE) {
++#if 0 /* seems that don't need */
++		if (access(part_stored, 0) == 0) {
++			remove(part_stored);
++		}
++#endif
++		if ((part_fd = fopen(part, "rb")) == NULL) {
++			ERROR("%s cannot be open: %s", part, strerror(errno));
++			return -1;
++		}
++		//return head tail and middle zip file stored in prepart_stored
++		ret = diff_read_part_tosplitfile(ORIG_BASEZIP, part_fd, headfile, prepart_stored,
++										 tailfile, imgname, diffproperty);
++		fclose(part_fd);
++	} else if (inststate == DIFF_BEGIN) {
++		if (access(prepart_stored, 0) == 0) {
++			ret = verify_splitfile_sha(headfile, prepart_stored, tailfile,
++									   diffproperty->basesha256, diffproperty->basesize);
++			if (ret != 0) { /* if the zipped file is bad ,shows drop when from part */
++				ERROR("error verify sha");
++				return -1;
++			}
++		} else { /* means begin to patch */
++			return 1;
++		}
++	} else {
++		INFO("No this state");
++		return 1;
++	}
++
++	INFO("rdiff debug:prepart_stored:%s, tmpfile:%s",prepart_stored,tmpfile);
++	zippedfile_process(BASEZ2F, prepart_stored, tmpfile);
++	/* update partition by decompressed data from part_stored file */
++	ret = splitfile_update_volume(headfile, tmpfile, tailfile, part,
++								  diffproperty->decbasesize, DEF_ALIGN_SIZE, type);
++	
++	INFO("rdiff debug: part after splitfile_update_volume:%s",part);
++	
++	if (ret != 0) {
++		ERROR("error file_update_volume");
++		return -1;
++	}
++	remove(tmpfile);
++	remove(prepart_stored);
++	if (access(headfile, 0) == 0)
++		remove(headfile);
++	if (access(tailfile, 0) == 0)
++		remove(tailfile);
++	return 1;
++}
++
++static int rdiff_post_process_partition(s_diffproperty_t *diffproperty,
++										char *part, char* imgname, int type)
++{
++	int ret = 0;
++	int align_size = 0;
++	FILE * part_fd = NULL;
++	unsigned long offset = 0;
++	char headfile[MAX_IMAGE_FNAME] = {'\0'};
++	char tailfile[MAX_IMAGE_FNAME] = {'\0'};
++	char tmpfile[MAX_IMAGE_FNAME] = {'\0'};
++	char post_part_stored[MAX_IMAGE_FNAME] = {'\0'};
++
++	snprintf(post_part_stored, MAX_IMAGE_FNAME, "%spst%s.gz", diff_recpath(), imgname);
++	INFO("rdiff debug: post_part_stored: %s",post_part_stored);
++	snprintf(headfile, MAX_IMAGE_FNAME, "%sh%s", diff_recpath(), imgname);
++	snprintf(tailfile, MAX_IMAGE_FNAME, "%st%s", diff_recpath(), imgname);
++	snprintf(tmpfile, MAX_IMAGE_FNAME, "%stmp%s", get_tmpdir(), imgname);
++	/* fix the drop after the partition data need to be updated by ziped data */
++	if ((diffproperty->compress == OTA_FILE_TYPE_NONE_ZIP) ||
++		(diffproperty->compress == OTA_FILE_TYPE_ONLY_BASE_ZIP)) {
++		INFO("no base zip and is new install");
++		return 0;
++	} else if ((diffproperty->compress == OTA_FILE_TYPE_ONLY_TARG_ZIP) ||
++				(diffproperty->compress == OTA_FILE_TYPE_BOTH_ZIP) ) {
++		/* verify the part is new version but not zipped */
++		ret = verify_file_sha(part, diffproperty->dectargsha256, diffproperty->dectargsize, 0);
++		if(ret == 0) {
++			/* zip the data part of partition */
++			if ((part_fd = fopen(part, "rb")) == NULL) {
++				ERROR("%s cannot be open: %s", part, strerror(errno));
++				return -1;
++			}
++			ret = diff_read_part_tosplitfile(DECTARG_FORTARGZIP, part_fd, headfile, tmpfile,
++											 tailfile, imgname, diffproperty);
++			fclose(part_fd);
++			if (ret < 0) {
++				INFO("read part error %d", ret);
++				return ret;
++			}
++			INFO("will zip this file and update partition %d", ret);
++			ret = zippedfile_process(TARGF2Z, tmpfile, post_part_stored);
++			if (ret < 0) {
++				INFO("zip process error %d", ret);
++				return ret;
++			}
++			align_size = get_alignsizefromproperty(diffproperty);
++			ret = splitfile_update_volume(headfile, post_part_stored, tailfile, part,
++										  diffproperty->targsize, align_size, type);
++			//ret = splitfile_update_volume(headfile, post_part_stored, tailfile, dest_part,
++			//							  diffproperty->targsize, align_size, type);
++			remove(tmpfile);
++			#if 1
++			remove(post_part_stored);
++			if (access(headfile, 0) == 0)
++				remove(headfile);
++			if (access(tailfile, 0) == 0)
++				remove(tailfile);
++			#endif
++			return ret;
++		} else {
++			ERROR("need to check update");
++			return -1;
++		}
++	}
++	return 0;
++}
++
++
++/***********************************************/
++static int apply_rdiff_patch(struct img_type *img,
++							 void __attribute__((__unused__)) * data)
++{
++	int ret = 0, ret1 = 0, diff_proc_type = 0;
++	char node[64];
++	char tmp[80] = {'\0'};
++	char tmpbasefile[80] = {'\0'};
++	char real_type = 0;
++	diffdone_rec *s_diffrec;
++	s_diffproperty_t *s_diffpro;
++	long long basepart_offset = 0;
++	struct rdiff_t rdiff_state = {};
++	char *mountpoint = NULL;
++	bool use_mount = (strlen(img->device) && strlen(img->filesystem)) ? true : false;
++	char *base_file_filename = NULL;
++	char *dest_file_filename = NULL;
++	long int normal_basesize = 0;
++	FILE * basepart_fd = NULL;
++	rdiff_state.type =
++		strcmp(img->type, "rdiff_image") == 0 ? IMAGE_HANDLER : FILE_HANDLER;
++	
++	char *tmp_dest_file =NULL;
++	tmp_dest_file = malloc(MAX_IMAGE_FNAME);
++	memset(tmp_dest_file, '\0', MAX_IMAGE_FNAME);
++	snprintf(tmp_dest_file, (strlen(img->fname)-strlen(DIFF_NAME_END) + 1),
++			 "%s", img->fname);
++	
++	INFO("rdiff debug: rdiff_state.type = %d  tmp_dest_file:%s",rdiff_state.type,tmp_dest_file);
++
++	s_diffrec = malloc(sizeof(diffdone_rec));
++	if (s_diffrec == NULL) {
++		ERROR("can't malloc for rdiff list.");
++		return -1;
++	}
++	memset(s_diffrec, 0, sizeof(diffdone_rec));
++
++	s_diffpro = malloc(sizeof(s_diffproperty_t));
++	if (s_diffpro == NULL) {
++		ERROR("can't malloc for diffpro list.");
++		free(s_diffrec);
++		return -1;
++	}
++	memset(s_diffpro, 0, sizeof(s_diffproperty_t));
++	ret = get_diffproperty(img, s_diffpro);
++	if (ret != 0) {
++		ERROR("get property error.");
++		free(s_diffrec);
++		free(s_diffpro);
++		return -1;
++	}
++	if (rdiff_state.type == IMAGE_HANDLER) {
++		if (img->seek) {
++			/*
++			 * img->seek mandates copyfile()'s out parameter to be a fd, it
++			 * isn't. So, the seek option is invalid for the rdiff handler.
++			 * */
++			free(s_diffrec);
++			free(s_diffpro);
++			ERROR("Option 'seek' is not supported for rdiff.");
++			return -1;
++		}
++
++		if (strlen(img->volname)) {
++			find_vol_by_volname(img->volname, node);
++			base_file_filename = node;
++			real_type = TYPE_UBIVOL;
++		} else {
++			base_file_filename = dict_get_value(&img->properties, "rdiffbase");
++			if (base_file_filename == NULL) {
++				//ERROR("Property 'rdiffbase' is missing in sw-description.");
++				//return -1;
++				TRACE("Device property as rdiffbase!!");
++				base_file_filename = img->device;
++				dest_file_filename = img->device;
++			
++			}
++			real_type = TYPE_RAW;	
++		}
++		
++	}
++	INFO("rdiff debug:real_type = %d",real_type);
++
++	snprintf(tmp, sizeof(tmp), "%s%s", diff_recpath(), img->fname);
++	tmp[strlen(tmp)- strlen(DIFF_NAME_END)] = '\0';
++	INFO("Start: partition:%s tmp file:%s, diff:%s", base_file_filename, tmp, img->fname);
++	
++	diff_proc_type = rdiff_checke_if_file_isinterrupted(img->fname, s_diffrec);
++	
++	if (diff_proc_type == DIFF_FINISH) {
++		INFO("Img has updated ,no need anymore.");
++		free(s_diffrec);
++		free(s_diffpro);
++		return 0;
++	} else if (diff_proc_type == DIFF_NONE) {
++		INFO("diff begin %s", img->fname);
++		s_diffrec->basesize = (long long int)s_diffpro->basesize;
++		sprintf(s_diffrec->name, "%s", img->fname);
++		INFO("diff %s bsize %lld progress", s_diffrec->name, s_diffrec->basesize);
++		s_diffrec->name[strlen(img->fname)] = '\0';
++		s_diffrec->partnums = 1;
++		s_diffrec->partpos = 1;
++		
++		rdiff_finishlist_recfileupdate(s_diffrec);
++		//need pre_patitions
++		INFO("rdiff debug: base_file_filename: %s diff_proc_type: %d  real_type: %d",base_file_filename,diff_proc_type,real_type);
++		ret = rdiff_pre_process_partition(s_diffpro, base_file_filename, tmp_dest_file, diff_proc_type, real_type);		
++		if (ret < 0) {
++			ERROR("pre error.");
++			ret = -1;
++			goto cleanup;
++		} else if(ret == 1) {
++			diff_proc_type = DIFF_NONE;
++		} else if(ret == 2) { /* power droped the last data, recovery in pre process */
++			ERROR("goto the last end");
++			ret = 0;
++			goto cleanup;
++		}
++		//if unzipped file is ready, set s_diffrec flag is DIFF_BEGIN
++		s_diffrec->flag = DIFF_BEGIN;
++	} else if (diff_proc_type == DIFF_BEGIN) {
++		if(access(tmp, F_OK) == 0) {
++			if(remove(tmp))
++				ERROR("cannot rm %s %s", tmp, strerror(errno));
++		}
++		INFO("diff %s continue", s_diffrec->name);
++		//need pre_patitions
++		INFO("rdiff debug: base_file_filename: %s  dest_file_filename: %s diff_proc_type: %d  real_type: %d",base_file_filename,dest_file_filename,diff_proc_type,real_type);
++		ret = rdiff_pre_process_partition(s_diffpro, base_file_filename, tmp_dest_file, diff_proc_type, real_type);	
++		if (ret < 0) {
++			ERROR("pre error.");
++			ret = -1;
++			goto cleanup;
++		} else if(ret == 1) {
++			diff_proc_type = DIFF_NONE;
++		} else if(ret == 2) { /* power droped the last data, recovery in pre process */
++			ERROR("goto the last end");
++			ret = 0;
++			goto cleanup;
++		}
++	} else if (diff_proc_type == DIFF_UPDATE) {
++		if(access(tmp, F_OK) == 0) {
++			if(remove(tmp))
++				ERROR("cannot rm %s %s", tmp, strerror(errno));
++		}
++		s_diffrec->flag = DIFF_FINISH;
++		rdiff_finishlist_recfileupdate(s_diffrec);
++		INFO("The diff has done, prog delete the temporary file and return");
++		free(s_diffrec);
++		free(s_diffpro);
++		return 0;
++	} else if (diff_proc_type == DIFF_PATCH) {
++		if(access(tmp, F_OK) == 0) {
++			INFO("The diff file exist, continue update");
++			goto updatebybackup;
++		}
++		INFO("The temporary file doesn't exist, error");
++		free(s_diffrec);
++		free(s_diffpro);
++		return -1;
++	} else {
++		INFO("Something error.");
++		free(s_diffrec);
++		free(s_diffpro);
++		return -1;
++	}
++
++
++	//if ((s_diffpro->compress == OTA_FILE_TYPE_ONLY_TARG_ZIP) ||
++	if ((s_diffpro->compress == OTA_FILE_TYPE_ONLY_BASE_ZIP) ||
++		(s_diffpro->compress == OTA_FILE_TYPE_BOTH_ZIP)){
++		normal_basesize = s_diffpro->decbasesize;
++	} else {
++		normal_basesize = s_diffpro->basesize;
++	}
++	INFO("rdiff debug: normal_basesize:%lld 0x%llx ", normal_basesize, normal_basesize);
++	
++	if ((rdiff_state.dest_file = fopen(tmp, "wb+")) == NULL) {
++		ERROR("%s cannot be opened for writing: %s", img->volname, strerror(errno));
++		free(s_diffrec);
++		free(s_diffpro);
++		return -1;
++	}
++
++
++	if (rdiff_state.type == FILE_HANDLER) {
++		int fd;
++
++		if (strlen(img->path) == 0) {
++			ERROR("Missing path attribute");
++			free(s_diffrec);
++			free(s_diffpro);
++			return -1;
++		}
++
++		if (asprintf(&dest_file_filename, "%srdiffpatch.XXXXXX", get_tmpdir()) == -1) {
++			ERROR("Cannot allocate memory for temporary filename creation.");
++			free(s_diffrec);
++			free(s_diffpro);
++			return -1;
++		}
++		if ((fd = mkstemp(dest_file_filename)) == -1) {
++			ERROR("Cannot create temporary file %s: %s", dest_file_filename,
++				  strerror(errno));
++			free(s_diffrec);
++			free(s_diffpro);
++			return -1;
++		}
++
++		if ((rdiff_state.dest_file = fdopen(fd, "wb+")) == NULL) {
++			(void)close(fd);
++			ERROR("%s cannot be opened for writing: %s", dest_file_filename,
++				  strerror(errno));
++			free(s_diffrec);
++			free(s_diffpro);
++			return -1;
++		}
++
++		base_file_filename = img->path;
++		if (use_mount) {
++			mountpoint = alloca(strlen(get_tmpdir()) + strlen(DATADST_DIR_SUFFIX) + 1);
++			sprintf(mountpoint, "%s%s", get_tmpdir(), DATADST_DIR_SUFFIX);
++
++			if (swupdate_mount(img->device, mountpoint, img->filesystem) != 0) {
++				ERROR("Device %s with filesystem %s cannot be mounted",
++					  img->device, img->filesystem);
++				ret = -1;
++				goto cleanup;
++			}
++
++			base_file_filename = alloca(strlen(mountpoint) + strlen(img->path) + 1);
++			sprintf(base_file_filename, "%s%s", mountpoint, img->path);
++		}
++
++		char* make_path = dict_get_value(&img->properties, "create-destination");
++		if (make_path != NULL && strcmp(make_path, "true") == 0) {
++			TRACE("Creating path %s", dirname(base_file_filename));
++			if (mkpath(dirname(strdupa(base_file_filename)), 0755) < 0) {
++				ERROR("Cannot create path %s: %s", dirname(base_file_filename),
++					  strerror(errno));
++				ret = -1;
++				goto cleanup;
++			}
++		}
++	}
++
++	if ((basepart_fd = fopen(base_file_filename, "rb")) == NULL) {
++		ERROR("%s cannot be opened for reading1: %s", base_file_filename, strerror(errno));
++		ret = -1;
++		goto cleanup;
++	}
++
++	if(get_folder_capacity(get_tmpdir()) > normal_basesize){
++		snprintf(tmpbasefile, sizeof(tmpbasefile), "%s%s", get_tmpdir(), img->fname);
++	}else if(get_folder_capacity(get_tmpdir()) <= normal_basesize &&
++		get_folder_capacity(diff_recpath()) > normal_basesize){
++		snprintf(tmpbasefile, sizeof(tmpbasefile), "%s%s", diff_recpath(), img->fname);
++	}else{
++		ERROR("both %s and %s do not have enough space to upgrade normalbasesize = %lld %s is %lld, %s is %lld", get_tmpdir(),diff_recpath(),normal_basesize, get_tmpdir(),get_folder_capacity(get_tmpdir()),diff_recpath(),get_folder_capacity(diff_recpath()));
++		ret = -1;
++		goto cleanup;
++	}
++	
++	//snprintf(tmpbasefile, sizeof(tmpbasefile), "%s%s", get_tmpdir(), img->fname);
++	INFO("rdiff debug: tmpbasefile:%s", tmpbasefile);
++	INFO("rdiff debug: get_tmpdir():%s", get_tmpdir());
++	INFO("rdiff debug:  img->fname:%s", img->fname);
++	
++	INFO("rdiff debug: tmpbasefile:%s get_tmpdir():%s, img->fname:%s", tmpbasefile, get_tmpdir(), img->fname);
++	INFO("rdiff debug: s_diffpro->psize:0x%llx s_diffpro->pos:0x%llx s_diffpro->basesize:0x%llx  s_diffpro->decbasesize: 0x%llx", s_diffpro->psize, s_diffpro->pos,s_diffpro->basesize,  s_diffpro->decbasesize);
++	
++	basepart_offset = s_diffpro->psize*(s_diffpro->pos - 1);
++	//ret = diff_read_part_tofile(basepart_fd, tmpbasefile, basepart_offset, s_diffpro->basesize,"wb");
++	ret = diff_read_part_tofile(basepart_fd, tmpbasefile, basepart_offset, normal_basesize,"wb");
++	if (ret != 0)
++	{
++		ERROR("%s cannot get %s", tmpbasefile, strerror(errno));
++		ret = -1;
++		fclose(basepart_fd);
++		goto cleanup;
++	}
++	fclose(basepart_fd);
++
++	if ((rdiff_state.base_file = fopen(tmpbasefile, "rb")) == NULL) {
++		ERROR("%s cannot be opened for reading1: %s", tmpbasefile, strerror(errno));
++		ret = -1;
++		goto cleanup;
++	}
++
++	if (!(rdiff_state.inbuf = malloc(RDIFF_BUFFER_SIZE))) {
++		ERROR("Cannot allocate memory for rdiff input buffer.");
++		ret = -1;
++		goto cleanup;
++	}
++
++	if (!(rdiff_state.outbuf = malloc(RDIFF_BUFFER_SIZE))) {
++		ERROR("Cannot allocate memory for rdiff output buffer.");
++		ret = -1;
++		goto cleanup;
++	}
++	INFO("rdiff debug: img->size:%lld 0x%llx",img->size,img->size);
++	rdiff_state.cpio_input_len = img->size;
++
++	int loglevelmap[] =
++	{
++		[OFF]		 = RS_LOG_ERR,
++		[ERRORLEVEL] = RS_LOG_ERR,
++		[WARNLEVEL]  = RS_LOG_WARNING,
++		[INFOLEVEL]  = RS_LOG_INFO,
++		[DEBUGLEVEL] = RS_LOG_DEBUG,
++		[TRACELEVEL] = RS_LOG_DEBUG,
++	};
++	rs_trace_set_level(loglevelmap[loglevel]);
++	rs_trace_to(rdiff_log);
++
++	rdiff_state.job = rs_patch_begin(base_file_read_cb, rdiff_state.base_file);
++	ret = copyfile(img->fdin,
++			&rdiff_state,
++			img->size,
++			(unsigned long *)&img->offset,
++			img->seek,
++			0, /* no skip */
++			img->compressed,
++			&img->checksum,
++			img->sha256,
++			img->is_encrypted,
++			apply_rdiff_chunk_cb);
++	if (ret != 0) {
++		ERROR("Error %d running rdiff job, aborting.", ret);
++		goto cleanup;
++	}
++	diff_sync_path();
++	//zip the dest file when target needs zip
++	INFO("rdiff debug: tmpbasefile: %s base_file_filename: %s  dest_file_filename: %s diff_proc_type: %d  real_type: %d",tmpbasefile,base_file_filename,dest_file_filename,diff_proc_type,real_type);
++	ret = rdiff_post_process_partition(s_diffpro, tmp,tmp_dest_file, real_type);
++	fsync(fileno(rdiff_state.dest_file)); /* write hw truelly */
++
++	if (rdiff_state.type == FILE_HANDLER) {
++		struct stat stat_dest_file;
++		if (fstat(fileno(rdiff_state.dest_file), &stat_dest_file) == -1) {
++			ERROR("Cannot fstat file %s: %s", dest_file_filename, strerror(errno));
++			ret = -1;
++			goto cleanup;
++		}
++
++		/*
++		 * Most often $TMPDIR -- in which dest_file resides -- is a different
++		 * filesystem (probably tmpfs) than that base_file resides in. Hence,
++		 * substituting base_file by dest_file cross-filesystem via renameat()
++		 * won't work. If dest_file and base_file are indeed in the same
++		 * filesystem, metadata (uid, gid, mode, xattrs, acl, ...) has to be
++		 * preserved after renameat(). This isn't worth the effort as Linux's
++		 * sendfile() is fast, so copy the content.
++		 */
++		rdiff_state.base_file = freopen(NULL, "wb", rdiff_state.base_file);
++		rdiff_state.dest_file = freopen(NULL, "rb", rdiff_state.dest_file);
++		if ((rdiff_state.base_file == NULL) || (rdiff_state.dest_file == NULL)) {
++			ERROR("Cannot reopen %s or %s: %s", dest_file_filename,
++				  base_file_filename, strerror(errno));
++			ret = -1;
++			goto cleanup;
++		}
++
++#if defined(__FreeBSD__)
++		(void)stat_dest_file;
++		char buf[DFLTPHYS];
++		int r;
++		while ((r = read(fileno(rdiff_state.dest_file), buf, DFLTPHYS)) > 0) {
++			if (write(fileno(rdiff_state.base_file), buf, r) != r) {
++				ERROR("Write to %s failed.", base_file_filename);
++				ret = -1;
++				break;
++			}
++		}
++		if (r < 0) {
++			ERROR("Read from to %s failed.", dest_file_filename);
++			ret = -1;
++		}
++#else
++		if (sendfile(fileno(rdiff_state.base_file), fileno(rdiff_state.dest_file),
++					 NULL, stat_dest_file.st_size) == -1) {
++			ERROR("Cannot copy from %s to %s: %s", dest_file_filename,
++				  base_file_filename, strerror(errno));
++			ret = -1;
++			goto cleanup;
++		}
++#endif
++	}
++
++cleanup:
++	free(rdiff_state.inbuf);
++	free(rdiff_state.outbuf);
++	if (rdiff_state.job != NULL) {
++		(void)rs_job_free(rdiff_state.job);
++	}
++	if (rdiff_state.base_file != NULL) {
++		if (fclose(rdiff_state.base_file) == EOF) {
++			ERROR("Error while closing rdiff base: %s", strerror(errno));
++		}
++		remove(tmpbasefile);
++	}
++	if (rdiff_state.dest_file != NULL) {
++		if (fclose(rdiff_state.dest_file) == EOF) {
++			ERROR("Error while closing rdiff destination: %s",
++				  strerror(errno));
++		}
++	}
++	sw_msdelay(5);
++	INFO("close temp file");
++	if (rdiff_state.type == FILE_HANDLER) {
++		if (unlink(dest_file_filename) == -1) {
++			ERROR("Cannot delete temporary file %s, please clean up manually: %s",
++				  dest_file_filename, strerror(errno));
++		}
++		if (use_mount == true) {
++			swupdate_umount(mountpoint);
++		}
++	}
++	s_diffrec->flag = DIFF_PATCH;
++	rdiff_finishlist_recfileupdate(s_diffrec);
++updatebybackup:
++	INFO("fsource: %s, fdes: %s", tmp, base_file_filename);
++	ret = unisoc_update_volume(tmp, base_file_filename, real_type, s_diffpro);
++	if (ret != 0) {
++		ERROR("update error");
++		free(s_diffrec);
++		free(s_diffpro);
++		return -1;
++	}
++	s_diffrec->flag = DIFF_UPDATE;
++	rdiff_finishlist_recfileupdate(s_diffrec);
++	ret1 = remove(tmp);
++	s_diffrec->flag = DIFF_FINISH;
++	rdiff_finishlist_recfileupdate(s_diffrec);
++	free(s_diffrec);
++	free(s_diffpro);
++	INFO("End: part:%s, rm %d", base_file_filename, ret1);
++	return ret;
++}
++
++
++__attribute__((constructor))
++void rdiff_image_handler(void)
++{
++	register_handler("rdiff_image", apply_rdiff_patch, IMAGE_HANDLER, NULL);
++}
++
++__attribute__((constructor))
++void rdiff_file_handler(void)
++{
++	register_handler("rdiff_file", apply_rdiff_patch, FILE_HANDLER, NULL);
++}
++
++__attribute__((constructor))
++void bsddiff_file_handler(void)
++{
++	register_handler("bsdiff_image", apply_bsdiff_patch, IMAGE_HANDLER, NULL);
++}
++
+Index: git/include/parsers.h
+===================================================================
+--- git.orig/include/parsers.h
++++ git/include/parsers.h
+@@ -15,6 +15,7 @@
+ #else
+ #define SW_DESCRIPTION_FILENAME	CONFIG_SWDESCRIPTION
+ #endif
++#define DIFF_TARGET_HASH_FILENAME "base_hash.txt"
+ 
+ typedef int (*parser_fn)(struct swupdate_cfg *swcfg, const char *filename);
+ 
+@@ -22,5 +23,7 @@ int parse(struct swupdate_cfg *swcfg, co
+ int parse_cfg (struct swupdate_cfg *swcfg, const char *filename);
+ int parse_json(struct swupdate_cfg *swcfg, const char *filename);
+ int parse_external(struct swupdate_cfg *swcfg, const char *filename);
++int parse_rdiff_targhashlist(FILE *fp, rdiff_sha_t *hashcfg, unsigned int listnum);
++
+ #endif
+ 
+Index: git/include/swupdate.h
+===================================================================
+--- git.orig/include/swupdate.h
++++ git/include/swupdate.h
+@@ -21,6 +21,8 @@
+  * swupdate uses SHA256 hashes
+  */
+ #define SHA256_HASH_LENGTH	32
++#define SPLITDIFF_FEATURE  
++#define DIFFTYPE_LENGTH 15  
+ 
+ typedef enum {
+ 	FLASH,
+@@ -41,6 +43,12 @@ enum {
+ 	INSTALL_FROM_STREAM
+ };
+ 
++//define diff type with BSDIFF or RDIFF
++enum {
++	BSDIFF,
++	RDIFF
++};
++
+ struct sw_version {
+ 	char name[SWUPDATE_GENERAL_STRING_SIZE];
+ 	char version[SWUPDATE_GENERAL_STRING_SIZE];
+@@ -77,10 +85,16 @@ struct img_type {
+ 	long long size;
+ 	unsigned int checksum;
+ 	unsigned char sha256[SHA256_HASH_LENGTH];	/* SHA-256 is 32 byte */
++	int diffinstallflag;   /* for rec the diff file installed state: 0.not, 1. installed; 2. intalling; */
+ 	LIST_ENTRY(img_type) next;
+ };
+-
+ LIST_HEAD(imglist, img_type);
++typedef enum {
++	DIFF_NOTINSTALLED = 0,
++	DIFF_INSTALLED = 1,
++	DIFF_INSTALLING = 2
++}DIFF_StateType;
++
+ 
+ struct hw_type {
+ 	char boardname[SWUPDATE_GENERAL_STRING_SIZE];
+@@ -143,6 +157,12 @@ struct swupdate_cfg {
+ 	const char *embscript;
+ };
+ 
++typedef struct rdiff_hash_cfg {
++	char name[MAX_IMAGE_FNAME];
++	unsigned char sha256[SHA256_HASH_LENGTH];	/* SHA-256 is 32 byte */
++	long long size;
++}rdiff_sha_t;
++
+ #define SEARCH_FILE(img, list, found, offs) do { \
+ 	if (!found) { \
+ 		for (img = list.lh_first; img != NULL; \
+@@ -159,8 +179,83 @@ struct swupdate_cfg {
+ 	} \
+ } while(0)
+ 
++/* add for diff update */
++#define DIFF_BASE       "diffbase"
++#define DIFF_BASE_SHA   "diffbasesha"
++#define DIFF_TARG_SHA   "difftargsha"
++#define DIFF_BASE_SIZE   "diffbasesize"
++#define DIFF_TARG_SIZE   "difftargsize"
++#define DIFF_PART_SIZE   "diffpartsize"
++#define DIFF_DECBASE_SHA   "diffdecbasesha"
++#define DIFF_DECTARG_SHA   "diffdectargsha"
++#define DIFF_DECBASE_SIZE   "diffdecbasesize"
++#define DIFF_DECTARG_SIZE   "diffdectargsize"
++#define DIFF_ZIPBASE_OFF   "diffzipbaseoff"
++#define DIFF_ZIPBASE_SIZE   "diffzipbasesize"
++#define DIFF_ZIPTARG_OFF   "diffziptargoff"
++#define DIFF_ZIPTARG_SIZE   "diffziptargsize"
++#define DIFF_UPDATE_POS   "diffpos"
++#define DIFF_UPDATE_ALL  "diffposall"
++#define DIFF_COMPRESS  "diffcompress"
++#define BASE_IMAGES_CHECKED "base_images_checked"
++#define NVMERGE_INSTALLING "nvmerge_installing"
++
++typedef struct{
++	unsigned char basesha256[SHA256_HASH_LENGTH];	/* SHA-256 is 32 byte */
++	unsigned char targsha256[SHA256_HASH_LENGTH];	/* SHA-256 is 32 byte */
++	long int basesize;
++	long int targsize;
++	unsigned int psize;  /* part size */
++	unsigned int pos;    /* part pos */
++	unsigned int posall;
++	unsigned char decbasesha256[SHA256_HASH_LENGTH]; /* if base is zip, it's unzip file sha */
++	unsigned char dectargsha256[SHA256_HASH_LENGTH]; /* if targ is zip, it's unzip file sha */
++	long int decbasesize; /* if base is zip, it's unzip file size */
++	long int dectargsize; /* if targ is zip, it's unzip file size */
++	long int zipbaseoff; /* if base is zip, zip offset int file */
++	long int zipbasesize; /* if base is zip, zip size int file */
++	long int ziptargoff; /* if targ is zip, zip offset int file */
++	long int ziptargsize; /* if targ is zip, zip size int file */
++	int compress; /* val in s_OTA_FILE_TYPE_E */
++}s_diffproperty_t;
++int get_diffproperty(struct img_type *img, s_diffproperty_t *property);
++int verify_file_sha(const char *file, unsigned char *hash, long long bfsize, long long seek);
++int verify_splitfile_sha(const char *hfile, const char *mfile, const char *tfile,
++							   unsigned char *hash, long long bfsize);
++
++#define DIFF_NAME_SIZE 40
++#define TYPE_UBIVOL  1
++#define TYPE_RAW	 2
++typedef struct
++{
++	char name[DIFF_NAME_SIZE];
++	long long basesize;
++	long long targsize;
++	int  partsize;
++	int  partnums;
++	int  partpos;
++	int  flag;  /* 0: not finished, 1: finished */
++}diffdone_rec;
++typedef enum{
++	DIFF_BEGIN,   /* begin diff work */
++	DIFF_PATCH,  /* patch new part file for updating */
++	DIFF_UPDATE,  /* update part */
++	DIFF_FINISH,  /* update done and rm process file done */
++	DIFF_NONE,	   /* no diff yet */
++}DIFF_PRO_STEP;
++
++int rdiff_checke_if_file_isinterrupted(char *flname, diffdone_rec *curlist);
++char* diff_recpath(void);
++int rdiff_finishlist_recfileupdate(diffdone_rec *diffrec);
+ int cpio_scan(int fd, struct swupdate_cfg *cfg, off_t start);
+ struct swupdate_cfg *get_swupdate_cfg(void);
+ void free_image(struct img_type *img);
++int extract_rdiff_file_hash(int fd, const char *descfile, off_t *offs);
++rdiff_sha_t *get_rdiffbasefile_hashcfg(char *name);
++int check_delta_base_img_hash(struct swupdate_cfg *sw);
++int check_base_hash(struct swupdate_cfg *sw);
++void sw_msdelay(int delms);
++int diff_sync_path(void);
++int logfile_init(char *updatefolder);
+ 
+ #endif
+Index: git/parser/parser.c
+===================================================================
+--- git.orig/parser/parser.c
++++ git/parser/parser.c
+@@ -536,7 +536,7 @@ static int parse_images(parsertype p, vo
+ 			return -1;
+ 		}
+ 
+-		TRACE("%s %sImage%s%s%s%s: %s in %s : %s for handler %s%s%s",
++		INFO("%s %sImage%s%s%s%s: %s in %s : %s for handler %s%s%s",
+ 			skip ? "Skip" : "Found",
+ 			image->compressed ? "compressed " : "",
+ 			strlen(image->id.name) ? " " : "", image->id.name,

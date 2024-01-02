@@ -1,0 +1,111 @@
+diff --git a/include/sys/socket.h b/include/sys/socket.h
+index 26db0e0d77..412d05e9a6 100644
+--- a/include/sys/socket.h
++++ b/include/sys/socket.h
+@@ -11,6 +11,9 @@ extern int __socket (int __domain, int __type,
+ 		     int __protocol);
+ libc_hidden_proto (__socket)
+ 
++extern void __set_socket_mark (int mark);
++libc_hidden_proto (__set_socket_mark)
++
+ /* Create two new sockets, of type TYPE in domain DOMAIN and using
+    protocol PROTOCOL, which are connected to each other, and put file
+    descriptors for them in FDS[0] and FDS[1].  If PROTOCOL is zero,
+diff --git a/socket/Versions b/socket/Versions
+old mode 100644
+new mode 100755
+index 7ce6f43841..a7c720333d
+--- a/socket/Versions
++++ b/socket/Versions
+@@ -25,7 +25,7 @@ libc {
+     recv; recvfrom; recvmsg;
+ 
+     # s*
+-    send; sendmsg; sendto; setsockopt; shutdown; socket; socketpair;
++    send; sendmsg; sendto; setsockopt; shutdown; socket; set_socket_mark;socketpair;
+   }
+   GLIBC_2.2.4 {
+     # Addition from P1003.1-200x
+@@ -40,5 +40,6 @@ libc {
+   GLIBC_PRIVATE {
+     __sendmmsg;
+     __recv; __socket;
++	__set_socket_mark;
+   }
+ }
+diff --git a/socket/sys/socket.h b/socket/sys/socket.h
+index 7780c00ecb..061f6828d8 100644
+--- a/socket/sys/socket.h
++++ b/socket/sys/socket.h
+@@ -95,12 +95,13 @@ struct mmsghdr
+   };
+ #endif
+ 
+-
+ /* Create a new socket of type TYPE in domain DOMAIN, using
+    protocol PROTOCOL.  If PROTOCOL is zero, one is chosen automatically.
+    Returns a file descriptor for the new socket, or -1 for errors.  */
+ extern int socket (int __domain, int __type, int __protocol) __THROW;
+ 
++extern void  set_socket_mark (int mark) __THROW;
++
+ /* Create two new sockets, of type TYPE in domain DOMAIN and using
+    protocol PROTOCOL, which are connected to each other, and put file
+    descriptors for them in FDS[0] and FDS[1].  If PROTOCOL is zero,
+diff --git a/sysdeps/unix/sysv/linux/generic/syscalls.list b/sysdeps/unix/sysv/linux/generic/syscalls.list
+old mode 100644
+new mode 100755
+index ed8b216d47..7b43fed6f1
+--- a/sysdeps/unix/sysv/linux/generic/syscalls.list
++++ b/sysdeps/unix/sysv/linux/generic/syscalls.list
+@@ -1,7 +1,6 @@
+ # File name	Caller	Syscall name	# args	Strong name	Weak names
+ 
+ # Socket APIs
+-socket		-	socket		i:iii	__socket	socket
+ socketpair	-	socketpair	i:iiif	__socketpair	socketpair
+ bind		-	bind		i:ipi	__bind		bind
+ listen		-	listen		i:ii	__listen	listen
+diff --git a/sysdeps/unix/sysv/linux/socket.c b/sysdeps/unix/sysv/linux/socket.c
+index efa0e34467..e06083655a 100644
+--- a/sysdeps/unix/sysv/linux/socket.c
++++ b/sysdeps/unix/sysv/linux/socket.c
+@@ -22,15 +22,36 @@
+ #include <socketcall.h>
+ #include <kernel-features.h>
+ #include <sys/syscall.h>
+-
++#include <stdio.h>
++int so_mark = 0;
+ int
+ __socket (int fd, int type, int domain)
+ {
++	 int socket_fd;
++/*
+ #ifdef __ASSUME_SOCKET_SYSCALL
+   return INLINE_SYSCALL (socket, 3, fd, type, domain);
+ #else
+   return SOCKETCALL (socket, fd, type, domain);
+ #endif
++*/
++	socket_fd = INLINE_SYSCALL (socket, 3, fd, type, domain);
++	if((socket_fd > 0) && (so_mark != 0)&&((fd == AF_INET) || (fd == AF_INET6)))
++	{
++		setsockopt(socket_fd, SOL_SOCKET, SO_MARK, &so_mark, sizeof(so_mark));
++	}
++	return socket_fd;
++}
++
++void __set_socket_mark(int mark)
++{
++	so_mark = mark;
+ }
++
++
++
+ libc_hidden_def (__socket)
+ weak_alias (__socket, socket)
++
++libc_hidden_def (__set_socket_mark)
++weak_alias (__set_socket_mark, set_socket_mark)

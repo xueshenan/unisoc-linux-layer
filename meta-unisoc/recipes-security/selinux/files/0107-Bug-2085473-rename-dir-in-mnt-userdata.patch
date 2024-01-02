@@ -1,0 +1,39 @@
+From 90b690cc1ed9e163bdf24129b75889575920cf44 Mon Sep 17 00:00:00 2001
+From: Baocong Liu <baocong.liu@unisoc.com>
+Date: Mon, 28 Nov 2022 16:13:36 +0800
+Subject: [PATCH] Bug #2085473 rename dir in mnt/userdata
+
+[root cause  ]: rename dir in mnt/userdata
+[changes     ]: staff
+[side effects]:no
+[self test   ]:yes
+[download normally]:yes
+[power on/off normally]:yes
+[do common repository/branch inspection]:yes
+[is there dependence]:no
+[confirm dependent commit]:yes
+[board]:all
+[test case]:pass
+[reviewers]:lvqiang.huang
+
+commit_template_version:v1
+---
+ policy/modules/roles/staff.if | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+index 46affee7b..5338264e2 100755
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -118,7 +118,7 @@ interface(`staff_unlabeled_t_dir',`
+         type unlabeled_t;
+     ')
+ 
+-    allow $1 unlabeled_t:dir { rw_dir_perms create add_name getattr setattr rmdir};
++    allow $1 unlabeled_t:dir { rw_dir_perms create add_name getattr setattr rmdir rename };
+ ')
+ 
+ interface(`staff_initrc_t_process',`
+-- 
+2.17.1
+

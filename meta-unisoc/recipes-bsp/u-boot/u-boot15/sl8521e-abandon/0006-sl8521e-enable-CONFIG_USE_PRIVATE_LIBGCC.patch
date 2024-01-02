@@ -1,0 +1,9 @@
+diff --git a/configs/sl8521e_2h10_defconfig b/configs/sl8521e_2h10_defconfig
+index d753b37..f316a4b 100755
+--- a/configs/sl8521e_2h10_defconfig
++++ b/configs/sl8521e_2h10_defconfig
+@@ -12,3 +12,4 @@ CONFIG_OF_CONTROL=y
+ # CONFIG_CMD_RUN is not set
+ # CONFIG_CMD_SAVEENV is not set
+ # CONFIG_CMD_SOURCE is not set
++CONFIG_USE_PRIVATE_LIBGCC=y

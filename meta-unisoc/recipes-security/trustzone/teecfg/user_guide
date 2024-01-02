@@ -1,0 +1,67 @@
+1、xml文件的使用
+teecfg中使用xml文件进行模块的属性、功能配置。
+
+1.1、soc级别配置
+当需要对某个soc的功能进行配置时，可以在该soc的common文件夹下（比如sl8581e/common）
+新增一个xml文件进行配置。这些配置即是soc级别的默认配置。
+
+1.2、board级别配置
+当需要针对某个board的功能进行配置时，可以在该board的文件夹下（比如sl8581e/sl8581e-3in1）
+新增xml文件进行配置。目前没有board级别的默认配置。
+
+
+2、修改xml文件
+
+2.1、支持的元素嵌套层级
+目前仅支持在xml文件中进行2级元素的嵌套。
+e.g.
+<root_name>
+    <property ID="xxx">   ---第一级
+        <name1 type="xxx">xxxxxx</name1>             ---第二级
+        <name2 type="xxx">xxxxxx</name2>             ---第二级
+	<name3 type="xxx" tag="xxx">xxxxxx</name3>   ---第二级
+        ......
+    </property>
+
+    <property ID="xxx">   ---第一级
+        <name4 type="xxx">xxxxxx</name4>   ---第二级
+        <name5 type="xxx">xxxxxx</name5>   ---第二级
+	<name6 type="xxx">xxxxxx</name6>   ---第二级
+        ......
+    </property>
+
+    ......
+</root_name>
+
+2.2、保留字
+对于xml文件中的"property"、"ID"、"type"、"tag"保留字不能进行修改，其它名字，
+比如"root_name"、"name1"等，可以根据需要进行命名。
+
+2.3、type取值
+type只能设置为如下值之一：
+ATTR_TYPE_UINT8
+ATTR_TYPE_UINT16
+ATTR_TYPE_UINT32
+ATTR_TYPE_UINT64
+ATTR_TYPE_BOOL
+ATTR_TYPE_STRING
+其中ATTR_TYPE_UINT8类型对于的数据格式为0x**，"**"的长度不能超过2;
+    ATTR_TYPE_UINT16类型对于的数据格式为0x**，"**"的长度不能超过4;
+    ATTR_TYPE_UINT32类型对于的数据格式为0x**，"**"的长度不能超过8;
+    ATTR_TYPE_UINT64类型对于的数据格式为0x**，"**"的长度不能超过16;
+    ATTR_TYPE_BOOL类型对于的数据为"true"或"false";
+    ATTR_TYPE_STRING类型对于的数据长度不能超过255。
+
+2.4、tag取值
+tag能设置为如下值：
+ATTR_TAG_RESERVED，表示该配置需要被写入到teecfg.bin文件的reserved区域;
+                   当该属性数据需要在spl,sml阶段使用时，可以设置该tag
+
+2.5、overlay说明
+目前支持xml文件配置的overlay功能，有效性从低到高依次为soc<board。
+通过在board级别的xml文件中进行配置的新增或修改来完成个性化的配置。
+overlay方式如下：
+--可以在board中新增与soc中不同名的xml文件
+--可以在board级别的同名xml文件中，新增"<property ID="xxx"> </property>"数据结构
+--可以在board级别的同名xml文件中，针对soc中某个已经存在的"<property ID="xxx"> </property>"
+  数据结构中的若干元素进行修改

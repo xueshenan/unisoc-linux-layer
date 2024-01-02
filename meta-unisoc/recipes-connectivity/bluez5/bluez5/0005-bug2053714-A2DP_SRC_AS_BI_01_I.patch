@@ -1,0 +1,24 @@
+diff --git a/profiles/audio/avdtp.c b/profiles/audio/avdtp.c
+index 782268c08..f98ef53df 100644
+--- a/profiles/audio/avdtp.c
++++ b/profiles/audio/avdtp.c
+@@ -1193,6 +1193,7 @@ void avdtp_unref(struct avdtp *session)
+ 		break;
+ 	case AVDTP_SESSION_STATE_DISCONNECTED:
+ 	default:
++		// case A2DP_SRC_AS_BI_01_I need keep connected, delete avdtp_free(session);
+ 		avdtp_free(session);
+ 		break;
+ 	}
+@@ -1283,6 +1284,11 @@ static GSList *caps_to_list(uint8_t *data, int size,
+ 			break;
+ 		}
+ 
++        if (0xFE == data[3]) {
++            error("Invalid media type in getcap resp");
++            break;
++        }
++
+ 		cap = g_malloc(sizeof(struct avdtp_service_capability) +
+ 					length);
+ 		memcpy(cap, data, 2 + length);

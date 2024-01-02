@@ -1,0 +1,96 @@
+From 4b08db7c7ee091067a4b93e43e85f2415f726e1f Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Tue, 25 Oct 2022 14:12:23 +0800
+Subject: [PATCH] Bug #2057864-user-userdebug-login-premission-denied-2
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/system/locallogin.if | 24 ------------------------
+ policy/modules/system/locallogin.te |  3 ---
+ 2 files changed, 27 deletions(-)
+
+diff --git a/policy/modules/system/locallogin.if b/policy/modules/system/locallogin.if
+index 9b18f2413..e8bd624a9 100644
+--- a/policy/modules/system/locallogin.if
++++ b/policy/modules/system/locallogin.if
+@@ -370,14 +370,6 @@ interface(`locallogin_dosfs_t_file',`
+      allow $1 dosfs_t:file { open read write getattr create unlink };
+ ')
+ 
+-interface(`locallogin_pulseaudio_runtime_t_sock_file',`
+-     gen_require(`
+-        type pulseaudio_runtime_t;
+-     ')
+-
+-     allow $1 pulseaudio_runtime_t:sock_file { write };
+-')
+-
+ interface(`locallogin_tmpfs_t_dir',`
+ 	gen_require(`
+         type tmpfs_t;
+@@ -410,14 +402,6 @@ interface(`locallogin_device_t_chr_file',`
+      allow $1 device_t:chr_file { read write open ioctl };
+ ')
+ 
+-interface(`locallogin_udev_runtime_t_dir',`
+-     gen_require(`
+-        type udev_runtime_t;
+-     ')
+-
+-     allow $1 udev_runtime_t:dir { search };
+-')
+-
+ interface(`locallogin_local_login_t_netlink_kobject_uevent_socket',`
+      gen_require(`
+         type local_login_t;
+@@ -434,14 +418,6 @@ interface(`locallogin_tmpfs_t_file',`
+      allow $1 tmpfs_t:file { create read write open getattr map unlink };
+ ')
+ 
+-interface(`locallogin_pulseaudio_runtime_t_dir',`
+-	gen_require(`
+-        type pulseaudio_runtime_t;
+-     ')
+-
+-     allow $1 pulseaudio_runtime_t:dir { search };
+-')
+-
+ interface(`locallogin_alsa_etc_t_dir',`
+      gen_require(`
+         type alsa_etc_t;
+diff --git a/policy/modules/system/locallogin.te b/policy/modules/system/locallogin.te
+index 3dc081e3d..933322d41 100644
+--- a/policy/modules/system/locallogin.te
++++ b/policy/modules/system/locallogin.te
+@@ -319,15 +319,12 @@ locallogin_sysfs_t_file(local_login_t)
+ locallogin_local_login_t_bluetooth_socket(local_login_t)
+ locallogin_dosfs_t_dir(local_login_t)
+ locallogin_dosfs_t_file(local_login_t)
+-locallogin_pulseaudio_runtime_t_sock_file(local_login_t)
+ locallogin_tmpfs_t_dir(local_login_t)
+ locallogin_device_t_filesystem(local_login_t)
+ locallogin_initrc_t_unix_stream_socket(local_login_t)
+ locallogin_device_t_chr_file(local_login_t)
+-locallogin_udev_runtime_t_dir(local_login_t)
+ locallogin_local_login_t_netlink_kobject_uevent_socket(local_login_t)
+ locallogin_tmpfs_t_file(local_login_t)
+-locallogin_pulseaudio_runtime_t_dir(local_login_t)
+ locallogin_alsa_etc_t_dir(local_login_t)
+ locallogin_alsa_etc_t_file(local_login_t)
+ locallogin_var_run_t_dir(local_login_t)
+-- 
+2.17.1
+

@@ -1,0 +1,9 @@
+[Unit]
+Description=ram service
+
+[Service]
+ExecStart= /bin/sh /usr/bin/ram-init
+
+[Install]
+WantedBy=multi-user.target
+Alias=ram.service

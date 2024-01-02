@@ -1,0 +1,222 @@
+From 6ae18c747570fbe39e4b342d6ef432ee17c1e6da Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Fri, 7 Oct 2022 15:45:34 +0800
+Subject: [PATCH] Bug #2011601-adb-mount-fail-5
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:xx
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/admin/alsa.if    | 41 +++++++++++++++++++++++++++++++++
+ policy/modules/admin/alsa.te    |  7 ++++++
+ policy/modules/kernel/kernel.if |  8 +++++++
+ policy/modules/kernel/kernel.te |  3 +++
+ policy/modules/roles/sysadm.if  |  4 ++--
+ policy/modules/system/mount.if  |  8 +++----
+ policy/modules/system/udev.if   | 17 ++++++++++++++
+ policy/modules/system/udev.te   |  2 ++
+ 8 files changed, 84 insertions(+), 6 deletions(-)
+
+diff --git a/policy/modules/admin/alsa.if b/policy/modules/admin/alsa.if
+index 57dd48df4..39715a697 100644
+--- a/policy/modules/admin/alsa.if
++++ b/policy/modules/admin/alsa.if
+@@ -248,3 +248,44 @@ interface(`alsa_write_lib',`
+ 	files_search_var_lib($1)
+ 	write_files_pattern($1, alsa_var_lib_t, alsa_var_lib_t)
+ ')
++
++interface(`alsa_device_t_chr_file',`
++    gen_require(`
++        type device_t;
++    ')
++
++   allow $1 device_t:chr_file {write open read append ioctl map setattr};
++')
++
++interface(`alsa_unlabeled_t_dir',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++   allow $1 unlabeled_t:dir {write open read create search getattr add_name};
++')
++
++interface(`alsa_unlabeled_t_lnk_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++   allow $1 unlabeled_t:lnk_file {write open read append ioctl map setattr};
++')
++
++interface(`alsa_etc_t_file',`
++    gen_require(`
++        type etc_t;
++    ')
++
++   allow $1 etc_t:file {write open read append ioctl map setattr};
++')
++
++interface(`alsa_var_run_t_file',`
++    gen_require(`
++        type var_run_t;
++    ')
++
++   allow $1 var_run_t:file {write open read append ioctl create map  getattr lock};
++')
++
+diff --git a/policy/modules/admin/alsa.te b/policy/modules/admin/alsa.te
+index c6b0b365d..6ba98d48a 100644
+--- a/policy/modules/admin/alsa.te
++++ b/policy/modules/admin/alsa.te
+@@ -109,3 +109,10 @@ optional_policy(`
+ 	hal_use_fds(alsa_t)
+ 	hal_write_log(alsa_t)
+ ')
++
++alsa_device_t_chr_file(alsa_t)
++alsa_unlabeled_t_dir(alsa_t)
++alsa_unlabeled_t_lnk_file(alsa_t)
++alsa_etc_t_file(alsa_t)
++alsa_var_run_t_file(alsa_t)
++
+diff --git a/policy/modules/kernel/kernel.if b/policy/modules/kernel/kernel.if
+index 19b3a0893..3fbd574a9 100644
+--- a/policy/modules/kernel/kernel.if
++++ b/policy/modules/kernel/kernel.if
+@@ -3584,3 +3584,11 @@ interface(`kernel_ib_manage_subnet_unlabeled_endports',`
+ 	allow $1 unlabeled_t:infiniband_endport manage_subnet;
+ ')
+ 
++interface(`kernel_kernel_t_capability2',`
++    gen_require(`
++        type kernel_t;
++    ')
++
++    allow $1 kernel_t:capability2 {block_suspend};
++')
++
+diff --git a/policy/modules/kernel/kernel.te b/policy/modules/kernel/kernel.te
+index c79c0dfbd..dde6aab41 100644
+--- a/policy/modules/kernel/kernel.te
++++ b/policy/modules/kernel/kernel.te
+@@ -515,3 +515,6 @@ allow kern_unconfined unlabeled_t:filesystem { mount remount unmount getattr rel
+ allow kern_unconfined unlabeled_t:association { sendto recvfrom setcontext polmatch };
+ allow kern_unconfined unlabeled_t:packet { send recv relabelto flow_in flow_out forward_in forward_out };
+ allow kern_unconfined unlabeled_t:process { fork signal_perms ptrace getsched setsched getsession getpgid setpgid getcap setcap share getattr setexec setfscreate noatsecure siginh setrlimit rlimitinh setcurrent setkeycreate setsockcreate getrlimit };
++
++kernel_kernel_t_capability2(kernel_t)
++
+diff --git a/policy/modules/roles/sysadm.if b/policy/modules/roles/sysadm.if
+index 6b93b6215..f00ece8cb 100644
+--- a/policy/modules/roles/sysadm.if
++++ b/policy/modules/roles/sysadm.if
+@@ -475,7 +475,7 @@ interface(`sysadm_configfs_t_file',`
+          type configfs_t;
+     ')
+ 
+-    allow $1 configfs_t:file {write open create read};
++    allow $1 configfs_t:file {write open create read getattr};
+ ')
+ 
+ interface(`sysadm_configfs_t_lnk_file',`
+@@ -483,7 +483,7 @@ interface(`sysadm_configfs_t_lnk_file',`
+          type configfs_t;
+     ')
+ 
+-    allow $1 configfs_t:lnk_file {write open create read};
++    allow $1 configfs_t:lnk_file {write open create read getattr};
+ ')
+ 
+ interface(`sysadm_device_t_blk_file',`
+diff --git a/policy/modules/system/mount.if b/policy/modules/system/mount.if
+index 8c63affa8..6f0ddb242 100644
+--- a/policy/modules/system/mount.if
++++ b/policy/modules/system/mount.if
+@@ -225,7 +225,7 @@ interface(`mount_httpd_var_run_t_file',`
+         type httpd_var_run_t;
+     ')
+ 
+-    allow $1 httpd_var_run_t:file {read open write};
++    allow $1 httpd_var_run_t:file {read open write append};
+ ')
+ 
+ interface(`mount_var_log_t_file',`
+@@ -233,7 +233,7 @@ interface(`mount_var_log_t_file',`
+         type var_log_t;
+     ')
+ 
+-    allow $1 var_log_t:file {write read open};
++    allow $1 var_log_t:file {write read open append};
+ ')
+ 
+ interface(`mount_sysadm_t_file',`
+@@ -241,7 +241,7 @@ interface(`mount_sysadm_t_file',`
+         type sysadm_t;
+     ')
+ 
+-    allow $1 sysadm_t:file {read open write};
++    allow $1 sysadm_t:file {read open write append};
+ ')
+ 
+ interface(`mount_device_t_file',`
+@@ -249,7 +249,7 @@ interface(`mount_device_t_file',`
+         type device_t;
+     ')
+ 
+-    allow $1 device_t:file {read write open};
++    allow $1 device_t:file {read write open append};
+ ')
+ 
+ interface(`mount_device_t_blk_file',`
+diff --git a/policy/modules/system/udev.if b/policy/modules/system/udev.if
+index f20ae953c..015d02817 100644
+--- a/policy/modules/system/udev.if
++++ b/policy/modules/system/udev.if
+@@ -509,3 +509,20 @@ interface(`udevadm_exec',`
+ 
+ 	can_exec($1, udevadm_exec_t)
+ ')
++
++interface(`udevadm_init_t_fd',`
++    gen_require(`
++        type init_t;
++    ')
++
++   allow $1 init_t:fd {use};
++')
++
++interface(`udevadm_var_run_t_sock_file',`
++    gen_require(`
++        type var_run_t;
++    ')
++
++   allow $1 var_run_t:sock_file {write read open map append};
++')
++
+diff --git a/policy/modules/system/udev.te b/policy/modules/system/udev.te
+index c3e218f9f..cce631bda 100644
+--- a/policy/modules/system/udev.te
++++ b/policy/modules/system/udev.te
+@@ -408,4 +408,6 @@ init_read_state(udevadm_t)
+ kernel_read_system_state(udevadm_t)
+ 
+ seutil_read_file_contexts(udevadm_t)
++udevadm_init_t_fd(udevadm_t)
++udevadm_var_run_t_sock_file(udevadm_t)
+ 
+-- 
+2.17.1
+

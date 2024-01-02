@@ -1,0 +1,4 @@
+ACTION=="add",GOTO="add-udisk1", KERNEL=="sd[a-z]", RUN+="/etc/hotplug-udisk.sh %k 1", LABEL="add-udisk1"
+ACTION=="add",GOTO="add-udisk2", KERNEL=="sd[a-z][0-9]", RUN+="/etc/hotplug-udisk.sh %k 1", LABEL="add-udisk2"
+ACTION=="remove",GOTO="rm-udisk1", KERNEL=="sd[a-z]", RUN+="/etc/hotplug-udisk.sh %k 0", LABEL="rm-udisk1"
+ACTION=="remove",GOTO="rm-udisk2", KERNEL=="sd[a-z][0-9]", RUN+="/etc/hotplug-udisk.sh %k 0", LABEL="rm-udisk2"

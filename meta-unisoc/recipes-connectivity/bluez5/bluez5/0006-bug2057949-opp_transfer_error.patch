@@ -1,0 +1,130 @@
+diff --git a/lib/mgmt.h b/lib/mgmt.h
+index b721d24..271d58d 100644
+--- a/lib/mgmt.h
++++ b/lib/mgmt.h
+@@ -546,16 +546,6 @@ struct mgmt_rp_read_ext_info {
+ 	bdaddr_t bdaddr;
+ 	uint8_t version;
+ 	uint16_t manufacturer;
+-#define MGMT_OP_SET_VND_PLAY		0x0044
+-struct mgmt_cp_set_vnd_play {
+-	uint8_t	instance;
+-	uint32_t	flags;
+-} __packed;
+-#define MGMT_OP_SET_VND_PLAY_SIZE	5
+-struct mgmt_rp_set_vnd_play {
+-	uint8_t	instance;
+-} __packed;
+-
+ 	uint32_t supported_settings;
+ 	uint32_t current_settings;
+ 	uint16_t eir_len;
+@@ -574,6 +564,29 @@ struct mgmt_rp_get_phy_confguration {
+ 	uint32_t	selected_phys;
+ } __packed;
+ 
++#define MGMT_OP_SET_VND_PLAY		0x0058
++struct mgmt_cp_set_vnd_play {
++	uint8_t		instance;
++	uint32_t	flags;
++} __packed;
++#define MGMT_OP_SET_VND_PLAY_SIZE	5
++struct mgmt_rp_set_vnd_play {
++	uint8_t		instance;
++} __packed;
++
++#define MGMT_OP_SET_OPP_TRANSFER	0x0057
++struct mgmt_cp_set_opp_transfer {
++    uint8_t 	instance;
++    bdaddr_t	bdaddr;  //peer addr
++    uint32_t 	op;      //0x1 Opp send; 0x2 Opp recv;
++    uint32_t	flags;   //0x0 stop; 0x1 start;
++} __packed;
++#define MGMT_OP_SET_OPP_TRANSFER_SIZE	15
++struct mgmt_rp_set_opp_transfer {
++    uint8_t		instance;
++} __packed;
++
++
+ #define MGMT_PHY_BR_1M_1SLOT	0x00000001
+ #define MGMT_PHY_BR_1M_3SLOT	0x00000002
+ #define MGMT_PHY_BR_1M_5SLOT	0x00000004
+
+diff --git a/src/adapter.c b/src/adapter.c
+index 30ebc44..992c23c 100644
+--- a/src/adapter.c
++++ b/src/adapter.c
+@@ -78,6 +78,7 @@
+ #include "gatt-database.h"
+ #include "advertising.h"
+ #include "eir.h"
++#include "service.h"
+ 
+ #define ADAPTER_INTERFACE	"org.bluez.Adapter1"
+ 
+@@ -349,6 +350,40 @@ void bt_vendor_send_acl_priority(uint32_t setting)
+     return;
+ }
+ 
++#define OPP_TRANSFER_START 1
++#define OPP_TRANSFER_END 0
++#define OPP_SEND 1
++
++static void bt_vendor_send_opp_transfer_complete(uint8_t status, uint16_t length,
++					const void *param, void *user_data)
++{
++	DBG("");
++
++}
++
++void bt_vendor_send_opp_transfer(uint32_t setting, uint32_t op, const bdaddr_t *bdaddr)
++{
++    struct mgmt_cp_set_opp_transfer cp;
++	struct btd_adapter *adapter;
++
++    DBG("setting = %d, op = %d", setting, op);
++
++	adapter = btd_adapter_lookup(0);
++    if (NULL != adapter) {
++        cp.flags = setting;  // 0x0 stop; 0x1 start;
++		cp.op = op;  // 0x1 Opp send; 0x2 Opp recv;
++		bacpy(&cp.bdaddr, bdaddr);  // devices addr 
++
++        if (!mgmt_send(adapter->mgmt, MGMT_OP_SET_OPP_TRANSFER,
++				adapter->dev_id, sizeof(cp), &cp,
++				bt_vendor_send_opp_transfer_complete, NULL, NULL)) {
++            error("Unable to send bt_vendor_send_opp_transfer cmd");
++            return;
++        }
++    }
++
++    return;
++}
+ 
+ struct btd_adapter *btd_adapter_get_default(void)
+ {
+@@ -7864,6 +7899,12 @@ static void dev_disconnected(struct btd_adapter *adapter,
+ 		disconnect_notify(device, reason);
+ 	}
+ 
++	struct btd_service *service = NULL;
++	service = btd_device_get_service(device, OBEX_OPP_UUID);
++	if (service != NULL) {
++		bt_vendor_send_opp_transfer(OPP_TRANSFER_END, OPP_SEND, &addr->bdaddr);
++	}
++
+ 	bonding_attempt_complete(adapter, &addr->bdaddr, addr->type,
+ 						MGMT_STATUS_DISCONNECTED);
+ }
+@@ -8805,6 +8861,12 @@ static void connected_callback(uint16_t index, uint16_t length,
+ 	if (eir_data.msd_list)
+ 		adapter_msd_notify(adapter, device, eir_data.msd_list);
+ 
++	struct btd_service *service = NULL;
++	service = btd_device_get_service(device, OBEX_OPP_UUID);
++
++	if (service != NULL) {
++		bt_vendor_send_opp_transfer(OPP_TRANSFER_START, OPP_SEND, &ev->addr.bdaddr);
++	}
+ 	eir_data_free(&eir_data);
+ }

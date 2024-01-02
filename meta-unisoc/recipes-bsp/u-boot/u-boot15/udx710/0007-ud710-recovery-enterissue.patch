@@ -1,0 +1,31 @@
+diff --git a/common/loader/loader_nvm.c b/common/loader/loader_nvm.c
+index c56758c..f01eddf 100755
+--- a/common/loader/loader_nvm.c
++++ b/common/loader/loader_nvm.c
+@@ -751,8 +751,14 @@ uint64_t _get_kernel_ramdisk_dt_offset( boot_img_hdr * hdr, uchar *partition)
+ 	}
+ 
+ 	debug("boot_img_hdr header_version: %d\n", hdr->header_version);
+-	if (hdr->header_version >= ARRAY_SIZE(boot_img_offset_hdl_tbl))
+-		hdr->header_version = BOOT_HEADER_VERSION_ONE;
++	if (hdr->header_version >= ARRAY_SIZE(boot_img_offset_hdl_tbl)){
++		if(0 == memcmp(partition, RECOVERY_PART, strlen(RECOVERY_PART))) {
++			debugf("recovery header version is 0");
++			hdr->header_version = 0;
++		} else
++			hdr->header_version = BOOT_HEADER_VERSION_ONE;
++	}
++
+ 	if (!boot_img_offset_hdl_tbl[hdr->header_version](hdr, offset)) {
+ 		return 0;
+ 	}
+@@ -1127,6 +1133,9 @@ int _boot_load_kernel_ramdisk_image(char *bootmode, boot_img_hdr * hdr, uchar **
+ 		if (hdr_v2->dtb_size && hdr_v2->dtb_addr) {
+ 			dtb_partname = partition;
+ 			boot_img_offset.dt_offset = hdr_v2->dtb_addr;
++		} else if (0 == memcmp(bootmode, RECOVERY_PART, strlen(RECOVERY_PART))) {
++			debugf("recovery dtb partname do not change");
++			dtb_partname = partition;
+ 		} else if (0 == common_raw_read("dtb", 10, 0, (char *)DT_ADR)) {
+ 			dtb_partname = "dtb";
+ 			boot_img_offset.dt_offset = 0;

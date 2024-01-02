@@ -1,0 +1,74 @@
+From c932b96b3b3c6438cd87b0a8626efa0e9888ce26 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Tue, 11 Oct 2022 00:15:01 +0800
+Subject: [PATCH] Bug #2011601 transpolant-1.0-refpolicy-5
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/system/logging.if | 33 ++++++++++++++++++++++++++++++++
+ 1 file changed, 33 insertions(+)
+
+diff --git a/policy/modules/system/logging.if b/policy/modules/system/logging.if
+index bf2f2fd40..4d334bef1 100644
+--- a/policy/modules/system/logging.if
++++ b/policy/modules/system/logging.if
+@@ -1348,6 +1348,30 @@ interface(`logging_mmap_journal',`
+ 	allow $1 syslogd_var_run_t:file map;
+ ')
+ ##### unisoc permission #####
++interface(`logging_bin_t',`
++	gen_require(`
++		type bin_t;
++	')
++
++	allow $1 bin_t:file { map read execute};
++')
++
++interface(`logging_tmpfs_t_dir',`
++	gen_require(`
++		type tmpfs_t;	
++    ')
++
++	allow $1 tmpfs_t:dir { add_name write};
++')
++
++interface(`logging_tmpfs_t_file',`
++	gen_require(`
++		type tmpfs_t;
++	')
++
++	allow $1 tmpfs_t:file { create };
++')
++
+ interface(`logging_mnt_t_dir',`
+         gen_require(`
+                 type mnt_t;
+@@ -1406,3 +1430,12 @@ interface(`logging_device_t_chr_file',`
+ 
+         allow $1 device_t:chr_file { rw_chr_file_perms };
+ ')
++
++interface(`logging_unlabeled_t_file',`
++	gen_require(`
++	type unlabeled_t;
++	')
++
++	allow $1 unlabeled_t:file { append getattr open};
++')
++
+-- 
+2.17.1
+

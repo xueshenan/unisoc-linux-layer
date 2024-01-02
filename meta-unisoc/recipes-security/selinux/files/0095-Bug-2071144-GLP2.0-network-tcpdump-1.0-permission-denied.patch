@@ -1,0 +1,70 @@
+diff --git a/policy/modules/admin/netutils.if b/policy/modules/admin/netutils.if
+old mode 100644
+new mode 100755
+index 812603cb0..972f59627
+--- a/policy/modules/admin/netutils.if
++++ b/policy/modules/admin/netutils.if
+@@ -312,7 +312,7 @@ interface(`netutils_unlabeled_t_dir',`
+                 type unlabeled_t;
+         ')
+ 
+-        allow $1 unlabeled_t:dir { search_dir_perms };
++        allow $1 unlabeled_t:dir { rw_dir_perms };
+ ')
+ 
+ interface(`netutils_unlabeled_t_file',`
+@@ -320,7 +320,7 @@ interface(`netutils_unlabeled_t_file',`
+                 type unlabeled_t;
+         ')
+ 
+-        allow $1 unlabeled_t:file { rw_file_perms };
++        allow $1 unlabeled_t:file { create rw_file_perms };
+ ')
+ 
+ interface(`netutils_unlabeled_t_lnk_file',`
+@@ -387,3 +387,18 @@ interface(`ping_httpd_var_run_t_file',`
+     allow $1 httpd_var_run_t:file { rw_file_perms };
+ ')
+ 
++interface(`netutils_netutils_t_bluetooth_socket',`
++    gen_require(`
++        type netutils_t;
++    ')
++
++    allow $1 netutils_t:bluetooth_socket { write listen read create bind getopt connect accept getattr };
++')
++
++interface(`netutils_mnt_t_dir',`
++    gen_require(`
++        type mnt_t;
++    ')
++
++    allow $1 mnt_t:dir { rw_dir_perms };
++')
+\ No newline at end of file
+diff --git a/policy/modules/admin/netutils.te b/policy/modules/admin/netutils.te
+old mode 100644
+new mode 100755
+index 15b6c4226..dff7b378e
+--- a/policy/modules/admin/netutils.te
++++ b/policy/modules/admin/netutils.te
+@@ -217,9 +217,9 @@ userdom_use_inherited_user_terminals(traceroute_t)
+ userdom_allow_search_user_home_dirs(traceroute_t)
+ userdom_allow_search_user_home_content(traceroute_t)
+ 
+-netutils_unlabeled_t_dir(ping_t)
+-netutils_unlabeled_t_file(ping_t)
+-netutils_unlabeled_t_lnk_file(ping_t)
++netutils_unlabeled_t_dir(netutils_t)
++netutils_unlabeled_t_file(netutils_t)
++netutils_unlabeled_t_lnk_file(netutils_t)
+ netutils_initrc_devpts_t_chr_file(ping_t)
+ netutils_tty_device_t_chr_file(ping_t)
+ netutils_ptmx_t_chr_file(ping_t)
+@@ -227,4 +227,5 @@ netutils_initrc_t_unix_stream_socket(ping_t)
+ ping_bin_t_dir(ping_t)
+ ping_ping_t_icmp_socket(ping_t)
+ ping_httpd_var_run_t_file(ping_t)
+-
++netutils_netutils_t_bluetooth_socket(netutils_t)
++netutils_mnt_t_dir(netutils_t)

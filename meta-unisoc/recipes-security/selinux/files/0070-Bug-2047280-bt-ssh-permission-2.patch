@@ -1,0 +1,74 @@
+From c1f93adddfb2c1668a127215e4136acf309a263a Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Fri, 14 Oct 2022 15:29:57 +0800
+Subject: [PATCH] Bug #2047280-bt-ssh-permission-2
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/roles/sysadm.if | 12 ++----------
+ policy/modules/roles/sysadm.te |  2 --
+ 2 files changed, 2 insertions(+), 12 deletions(-)
+
+diff --git a/policy/modules/roles/sysadm.if b/policy/modules/roles/sysadm.if
+index f00cc4e3b..9ba0c24d4 100644
+--- a/policy/modules/roles/sysadm.if
++++ b/policy/modules/roles/sysadm.if
+@@ -1,4 +1,4 @@
+-## <summary>General system administration role</summary>
++g# <summary>General system administration role</summary>
+ 
+ ########################################
+ ## <summary>
+@@ -515,7 +515,7 @@ interface(`sysadm_sysadm_t_netlink_generic_socket',`
+          type sysadm_t;
+     ')
+ 
+-    allow $1 sysadm_t:netlink_generic_socket {write read create bind};
++    allow $1 sysadm_t:netlink_generic_socket {write read create bind setopt};
+ ')
+ 
+ interface(`sysadm_unreserved_port_t_tcp_socket',`
+@@ -695,14 +695,6 @@ interface(`sysadm_sysadm_t_packet_socket',`
+     allow $1 sysadm_t:packet_socket {create bind write read getattr};
+ ')
+ 
+-interface(`sysadm_sysadm_t_netlink_generic_socket',`
+-    gen_require(`
+-        type sysadm_t;
+-    ')
+-
+-    allow $1 sysadm_t:netlink_generic_socket {create setopt write read};
+-')
+-
+ interface(`sysadm_sysadm_t_rawip_socket',`
+     gen_require(`
+         type sysadm_t;
+diff --git a/policy/modules/roles/sysadm.te b/policy/modules/roles/sysadm.te
+index 852c4f882..fa6f50ca0 100644
+--- a/policy/modules/roles/sysadm.te
++++ b/policy/modules/roles/sysadm.te
+@@ -1396,8 +1396,6 @@ sysadm_sysadm_t_dbus(sysadm_t)
+ sysadm_sysadm_t_alg_socket(sysadm_t)
+ sysadm_unlabeled_t_chr_file(sysadm_t)
+ sysadm_sysadm_t_packet_socket(sysadm_t)
+-sysadm_sysadm_t_netlink_generic_socket(sysadm_t)
+ sysadm_proc_net_t_dir(sysadm_t)
+ sysadm_proc_net_t_file(sysadm_t)
+ 
+-
+-- 
+2.17.1
+

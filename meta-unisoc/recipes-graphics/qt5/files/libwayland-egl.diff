@@ -1,0 +1,26 @@
+diff --git a/src/client/configure.json b/src/client/configure.json
+index 06fa877..522d6cb 100644
+--- a/src/client/configure.json
++++ b/src/client/configure.json
+@@ -28,7 +28,7 @@
+             "label": "Wayland EGL library",
+             "test": "wayland_egl",
+             "sources": [
+-                { "type": "pkgConfig", "args": "wayland-egl" },
++                { "type": "pkgConfig", "args": "mali wayland-egl" },
+                 "-lwayland-egl",
+                 "-lEGL"
+             ]
+diff --git a/src/compositor/configure.json b/src/compositor/configure.json
+index 905ce0a..369a132 100644
+--- a/src/compositor/configure.json
++++ b/src/compositor/configure.json
+@@ -18,7 +18,7 @@
+         "wayland-egl": {
+             "test": "wayland_egl",
+             "sources": [
+-                { "type": "pkgConfig", "args": "wayland-egl" },
++                { "type": "pkgConfig", "args": "mali wayland-egl" },
+                 "-lwayland-egl",
+                 "-lEGL"
+             ]

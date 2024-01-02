@@ -1,0 +1,9 @@
+[Unit]
+Description=modify sensor driver node permissions
+
+[Service]
+Type=oneshot
+ExecStart= /bin/sh -c '/usr/sbin/sensorhub_init.sh'
+
+[Install]
+WantedBy=sysinit.target

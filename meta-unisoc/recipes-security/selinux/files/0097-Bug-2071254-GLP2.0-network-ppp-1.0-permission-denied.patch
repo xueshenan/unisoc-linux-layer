@@ -1,0 +1,65 @@
+diff --git a/policy/modules/services/ppp.if b/policy/modules/services/ppp.if
+index 5424fb676..5bb0b538f 100755
+--- a/policy/modules/services/ppp.if
++++ b/policy/modules/services/ppp.if
+@@ -510,7 +510,7 @@ interface(`ppp_initrc_t_unix_stream_socket',`
+ 		type initrc_t;
+ 	')
+ 
+-	allow $1  initrc_t:unix_stream_socket { read write };
++	allow $1  initrc_t:unix_stream_socket { rw_socket_perms read write listen connectto};
+ 
+ ')
+ 
+@@ -532,3 +532,38 @@ interface(`ppp_initrc_t_udp_socket',`
+ 
+ ')
+ 
++interface(`ppp_device_t_sock_file',`
++    gen_require(`
++        type device_t;
++    ')
++
++    allow $1  device_t:sock_file { write map open read };
++
++')
++
++interface(`ppp_pppd_var_run_t_file',`
++    gen_require(`
++        type pppd_var_run_t;
++    ')
++
++    allow $1  pppd_var_run_t:file { rw_file_perms map };
++
++')
++
++interface(`ppp_unlabeled_t_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1  unlabeled_t:file { create rw_file_perms read write getattr open };
++
++')
++
++interface(`ppp_unlabeled_t_lnk_file',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1  unlabeled_t:lnk_file { create rw_lnk_file_perms read write getattr open };
++
++')
+diff --git a/policy/modules/services/ppp.te b/policy/modules/services/ppp.te
+index ff7af903e..4cb656f7d 100755
+--- a/policy/modules/services/ppp.te
++++ b/policy/modules/services/ppp.te
+@@ -330,4 +330,7 @@ ppp_kmsg_device_t_chr_file(pppd_t)
+ ppp_initrc_t_unix_stream_socket(pppd_t)
+ ppp_unlabeled_t_dir(pppd_t)
+ ppp_initrc_t_udp_socket(pppd_t)
+-
++ppp_device_t_sock_file(pppd_t)
++ppp_pppd_var_run_t_file(pppd_t)
++ppp_unlabeled_t_file(pppd_t)
++ppp_unlabeled_t_lnk_file(pppd_t)

@@ -1,0 +1,233 @@
+From e7b0e63bf6358478e793aa8296d7798fdc555c7e Mon Sep 17 00:00:00 2001
+From: "sheng.shen" <sheng.shen@unisoc.com>
+Date: Wed, 12 Oct 2022 11:35:38 +0800
+Subject: [PATCH] selinux init test
+
+---
+ src/init.c | 84 +++++++++++++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 77 insertions(+), 7 deletions(-)
+
+diff --git a/src/init.c b/src/init.c
+index 767d1ce..ed8ba5c 100644
+--- a/src/init.c
++++ b/src/init.c
+@@ -596,6 +596,28 @@ void console_init(void)
+ 		close(fd);
+ }
+ 
++void kmsg_init(void){
++	/*  /dev/kmsg is aready init,,then return
++	*/
++	int fd = -1;
++	if ((fd = open("/dev/kmsg", O_WRONLY)) >= 0) {
++		close(fd);
++		return;
++	}
++	/*
++	 * create nod of /dev/kmsg
++	 */
++	static const char* name = "/dev/kmsg";
++
++
++	if(mknod(name, S_IFCHR | 0600, (1 << 8) | 11) == 0){
++		 openlog("init", 0, LOG_DAEMON);
++                 syslog(LOG_INFO, "mknod /dev/kmsg success");
++                 closelog();
++	}
++}
++
++
+ 
+ /*
+  *	Open the console with retries.
+@@ -605,6 +627,8 @@ int console_open(int mode)
+ {
+ 	int f, fd = -1;
+ 	int m;
++	
++	kmsg_init();
+ 
+ 	/*
+ 	 *	Open device in nonblocking mode.
+@@ -614,8 +638,8 @@ int console_open(int mode)
+ 	/*
+ 	 *	Retry the open five times.
+ 	 */
+-	for(f = 0; f < 5; f++) {
+-		if ((fd = open(console_dev, m)) >= 0) break;
++	for(f = 0; f < 20; f++) {
++		if ((fd = open("/dev/kmsg", O_WRONLY)) >= 0) break;
+ 		usleep(10000);
+ 	}
+ 
+@@ -624,8 +648,6 @@ int console_open(int mode)
+ 	/*
+ 	 *	Set original flags.
+ 	 */
+-	if (m != mode)
+-  		fcntl(fd, F_SETFL, mode);
+ 	return fd;
+ }
+ 
+@@ -2744,7 +2766,8 @@ void init_main(void)
+   struct sigaction	sa;
+   sigset_t		sgt;
+   int			f, st;
+-
++print("\rINITtest: begin init_main ");
++printf("\rINITtest: begin init_main ");
+   if (!reload) {
+   
+ #if INITDEBUG
+@@ -2775,7 +2798,8 @@ void init_main(void)
+ 	} else
+ 		(void) ioctl(0, KDSIGACCEPT, SIGWINCH);
+ #endif
+-
++	print("\rINITtest: begin init_main 2800 ");
++	printf("\rINITtest: begin init_main 2800");
+ 	/*
+ 	 *	Ignore all signals.
+ 	 */
+@@ -2796,12 +2820,18 @@ void init_main(void)
+   SETSIG(sa, SIGCONT,  cont_handler, SA_RESTART);
+   SETSIG(sa, SIGSEGV,  (void (*)(int))segv_handler, SA_RESTART);
+ 
++	print("\rINITtest: begin init_main 2823 ");
++	printf("\rINITtest: begin init_main 2823 ");
++
+   console_init();
+ 
+   if (!reload) {
+ 	int fd;
+ 
+-  	/* Close whatever files are open, and reset the console. */
++	print("\rINITtest: begin !reload 2831 ");
++	printf("\rINITtest: begin !reload 2831 ");
++  	
++	/* Close whatever files are open, and reset the console. */
+ 	close(0);
+ 	close(1);
+ 	close(2);
+@@ -2824,6 +2854,9 @@ void init_main(void)
+ 	 *	Say hello to the world
+ 	 */
+   	initlog(L_CO, bootmsg, "booting");
++	
++	print("\rINITtest: begin booting  ");
++	printf("\rINITtest: begin booting  ");
+ 
+   	/*
+ 	 *	See if we have to start an emergency shell.
+@@ -2844,6 +2877,9 @@ void init_main(void)
+ 	 */
+   	runlevel = '#';
+   	read_inittab();
++	
++	print("\rINITtest: read_inittab() 2880 ");
++	printf("\rINITtest: read_inittab() 2880 ");
+   
+   } else {
+ 	/*
+@@ -2853,6 +2889,9 @@ void init_main(void)
+ 	sigfillset(&sgt);
+ 	sigprocmask(SIG_UNBLOCK, &sgt, NULL);
+ 
++	print("\rINITtest: reloading 2892 ");
++	printf("\rINITtest: reloading 2892 ");
++
+   	/*
+ 	 *	Set default PATH variable.
+ 	 */
+@@ -2860,6 +2899,9 @@ void init_main(void)
+   }
+   start_if_needed();
+ 
++	print("\rINITtest: start if need 2902 ");
++	printf("\rINITtest: start if need 2902 ");
++
+   while(1) {
+ 
+      /* See if we need to make the boot transitions. */
+@@ -2894,6 +2936,9 @@ void init_main(void)
+      start_if_needed();
+   }
+   /*NOTREACHED*/
++
++	print("\rINITtest: end  init_main 2940 ");
++	printf("\rINITtest: end init_main 2940 ");
+ }
+ 
+ /*
+@@ -3029,6 +3074,8 @@ int main(int argc, char **argv)
+ 	int			enforce = 0;
+ #endif
+ 
++print("\rINITtest: begin main 1  ");
++printf("\rINITtest: begin main 1");
+ 	/* Get my own name */
+ 	if ((p = strrchr(argv[0], '/')) != NULL)
+   		p++;
+@@ -3062,6 +3109,8 @@ int main(int argc, char **argv)
+ 	}
+ 	if (!isinit) exit(telinit(p, argc, argv));
+ 
++	print("\rINITtest: begin main 2 ");
++	printf("\rINITtest: begin main 2 ");
+ 	/*
+ 	 *	Check for re-exec
+ 	 */ 	
+@@ -3100,29 +3149,50 @@ int main(int argc, char **argv)
+ 		maxproclen += strlen(argv[f]) + 1;
+ 	}
+ 
++	print("\rINITtest: begin main 3 before WITH_SELINUX ");
++	printf("\rINITtest: begin main 3 before WITH_SELINUX ");
+ #ifdef WITH_SELINUX
+ 	if (getenv("SELINUX_INIT") == NULL) {
+          if (is_selinux_enabled() != 1) {
++
++		print("\rINITtest: begin main 4 in WITH_SELINUX");
++		printf("\rINITtest: begin main 4 in WITH_SELINUX ");
++	
+ 	    if (selinux_init_load_policy(&enforce) == 0) {
+              putenv("SELINUX_INIT=YES");
++
++		print("\rINITtest: begin main 5 in WITH_SELINUX");
++		printf("\rINITtest: begin main 5 in WITH_SELINUX ");
++	
+ 	      execv(myname, argv);
+ 	    } else {
+ 	      if (enforce > 0) {
+ 		/* SELinux in enforcing mode but load_policy failed */
+ 		/* At this point, we probably can't open /dev/console, so log() won't work */
+ 		fprintf(stderr,"Unable to load SELinux Policy. Machine is in enforcing mode. Halting now.\n");
++		print("\rINITtest: begin main 6 in WITH_SELINUX");
++		printf("\rINITtest: begin main 6 in WITH_SELINUX ");
++		
+ 		exit(1);
++		
+ 	      }
+ 	    }
+ 	  }
+ 	}
+ #endif  
++		print("\rINITtest: begin main 7 in WITH_SELINUX");
++		printf("\rINITtest: begin main 7 in WITH_SELINUX ");
+ 	/* Start booting. */
+ 	argv0 = argv[0];
+ 	argv[1] = NULL;
+ 	setproctitle("init boot");
++
++		print("\rINITtest: begin main 8 in WITH_SELINUX");
++		printf("\rINITtest: begin main 8 in WITH_SELINUX ");
+ 	init_main();
+ 
++		print("\rINITtest: begin main 9 in WITH_SELINUX");
++		printf("\rINITtest: begin main 9 in WITH_SELINUX ");
+ 	/*NOTREACHED*/
+ 	return 0;
+ }
+-- 
+2.17.1
+

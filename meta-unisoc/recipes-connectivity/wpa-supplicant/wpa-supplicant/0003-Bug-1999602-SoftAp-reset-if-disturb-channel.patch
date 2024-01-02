@@ -1,0 +1,377 @@
+diff --git a/src/drivers/driver.h b/src/drivers/driver.h
+index 2a8459a..57523de 100755
+--- a/src/drivers/driver.h
++++ b/src/drivers/driver.h
+@@ -4800,6 +4800,13 @@ enum wpa_event_type {
+ 	  * EVENT_UPDATE_DH - Notification of updated DH information
+ 	  */
+ 	EVENT_UPDATE_DH,
++	/**
++	 * EVENT_SPRD_SOTF_RESET - softap soft reset
++	 * this is used for sprd vendor process in case of LTE & softap co-exist,
++	 * which will cause hostapd disable/enable iface & trigger ACS instead of
++	 * reload wlan driver & restart hostapd
++	 */
++	EVENT_SPRD_SOFT_RESET,
+ };
+
+
+diff --git a/src/drivers/driver_common.c b/src/drivers/driver_common.c
+index 731c6a3..2a15686 100755
+--- a/src/drivers/driver_common.c
++++ b/src/drivers/driver_common.c
+@@ -89,6 +89,7 @@ const char * event_to_string(enum wpa_event_type event)
+ 	E2S(INTERFACE_MAC_CHANGED);
+ 	E2S(WDS_STA_INTERFACE_STATUS);
+ 	E2S(UPDATE_DH);
++	E2S(SPRD_SOFT_RESET);
+ 	}
+
+ 	return "UNKNOWN";
+diff --git a/src/drivers/driver_nl80211_event.c b/src/drivers/driver_nl80211_event.c
+index 7c16330..d02fc29 100755
+--- a/src/drivers/driver_nl80211_event.c
++++ b/src/drivers/driver_nl80211_event.c
+@@ -2075,6 +2075,15 @@ static void qca_nl80211_p2p_lo_stop_event(struct wpa_driver_nl80211_data *drv,
+
+ #endif /* CONFIG_DRIVER_NL80211_QCA */
+
++static void sprd_nl80211_hp_soft_reset(struct wpa_driver_nl80211_data *drv,
++				   const u8 *data, size_t len)
++{
++	wpa_printf(MSG_INFO,
++		   "nl80211: SPRD hotspot soft reset event received");
++
++	wpa_supplicant_event(drv->ctx, EVENT_SPRD_SOFT_RESET, NULL);
++}
++
+
+ static void nl80211_vendor_event_qca(struct wpa_driver_nl80211_data *drv,
+ 				     u32 subcmd, u8 *data, size_t len)
+@@ -2083,6 +2092,10 @@ static void nl80211_vendor_event_qca(struct wpa_driver_nl80211_data *drv,
+ 	case QCA_NL80211_VENDOR_SUBCMD_TEST:
+ 		wpa_hexdump(MSG_DEBUG, "nl80211: QCA test event", data, len);
+ 		break;
++	case QCA_NL80211_VENDOR_SUBCMD_DO_ACS - 1:
++		wpa_printf(MSG_INFO, "nl80211: SPRD softap soft reset");
++		sprd_nl80211_hp_soft_reset(drv, data, len);
++		break;
+ #ifdef CONFIG_DRIVER_NL80211_QCA
+ 	case QCA_NL80211_VENDOR_SUBCMD_AVOID_FREQUENCY:
+ 		qca_nl80211_avoid_freq(drv, data, len);
+diff --git a/wpa_supplicant/Makefile b/wpa_supplicant/Makefile
+index f1384d5..9bd75bd 100755
+--- a/wpa_supplicant/Makefile
++++ b/wpa_supplicant/Makefile
+@@ -1000,6 +1000,7 @@ endif
+
+ ifdef CONFIG_ACS
+ CFLAGS += -DCONFIG_ACS
++CFLAGS += -DACS_24GHZ_PREFER_1_6_11
+ OBJS += ../src/ap/acs.o
+ LIBS += -lm
+ endif
+diff --git a/wpa_supplicant/ap.c b/wpa_supplicant/ap.c
+index 4e3c281..6ef4e15 100755
+--- a/wpa_supplicant/ap.c
++++ b/wpa_supplicant/ap.c
+@@ -900,6 +900,7 @@ int wpa_supplicant_create_ap(struct wpa_supplicant *wpa_s,
+ 		return -1;
+ 	}
+
++	wpa_s->tetherrestarting = 0;
+ 	return 0;
+ }
+
+diff --git a/wpa_supplicant/ctrl_iface.c b/wpa_supplicant/ctrl_iface.c
+index 8efc08d..f79b0f2 100755
+--- a/wpa_supplicant/ctrl_iface.c
++++ b/wpa_supplicant/ctrl_iface.c
+@@ -9911,6 +9911,11 @@ static int wpas_ctrl_cmd_debug_level(const char *cmd)
+ }
+
+
++static int wpa_supplicant_ctrl_iface_softap_reset(struct wpa_supplicant *wpa_s)
++{
++	return wpa_supplicant_event_softap_reset(wpa_s);
++}
++
+ char * wpa_supplicant_ctrl_iface_process(struct wpa_supplicant *wpa_s,
+ 					 char *buf, size_t *resp_len)
+ {
+@@ -10093,6 +10098,10 @@ char * wpa_supplicant_ctrl_iface_process(struct wpa_supplicant *wpa_s,
+ 	} else if (os_strncmp(buf, "WPS_REG ", 8) == 0) {
+ 		if (wpa_supplicant_ctrl_iface_wps_reg(wpa_s, buf + 8))
+ 			reply_len = -1;
++	} else if (os_strcmp(buf, "SOFTAP_RESET") == 0) {
++		wpa_printf(MSG_INFO, "receive softap_reset cmd");
++		if (wpa_supplicant_ctrl_iface_softap_reset(wpa_s))
++			reply_len = -1;
+ #ifdef CONFIG_AP
+ 	} else if (os_strncmp(buf, "WPS_AP_PIN ", 11) == 0) {
+ 		reply_len = wpa_supplicant_ctrl_iface_wps_ap_pin(
+diff --git a/wpa_supplicant/dbus/dbus_new.c b/wpa_supplicant/dbus/dbus_new.c
+index fc2fc2e..ecf0184 100755
+--- a/wpa_supplicant/dbus/dbus_new.c
++++ b/wpa_supplicant/dbus/dbus_new.c
+@@ -2251,6 +2251,14 @@ void wpas_dbus_signal_prop_changed(struct wpa_supplicant *wpa_s,
+ 	case WPAS_DBUS_PROP_BSS_TM_STATUS:
+ 		prop = "BSSTMStatus";
+ 		break;
++	case WPAS_DBUS_PROP_AP_FREQ:
++		prop = "TetherFreq";
++		flush = TRUE;
++		break;
++	case WPAS_DBUS_PROP_TETHER_RESTARING:
++		prop = "TetherRestarting";
++		flush = TRUE;
++		break;
+ 	default:
+ 		wpa_printf(MSG_ERROR, "dbus: %s: Unknown Property value %d",
+ 			   __func__, property);
+@@ -3803,6 +3811,16 @@ static const struct wpa_dbus_property_desc wpas_dbus_interface_properties[] = {
+ 	  NULL,
+ 	  NULL
+ 	},
++	{ "TetherFreq", WPAS_DBUS_NEW_IFACE_INTERFACE, "i",
++	  wpas_dbus_getter_tether_freq,
++	  NULL,
++	  NULL
++	},
++	{ "TetherRestarting", WPAS_DBUS_NEW_IFACE_INTERFACE, "b",
++	  wpas_dbus_getter_tetherrestarting,
++	  wpas_dbus_setter_tetherrestarting,
++	  NULL
++	},
+ 	{ NULL, NULL, NULL, NULL, NULL, NULL }
+ };
+
+diff --git a/wpa_supplicant/dbus/dbus_new.h b/wpa_supplicant/dbus/dbus_new.h
+index 42db389..3b2a240 100755
+--- a/wpa_supplicant/dbus/dbus_new.h
++++ b/wpa_supplicant/dbus/dbus_new.h
+@@ -36,6 +36,8 @@ enum wpas_dbus_prop {
+ 	WPAS_DBUS_PROP_ROAM_COMPLETE,
+ 	WPAS_DBUS_PROP_SESSION_LENGTH,
+ 	WPAS_DBUS_PROP_BSS_TM_STATUS,
++	WPAS_DBUS_PROP_AP_FREQ,
++	WPAS_DBUS_PROP_TETHER_RESTARING,
+ };
+
+ enum wpas_dbus_bss_prop {
+diff --git a/wpa_supplicant/dbus/dbus_new_handlers.c b/wpa_supplicant/dbus/dbus_new_handlers.c
+index 5d6931e..08e717a 100755
+--- a/wpa_supplicant/dbus/dbus_new_handlers.c
++++ b/wpa_supplicant/dbus/dbus_new_handlers.c
+@@ -3227,6 +3227,76 @@ dbus_bool_t wpas_dbus_getter_bss_tm_status(
+ 						&bss_tm_status, error);
+ }
+
++/**
++ * wpas_dbus_getter_tether_freq - Get Bridge tether freqency
++ * @iter: Pointer to incoming dbus message iter
++ * @error: Location to store error on failure
++ * @user_data: Function specific data
++ * Returns: TRUE on success, FALSE on failure
++ *
++ * Getter for "TetherFreq" property
++ */
++dbus_bool_t wpas_dbus_getter_tether_freq(
++	const struct wpa_dbus_property_desc *property_desc,
++	DBusMessageIter *iter, DBusError *error, void *user_data)
++{
++	struct wpa_supplicant *wpa_s = user_data;
++	dbus_int32_t tether_freq = wpa_s->assoc_freq;
++
++	return wpas_dbus_simple_property_getter(iter, DBUS_TYPE_INT32,
++						&tether_freq, error);
++}
++
++/**
++ * wpas_dbus_getter_tetherrestarting - Get Bridge tether restart state
++ * @iter: Pointer to incoming dbus message iter
++ * @error: Location to store error on failure
++ * @user_data: Function specific data
++ * Returns: TRUE on success, FALSE on failure
++ *
++ * Getter for "TetherRestarting" property
++ */
++dbus_bool_t wpas_dbus_getter_tetherrestarting(
++	const struct wpa_dbus_property_desc *property_desc,
++	DBusMessageIter *iter, DBusError *error, void *user_data)
++{
++	struct wpa_supplicant *wpa_s = user_data;
++	dbus_bool_t tetherrestarting = wpa_s->tetherrestarting ? TRUE : FALSE;
++
++	return wpas_dbus_simple_property_getter(iter, DBUS_TYPE_BOOLEAN,
++						&tetherrestarting, error);
++}
++
++
++/**
++ * wpas_dbus_setter_tetherrestarting - update bridge tether restart state
++ * @iter: Pointer to incoming dbus message iter
++ * @error: Location to store error on failure
++ * @user_data: Function specific data
++ * Returns: TRUE on success, FALSE on failure
++ *
++ * Setter function for "TetherRestart" property.
++ */
++dbus_bool_t wpas_dbus_setter_tetherrestarting(
++	const struct wpa_dbus_property_desc *property_desc,
++	DBusMessageIter *iter, DBusError *error, void *user_data)
++{
++	struct wpa_supplicant *wpa_s = user_data;
++	dbus_uint32_t tetherrestarting;
++
++	if (!wpas_dbus_simple_property_setter(iter, error, DBUS_TYPE_UINT32,
++					      &tetherrestarting))
++		return FALSE;
++
++	if (tetherrestarting < 0 || tetherrestarting > 2) {
++		dbus_set_error_const(error, DBUS_ERROR_FAILED,
++				     "ap_scan must be 0, 1, or 2");
++		return FALSE;
++	}
++	wpa_s->tetherrestarting = tetherrestarting;
++	return TRUE;
++}
++
+
+ /**
+  * wpas_dbus_getter_bss_expire_age - Get BSS entry expiration age
+diff --git a/wpa_supplicant/dbus/dbus_new_handlers.h b/wpa_supplicant/dbus/dbus_new_handlers.h
+index d922ce1..d10baf6 100755
+--- a/wpa_supplicant/dbus/dbus_new_handlers.h
++++ b/wpa_supplicant/dbus/dbus_new_handlers.h
+@@ -200,6 +200,9 @@ DECLARE_ACCESSOR(wpas_dbus_getter_enabled);
+ DECLARE_ACCESSOR(wpas_dbus_setter_enabled);
+ DECLARE_ACCESSOR(wpas_dbus_getter_network_properties);
+ DECLARE_ACCESSOR(wpas_dbus_setter_network_properties);
++DECLARE_ACCESSOR(wpas_dbus_getter_tether_freq);
++DECLARE_ACCESSOR(wpas_dbus_getter_tetherrestarting);
++DECLARE_ACCESSOR(wpas_dbus_setter_tetherrestarting);
+ 
+ DBusMessage * wpas_dbus_handler_wps_start(DBusMessage *message,
+ 					  struct wpa_supplicant *wpa_s);
+diff --git a/wpa_supplicant/events.c b/wpa_supplicant/events.c
+index f7093e9..99f79b4 100755
+--- a/wpa_supplicant/events.c
++++ b/wpa_supplicant/events.c
+@@ -4183,6 +4183,24 @@ static void wpas_event_assoc_reject(struct wpa_supplicant *wpa_s,
+ 	wpa_supplicant_mark_disassoc(wpa_s);
+ }
+
++int wpa_supplicant_event_softap_reset(struct wpa_supplicant *wpa_s)
++{
++    wpa_printf(MSG_INFO, "bridge_ifname : %s", wpa_s->bridge_ifname);
++    if (wpa_s->bridge_ifname[0] && wpa_s->ap_iface) {
++        struct wpa_ssid *ssid = wpa_s->current_ssid;
++        if (ssid != NULL) {
++            wpa_printf(MSG_DEBUG, "AP mode, ssid : %s", wpa_ssid_txt(ssid->ssid, ssid->ssid_len));
++        }
++        wpa_printf(MSG_INFO, "notify to re-start tether");
++        wpa_s->tetherrestarting = 1;
++        wpas_notify_tetherrestaring(wpa_s);
++        return 0;
++    } else {
++        wpa_printf(MSG_ERROR, "Non AP mode, ignore reset cmd");
++        return -1;
++    }
++}
++
+
+ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
+ 			  union wpa_event_data *data)
+@@ -4920,6 +4938,17 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
+ 		hostapd_acs_channel_selected(wpa_s->ap_iface->bss[0],
+ 					     &data->acs_selected_channels);
+ #endif /* CONFIG_ACS */
++#endif /* CONFIG_AP */
++		break;
++    case EVENT_SPRD_SOFT_RESET:
++#ifdef CONFIG_AP
++#ifdef CONFIG_ACS
++		if (!wpa_s->ap_iface) {
++			wpa_printf(MSG_ERROR, "ignore SPRD AP reset event!");
++			break;
++		}
++		wpa_supplicant_event_softap_reset(wpa_s);
++#endif /* CONFIG_ACS */
+ #endif /* CONFIG_AP */
+ 		break;
+ 	case EVENT_P2P_LO_STOP:
+diff --git a/wpa_supplicant/notify.c b/wpa_supplicant/notify.c
+index e41d7c4..082f3a0 100755
+--- a/wpa_supplicant/notify.c
++++ b/wpa_supplicant/notify.c
+@@ -886,6 +886,23 @@ void wpas_notify_network_type_changed(struct wpa_supplicant *wpa_s,
+ #endif /* CONFIG_P2P */
+ }
+
++void wpas_notify_tetherrestaring(struct wpa_supplicant *wpa_s)
++{
++	if (wpa_s->p2p_mgmt)
++		return;
++
++	/* notify the new DBus API */
++	wpas_dbus_signal_prop_changed(wpa_s, WPAS_DBUS_PROP_TETHER_RESTARING);
++}
++
++void wpas_notify_tether_freq(struct wpa_supplicant *wpa_s)
++{
++	if (wpa_s->p2p_mgmt)
++		return;
++
++	/* notify the new DBus API */
++	wpas_dbus_signal_prop_changed(wpa_s, WPAS_DBUS_PROP_AP_FREQ);
++}
+
+ #ifdef CONFIG_MESH
+
+diff --git a/wpa_supplicant/wpa_cli.c b/wpa_supplicant/wpa_cli.c
+index 43ac427..b899147 100755
+--- a/wpa_supplicant/wpa_cli.c
++++ b/wpa_supplicant/wpa_cli.c
+@@ -3024,6 +3024,12 @@ static int wpa_cli_cmd_dpp_pkex_remove(struct wpa_ctrl *ctrl, int argc,
+ #endif /* CONFIG_DPP */
+
+
++static int wpa_cli_cmd_softap_reset(struct wpa_ctrl *ctrl, int argc,
++					char *argv[])
++{
++	return wpa_ctrl_command(ctrl, "SOFTAP_RESET");
++}
++
+ enum wpa_cli_cmd_flags {
+ 	cli_cmd_flag_none		= 0x00,
+ 	cli_cmd_flag_sensitive		= 0x01
+@@ -3363,6 +3369,9 @@ static const struct wpa_cli_cmd wpa_cli_commands[] = {
+ 	  "<cs_count> <freq> [sec_channel_offset=] [center_freq1=]"
+ 	  " [center_freq2=] [bandwidth=] [blocktx] [ht|vht]"
+ 	  " = CSA parameters" },
++	{ "softap_reset", wpa_cli_cmd_softap_reset, NULL,
++	  cli_cmd_flag_none,
++	  "= softap reset"},
+ #endif /* CONFIG_AP */
+ 	{ "suspend", wpa_cli_cmd_suspend, NULL, cli_cmd_flag_none,
+ 	  "= notification of suspend/hibernate" },
+diff --git a/wpa_supplicant/wpa_supplicant_i.h b/wpa_supplicant/wpa_supplicant_i.h
+index 8a4bdf8..3c94c19 100755
+--- a/wpa_supplicant/wpa_supplicant_i.h
++++ b/wpa_supplicant/wpa_supplicant_i.h
+@@ -515,6 +515,7 @@ struct wpa_supplicant {
+ 	const void *binder_object_key;
+ #endif /* CONFIG_CTRL_IFACE_BINDER */
+ 	char bridge_ifname[16];
++	int tetherrestarting;
+
+ 	char *confname;
+ 	char *confanother;
+@@ -1546,4 +1547,6 @@ int wpas_ctrl_iface_get_pref_freq_list_override(struct wpa_supplicant *wpa_s,
+ int wpa_is_fils_supported(struct wpa_supplicant *wpa_s);
+ int wpa_is_fils_sk_pfs_supported(struct wpa_supplicant *wpa_s);
+
++int wpa_supplicant_event_softap_reset(struct wpa_supplicant *wpa_s);
++
+ #endif /* WPA_SUPPLICANT_I_H */

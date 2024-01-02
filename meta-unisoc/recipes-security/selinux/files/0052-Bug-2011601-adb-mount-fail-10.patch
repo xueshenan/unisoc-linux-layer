@@ -1,0 +1,53 @@
+From 77c26f63ad459a00b0de27f52aaa8f20198682cf Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Mon, 10 Oct 2022 17:53:06 +0800
+Subject: [PATCH] Bug #2011601-adb-mount-fail-10
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/system/mount.if | 8 ++++++++
+ policy/modules/system/mount.te | 1 +
+ 2 files changed, 9 insertions(+)
+
+diff --git a/policy/modules/system/mount.if b/policy/modules/system/mount.if
+index 05cd99447..2d0b6069e 100644
+--- a/policy/modules/system/mount.if
++++ b/policy/modules/system/mount.if
+@@ -284,3 +284,11 @@ interface(`mount_tmpfs_t_dir',`
+     allow $1 tmpfs_t:dir {mounton getattr add_name search create open read write};
+ ')
+ 
++interface(`mount_unlabeled_t_filesystem',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:filesystem {remount};
++')
++
+diff --git a/policy/modules/system/mount.te b/policy/modules/system/mount.te
+index 8128da145..ebf869dea 100644
+--- a/policy/modules/system/mount.te
++++ b/policy/modules/system/mount.te
+@@ -240,4 +240,5 @@ mount_device_t_blk_file(mount_t)
+ mount_etc_t_dir(mount_t)
+ mount_configfs_t_dir(mount_t)
+ mount_tmpfs_t_dir(mount_t)
++mount_unlabeled_t_filesystem(mount_t)
+ 
+-- 
+2.17.1
+

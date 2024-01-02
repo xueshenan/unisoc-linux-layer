@@ -1,0 +1,10 @@
+[Unit]
+Description=tsupplicant Service
+
+[Service]
+ExecStart=/usr/bin/tsupplicant /mnt/data/firmware
+ExecStartPre=/bin/mkdir -p /mnt/data/firmware/
+
+[Install]
+WantedBy=multi-user.target
+Alias=tsupplicant.service

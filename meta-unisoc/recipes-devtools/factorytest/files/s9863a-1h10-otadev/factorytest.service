@@ -1,0 +1,9 @@
+[Unit]
+Description=Unisoc NativeMMI Service
+
+[Service]
+ExecStart=/usr/bin/factorytest
+
+[Install]
+WantedBy=multi-user.target
+Alias=factorytest.service

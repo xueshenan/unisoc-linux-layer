@@ -1,0 +1,98 @@
+diff --git a/arch/arm64/boot/dts/sprd/ums9620-mach.dtsi b/arch/arm64/boot/dts/sprd/ums9620-mach.dtsi
+index 384173effff6..16a980b8d71d 100644
+--- a/arch/arm64/boot/dts/sprd/ums9620-mach.dtsi
++++ b/arch/arm64/boot/dts/sprd/ums9620-mach.dtsi
+@@ -1106,6 +1106,11 @@
+ 			REG_PMU_APB_FORCE_DEEP_SLEEP_CFG_0
+ 			MASK_PMU_APB_PCIE_FORCE_DEEP_SLEEP_REG
+ 			0x0>,
++		/* PCIEPLLV will be shutdown after ipa_deep_sleep */
++		<&pmu_apb_regs 0 0
++			REG_PMU_APB_PCIEPLLV_REL_CFG
++			MASK_PMU_APB_PCIEPLLV_IPA_SEL
++			0x0>,
+ 		/* power up */
+ 		<&pmu_apb_regs 0 0
+ 			REG_PMU_APB_PD_PCIE_CFG_0
+@@ -1124,18 +1129,21 @@
+ 			REG_PMU_APB_PCIEPLLV_REL_CFG
+ 			MASK_PMU_APB_PCIEPLLV_FRC_ON
+ 			0x1>,
++		<&aon_apb_regs 0 0
++			REG_AON_APB_IPA_ACCESS_CFG
++			MASK_AON_APB_AON_ACCESS_PCIE_EN
++			0x2>,
+ 		/* perst assert */
+ 		<&pmu_apb_regs 0 2000
+ 			REG_PMU_APB_SNPS_PCIE3_SLP_CTRL
+ 			MASK_PMU_APB_REG_PERST_N_ASSERT
+-			0x0>,
+-		/* PCIEPLLV output clock will be gated for L1sub */
+-		<&pmu_apb_regs 0 0
+-			REG_PMU_APB_SNPS_PCIE3_SLP_CTRL
+-			MASK_PMU_APB_PCIE_CLK_REQ_PLL_GATE_MASK
+ 			0x0>;
+ 
+ 	sprd,pcie-resume-syscons =
++		<&aon_apb_regs 0 0
++			REG_AON_APB_IPA_ACCESS_CFG
++			MASK_AON_APB_AON_ACCESS_PCIE_EN
++			0x2>,
+ 		<&pmu_apb_regs 0 0
+ 			REG_PMU_APB_PD_PCIE_CFG_0
+ 			MASK_PMU_APB_PD_PCIE_FORCE_SHUTDOWN
+@@ -1172,10 +1180,6 @@
+ 			REG_PMU_APB_SNPS_PCIE3_SLP_CTRL
+ 			MASK_PMU_APB_REG_PERST_N_ASSERT
+ 			0x2>,
+-		<&aon_apb_regs 0 0
+-			REG_AON_APB_IPA_ACCESS_CFG
+-			MASK_AON_APB_AON_ACCESS_PCIE_EN
+-			0x2>,
+ 		/* phy_test_powerdown*/
+ 		<&anlg_phy_pcie3_regs 1 200
+ 			0x0
+@@ -1194,11 +1198,6 @@
+ 			REG_AON_APB_IPA_ACCESS_CFG
+ 			MASK_AON_APB_AON_ACCESS_PCIE_EN
+ 			0x0>,
+-		/* PCIEPLLV will be shutdown after ipa_deep_sleep */
+-		<&pmu_apb_regs 0 0
+-			REG_PMU_APB_PCIEPLLV_REL_CFG
+-			MASK_PMU_APB_PCIEPLLV_IPA_SEL
+-			0x0>,
+ 		<&pmu_apb_regs 0 0
+ 			REG_PMU_APB_PCIEPLLV_REL_CFG
+ 			MASK_PMU_APB_PCIEPLLV_FRC_ON
+@@ -1214,10 +1213,6 @@
+ 			REG_PMU_APB_SNPS_PCIE3_SLP_CTRL
+ 			MASK_PMU_APB_REG_PERST_N_ASSERT
+ 			0x2>,
+-		<&aon_apb_regs 0 0
+-			REG_AON_APB_IPA_ACCESS_CFG
+-			MASK_AON_APB_AON_ACCESS_PCIE_EN
+-			0x2>,
+ 		/* phy_test_powerdown*/
+ 		<&anlg_phy_pcie3_regs 1 200
+ 			0x0
+@@ -1236,11 +1231,6 @@
+ 			REG_AON_APB_IPA_ACCESS_CFG
+ 			MASK_AON_APB_AON_ACCESS_PCIE_EN
+ 			0x0>,
+-		/* PCIEPLLV will be shutdown after ipa_deep_sleep */
+-		<&pmu_apb_regs 0 0
+-			REG_PMU_APB_PCIEPLLV_REL_CFG
+-			MASK_PMU_APB_PCIEPLLV_IPA_SEL
+-			0x0>,
+ 		<&pmu_apb_regs 0 0
+ 			REG_PMU_APB_PCIEPLLV_REL_CFG
+ 			MASK_PMU_APB_PCIEPLLV_FRC_ON
+@@ -1251,7 +1241,7 @@
+ 			MASK_PMU_APB_PD_PCIE_FORCE_SHUTDOWN
+ 			0x2000000>;
+ 
+-	ep-poweron-late;
++	/*ep-poweron-late;*/
+ 	status = "okay";
+ };
+ 

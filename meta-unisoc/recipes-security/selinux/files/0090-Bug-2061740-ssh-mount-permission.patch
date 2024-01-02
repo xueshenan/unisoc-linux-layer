@@ -1,0 +1,81 @@
+From cdc78c733b246bed5828fd8b2c4f71cd5f382bd0 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Thu, 3 Nov 2022 20:10:23 +0800
+Subject: [PATCH] Bug #2061740 ssh-mount-permission
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/roles/staff.if       | 11 +++++++++--
+ policy/modules/roles/staff.te       |  1 +
+ policy/modules/system/locallogin.if |  1 +
+ 3 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+index 5c32939a1..add00e7e4 100644
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -351,7 +351,7 @@ interface(`staff_bin_t_dir',`
+ 		type bin_t;
+     ')
+ 
+-    allow $1 bin_t:dir { write add_name create };
++    allow $1 bin_t:dir { rw_dir_perms };
+ ')
+ 
+ interface(`staff_initctl_t_fifo_file',`
+@@ -449,7 +449,7 @@ interface(`staff_configfs_t_dir',`
+         type configfs_t;
+     ')
+ 
+-    allow $1 configfs_t:dir { read open };
++    allow $1 configfs_t:dir { rw_dir_perms };
+ ')
+ 
+ interface(`staff_tracefs_t_dir',`
+@@ -607,4 +607,11 @@ interface(`staff_xkb_var_lib_t_file',`
+     allow $1 xkb_var_lib_t:file {map};
+ ')
+ 
++interface(`staff_mount_runtime_t_dir',`
++    gen_require(`
++        type mount_runtime_t;
++    ')
++
++    allow $1 mount_runtime_t:dir { rw_dir_perms remove_name };
++')
+ 
+diff --git a/policy/modules/roles/staff.te b/policy/modules/roles/staff.te
+index 7e1239c91..d176bb77c 100644
+--- a/policy/modules/roles/staff.te
++++ b/policy/modules/roles/staff.te
+@@ -287,4 +287,5 @@ staff_var_run_t_file(staff_t)
+ staff_var_run_t_sock_file(staff_t)
+ staff_var_lock_t_file(staff_t)
+ staff_xkb_var_lib_t_file(staff_t)
++staff_mount_runtime_t_dir(staff_t)
+ 
+diff --git a/policy/modules/system/locallogin.if b/policy/modules/system/locallogin.if
+index 2ec41578e..2d4b14e4a 100644
+--- a/policy/modules/system/locallogin.if
++++ b/policy/modules/system/locallogin.if
+@@ -586,3 +586,4 @@ interface(`locallogin_init_var_run_t_file',`
+     allow $1 init_var_run_t:file { create write open execute execute_no_trans read map getattr append };
+ ')
+ 
++
+-- 
+2.17.1
+

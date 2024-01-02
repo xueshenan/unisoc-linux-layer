@@ -1,0 +1,11 @@
+#!/bin/sh
+
+/usr/sbin/logrotate  /mnt/data/logrotate.d/syslog.logrotate
+
+/etc/init.d/syslog restart
+
+EXITVALUE=$?
+if [ $EXITVALUE != 0 ]; then
+    /usr/bin/logger -t logrotate "ALERT exited abnormally with [$EXITVALUE]"
+fi
+exit $EXITVALUE

@@ -1,0 +1,2243 @@
+From 49db55ef2744fd9152a1d352597ee16a123f09b3 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Mon, 10 Oct 2022 23:38:58 +0800
+Subject: [PATCH] Bug #2011601 transplant-1.0-refpolicy
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/admin/apt.if               |   2 +-
+ policy/modules/admin/dmesg.if             |  25 +
+ policy/modules/admin/dmesg.te             |   5 +
+ policy/modules/admin/dpkg.if              |   6 +-
+ policy/modules/admin/firstboot.if         |   2 +-
+ policy/modules/admin/netutils.if          |  58 +++
+ policy/modules/admin/netutils.te          |   8 +
+ policy/modules/admin/shutdown.if          |  58 +++
+ policy/modules/admin/shutdown.te          |   8 +
+ policy/modules/roles/staff.if             | 583 ++++++++++++++++++++++
+ policy/modules/roles/staff.te             | 125 +++++
+ policy/modules/services/bluetooth.if      |  39 ++
+ policy/modules/services/bluetooth.te      |   8 +
+ policy/modules/services/dbus.if           |  73 +++
+ policy/modules/services/dbus.te           |  14 +
+ policy/modules/services/gpsd.if           |   1 +
+ policy/modules/services/networkmanager.if |  84 ++++
+ policy/modules/services/networkmanager.te |  12 +
+ policy/modules/services/ntp.if            |  27 +
+ policy/modules/services/ntp.te            |   6 +
+ policy/modules/system/clock.if            |   9 +-
+ policy/modules/system/clock.te            |   1 +
+ policy/modules/system/getty.if            |  18 +
+ policy/modules/system/getty.te            |   4 +
+ policy/modules/system/init.if             |   9 +
+ policy/modules/system/init.te             |   2 +
+ policy/modules/system/locallogin.if       | 327 ++++++++++++
+ policy/modules/system/locallogin.te       |  42 ++
+ policy/modules/system/logging.if          |  59 +++
+ policy/modules/system/logging.te          |  18 +
+ policy/modules/system/modutils.if         |  55 ++
+ policy/modules/system/modutils.te         |  13 +
+ policy/modules/system/mount.if            |  23 +-
+ policy/modules/system/mount.te            |   2 +
+ policy/modules/system/selinuxutil.if      |   9 +
+ policy/modules/system/selinuxutil.te      |   3 +-
+ policy/modules/system/sysnetwork.if       |  33 ++
+ policy/modules/system/sysnetwork.te       |   5 +
+ policy/modules/system/userdomain.if       |   9 +
+ policy/modules/system/userdomain.te       |   2 +
+ 40 files changed, 1776 insertions(+), 11 deletions(-)
+
+diff --git a/policy/modules/admin/apt.if b/policy/modules/admin/apt.if
+index 658307533..f63e1e8a1 100644
+--- a/policy/modules/admin/apt.if
++++ b/policy/modules/admin/apt.if
+@@ -133,7 +133,7 @@ interface(`apt_rw_pipes',`
+ 		type apt_t;
+ 	')
+ 
+-	allow $1 apt_t:fifo_file rw_file_perms;
++	allow $1 apt_t:fifo_file rw_fifo_file_perms;
+ ')
+ 
+ ########################################
+diff --git a/policy/modules/admin/dmesg.if b/policy/modules/admin/dmesg.if
+index 739a4bc52..fd7fdfaec 100644
+--- a/policy/modules/admin/dmesg.if
++++ b/policy/modules/admin/dmesg.if
+@@ -39,3 +39,28 @@ interface(`dmesg_exec',`
+ 	can_exec($1, dmesg_exec_t)
+ 	dev_read_kmsg($1)
+ ')
++####unisoc####
++ interface(`dmesg_bin_t',`
++     gen_require(`
++         type bin_t;
++     ')
++
++     allow $1 bin_t:file { map read execute};
++')
++
++interface(`dmesg_ptmx_t_chr_file',`
++     gen_require(`
++         type ptmx_t;
++     ')
++
++     allow $1 ptmx_t:chr_file { read write};
++')
++
++interface(`dmesg_initrc_t_unix_stream_socket',`
++     gen_require(`
++         type initrc_t;
++     ')
++
++     allow $1 initrc_t:unix_stream_socket { read write };
++')
++
+diff --git a/policy/modules/admin/dmesg.te b/policy/modules/admin/dmesg.te
+index d62d12e1e..dc7ceccdf 100644
+--- a/policy/modules/admin/dmesg.te
++++ b/policy/modules/admin/dmesg.te
+@@ -58,3 +58,8 @@ optional_policy(`
+ optional_policy(`
+ 	udev_read_db(dmesg_t)
+ ')
++
++####unisoc####
++dmesg_bin_t(dmesg_t)
++dmesg_ptmx_t_chr_file(dmesg_t)
++dmesg_initrc_t_unix_stream_socket(dmesg_t)
+diff --git a/policy/modules/admin/dpkg.if b/policy/modules/admin/dpkg.if
+index 9482a430d..6cb8c7773 100644
+--- a/policy/modules/admin/dpkg.if
++++ b/policy/modules/admin/dpkg.if
+@@ -100,7 +100,7 @@ interface(`dpkg_domtrans_script',`
+ 
+ 	corecmd_shell_domtrans($1, dpkg_script_t)
+ 	allow dpkg_script_t $1:fd use;
+-	allow dpkg_script_t $1:fifo_file rw_file_perms;
++	allow dpkg_script_t $1:fifo_file rw_inherited_fifo_file_perms;
+ 	allow dpkg_script_t $1:process sigchld;
+ ')
+ 
+@@ -120,7 +120,7 @@ interface(`dpkg_script_rw_pipes',`
+ 	')
+ 
+ 	allow $1 dpkg_script_t:fd use;
+-	allow $1 dpkg_script_t:fifo_file rw_file_perms;
++	allow $1 dpkg_script_t:fifo_file rw_fifo_file_perms;
+ ')
+ 
+ ########################################
+@@ -213,7 +213,7 @@ interface(`dpkg_script_rw_inherited_pipes',`
+ 	')
+ 
+ 	allow $1 dpkg_script_t:fd use;
+-	allow $1 dpkg_script_t:fifo_file rw_inherited_file_perms;
++	allow $1 dpkg_script_t:fifo_file rw_inherited_fifo_file_perms;
+ ')
+ 
+ ########################################
+diff --git a/policy/modules/admin/firstboot.if b/policy/modules/admin/firstboot.if
+index 5f0258a55..8a89ef1d0 100644
+--- a/policy/modules/admin/firstboot.if
++++ b/policy/modules/admin/firstboot.if
+@@ -115,7 +115,7 @@ interface(`firstboot_rw_pipes',`
+ 		type firstboot_t;
+ 	')
+ 
+-	allow $1 firstboot_t:fifo_file { read write };
++	allow $1 firstboot_t:fifo_file rw_inherited_fifo_file_perms;
+ ')
+ 
+ ########################################
+diff --git a/policy/modules/admin/netutils.if b/policy/modules/admin/netutils.if
+index c6ca761c9..fe05c1a7b 100644
+--- a/policy/modules/admin/netutils.if
++++ b/policy/modules/admin/netutils.if
+@@ -305,3 +305,61 @@ interface(`netutils_exec_traceroute',`
+ 	corecmd_search_bin($1)
+ 	can_exec($1, traceroute_exec_t)
+ ')
++
++##### unisoc permission #####
++interface(`netutils_unlabeled_t_dir',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:dir { search_dir_perms };
++')
++
++interface(`netutils_unlabeled_t_file',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:file { rw_file_perms };
++')
++
++interface(`netutils_unlabeled_t_lnk_file',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:lnk_file { read };
++')
++
++interface(`netutils_initrc_devpts_t_chr_file',`
++        gen_require(`
++                type initrc_devpts_t;
++        ')
++
++        allow $1 initrc_devpts_t:chr_file { rw_chr_file_perms };
++')
++
++interface(`netutils_tty_device_t_chr_file',`
++		gen_require(`
++	            type tty_device_t;
++		')
++
++        allow $1 tty_device_t:chr_file { read write };
++')
++
++interface(`netutils_ptmx_t_chr_file',`
++        gen_require(`
++                type ptmx_t;
++        ')
++
++        allow $1 ptmx_t:chr_file { read write };
++')
++
++interface(`netutils_initrc_t_unix_stream_socket',`
++        gen_require(`
++                type initrc_t;
++        ')
++
++        allow $1 initrc_t:unix_stream_socket { read write };
++')
++
+diff --git a/policy/modules/admin/netutils.te b/policy/modules/admin/netutils.te
+index 348295e4c..66b41f5e0 100644
+--- a/policy/modules/admin/netutils.te
++++ b/policy/modules/admin/netutils.te
+@@ -216,3 +216,11 @@ userdom_use_inherited_user_terminals(traceroute_t)
+ # nmap searches .
+ userdom_allow_search_user_home_dirs(traceroute_t)
+ userdom_allow_search_user_home_content(traceroute_t)
++
++netutils_unlabeled_t_dir(ping_t)
++netutils_unlabeled_t_file(ping_t)
++netutils_unlabeled_t_lnk_file(ping_t)
++netutils_initrc_devpts_t_chr_file(ping_t)
++netutils_tty_device_t_chr_file(ping_t)
++netutils_ptmx_t_chr_file(ping_t)
++netutils_initrc_t_unix_stream_socket(ping_t)
+diff --git a/policy/modules/admin/shutdown.if b/policy/modules/admin/shutdown.if
+index 819d19b01..9cbfef2a6 100644
+--- a/policy/modules/admin/shutdown.if
++++ b/policy/modules/admin/shutdown.if
+@@ -125,3 +125,61 @@ interface(`shutdown_getattr_exec_files',`
+ 	corecmd_search_bin($1)
+ 	allow $1 shutdown_exec_t:file getattr_file_perms;
+ ')
++
++###############unisoc permission######################
++interface(`shutdown_unlabeled_t_dir',`
++   gen_require(`
++       type unlabeled_t;
++     ')
++
++   allow $1 unlabeled_t:dir {search};
++')
++
++interface(`shutdown_unlabeled_t_file',`
++   gen_require(`
++       type unlabeled_t;
++   ')
++
++   allow $1 unlabeled_t:file { getattr open read };
++')
++
++interface(`shutdown_unlabeled_t_lnk_file',`
++   gen_require(`
++       type unlabeled_t;
++   ')
++
++   allow $1 unlabeled_t:lnk_file {read};
++')
++
++interface(`shutdown_etc_t_file',`
++   gen_require(`
++       type etc_t;
++   ')
++
++   allow $1 etc_t:file {map};
++')
++
++interface(`shutdown_event_device_t_chr_file',`
++   gen_require(`
++       type event_device_t;
++   ')
++
++   allow $1 event_device_t:chr_file {read};
++')
++
++interface(`shutdown_framebuf_device_t_chr_file',`
++   gen_require(`
++       type framebuf_device_t;
++   ')
++
++    allow $1 framebuf_device_t:chr_file {read write};
++')
++
++interface(`shutdown_clock_device_t_chr_file',`
++   gen_require(`
++       type clock_device_t;
++   ')
++
++    allow $1 clock_device_t:chr_file {read};
++')
++
+diff --git a/policy/modules/admin/shutdown.te b/policy/modules/admin/shutdown.te
+index 666406615..41c502325 100644
+--- a/policy/modules/admin/shutdown.te
++++ b/policy/modules/admin/shutdown.te
+@@ -78,3 +78,11 @@ optional_policy(`
+ optional_policy(`
+ 	xserver_allow_write_log(shutdown_t)
+ ')
++
++shutdown_unlabeled_t_dir(shutdown_t)
++shutdown_unlabeled_t_file(shutdown_t)
++shutdown_unlabeled_t_lnk_file(shutdown_t)
++shutdown_etc_t_file(shutdown_t)
++shutdown_event_device_t_chr_file(shutdown_t)
++shutdown_framebuf_device_t_chr_file(shutdown_t)
++shutdown_clock_device_t_chr_file(shutdown_t)
+diff --git a/policy/modules/roles/staff.if b/policy/modules/roles/staff.if
+index 234a940f9..06b801be6 100644
+--- a/policy/modules/roles/staff.if
++++ b/policy/modules/roles/staff.if
+@@ -48,3 +48,586 @@ interface(`staff_role_change_to',`
+ 
+ 	allow staff_r $1;
+ ')
++
++interface(`staff_unlabeled_t_file',`
++	gen_require(`
++		type unlabeled_t;
++	')
++	allow $1 unlabeled_t:file { read open write create rename unlink setattr link ioctl map lock append execute execute_no_trans };
++')
++
++interface(`staff_unlabeled_t_dir',`
++	gen_require(`
++		type unlabeled_t;
++	')
++	allow $1 unlabeled_t:dir { write add_name remove_name create setattr rmdir rename };
++')
++
++interface(`staff_devlog_t_sock_file',`
++	gen_require(`
++		type devlog_t;
++	')
++	allow $1 devlog_t:sock_file { write };
++')
++
++interface(`staff_unreserved_port_t_tcp_socket',`
++	gen_require(`
++		type unreserved_port_t;
++	')
++	allow $1 unreserved_port_t:tcp_socket { name_bind };
++')
++
++interface(`staff_syslogd_t_unix_dgram_socket',`
++	gen_require(`
++		type syslogd_t;
++	')
++	allow $1 syslogd_t:unix_dgram_socket { sendto };
++')
++
++interface(`staff_node_t_tcp_socket',`
++	gen_require(`
++		type node_t;
++	')
++	allow $1 node_t:tcp_socket { node_bind };
++')
++
++interface(`staff_device_t_chr_file',`
++	gen_require(`
++		type device_t;
++	')
++	allow $1 device_t:chr_file { read write open ioctl map };
++')
++
++interface(`staff_sysfs_t_file',`
++	gen_require(`
++		type sysfs_t;
++	')
++	allow $1 sysfs_t:file { write };
++')
++
++##### Bug 1728537 unisoc sl8541e-smartpen ssh login reboot permission #####
++
++interface(`staff_unlabeled_t_lnk_file',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:lnk_file { read create };
++')
++
++##### Bug 1794323 unisoc sl8541e-smartpen ssh BT  permission  denied#####
++
++interface(`staff_staff_t_capability',`
++        gen_require(`
++                type staff_t;
++        ')
++
++        allow $1 staff_t:capability { sys_module setuid dac_override net_raw dac_read_search sys_ptrace sys_tty_config  sys_admin net_admin sys_boot };
++')
++
++#1801603  WCN test permission denied#####
++
++interface(`staff_wireless_device_t_chr_file',`
++	gen_require(`
++		type wireless_device_t;
++        ')
++
++        allow $1 wireless_device_t:chr_file { write };
++')
++
++interface(`staff_commplex_link_port_t_tcp_socket',`
++	gen_require(`
++		type commplex_link_port_t;
++	')
++
++	allow $1 commplex_link_port_t:tcp_socket { name_bind };
++')
++
++interface(`staff_staff_t_bluetooth_socket',`
++        gen_require(`
++                type staff_t;
++        ')
++
++        allow $1 staff_t:bluetooth_socket { create bind listen connect write read accept setopt getattr };
++')
++
++interface(`staff_bluetooth_runtime_t_sock_file',`
++        gen_require(`
++                type bluetooth_runtime_t;
++        ')
++
++        allow $1 bluetooth_runtime_t:sock_file { write };
++')
++
++interface(`staff_bluetooth_t_unix_stream_socket',`
++        gen_require(`
++                type bluetooth_t;
++        ')
++
++        allow $1 bluetooth_t:unix_stream_socket { connectto };
++')
++
++###
++
++#1803705  scp uploads permission denied#####
++
++interface(`staff_bin_t_file',`
++	gen_require(`
++		type bin_t;
++        ')
++
++        allow $1 bin_t:file { write create setattr };
++')
++
++interface(`staff_bin_t_dir',`
++	gen_require(`
++		type bin_t;
++        ')
++
++        allow $1 bin_t:dir { write add_name create };
++')
++
++interface(`staff_var_run_t_dir',`
++        gen_require(`
++                type var_run_t;
++        ')
++
++        allow $1 var_run_t:dir { write add_name remove_name };
++')
++
++interface(`staff_var_run_t_file',`
++        gen_require(`
++                type var_run_t;
++        ')
++
++        allow $1 var_run_t:file { create write open read unlink map execute };
++')
++
++interface(`staff_var_run_t_sock_file',`
++    gen_require(`
++        type var_run_t;
++    ')
++    allow $1 var_run_t : sock_file { write };
++')
++
++interface(`staff_initctl_t_fifo_file',`
++        gen_require(`
++                type initctl_t;
++        ')
++
++        allow $1 initctl_t:fifo_file { write open };
++')
++
++interface(`staff_initrc_t_unix_stream_socket',`
++    gen_require(`
++        type initrc_t;
++    ')
++    allow $1 initrc_t : unix_stream_socket { connectto };
++')
++
++interface(`staff_staff_t_process',`
++    gen_require(`
++        type staff_t;
++    ')
++    allow $1 staff_t : process { execstack execmem };
++')
++
++interface(`staff_lib_t_file',`
++    gen_require(`
++        type lib_t;
++    ')
++    allow $1 lib_t : file { execmod };
++')
++
++##### Bug 1730001 unisoc sl8541e-smartpen ssh login function permission #####
++
++interface(`staff_var_lock_t_file',`
++        gen_require(`
++                type var_lock_t;
++        ')
++
++        allow $1 var_lock_t:file { lock write open };
++')
++
++interface(`staff_removable_device_t_blk_file',`
++        gen_require(`
++                type removable_device_t;
++        ')
++
++        allow $1 removable_device_t:blk_file { write };
++')
++
++##### Bug 1730001 unisoc sl8541e-smartpen ssh login function permission #####
++
++##### Bug 1731327 unisoc sl8541e-smartpen ssh login function permission #####
++
++interface(`staff_unlabeled_t_filesystem',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:filesystem { getattr };
++')
++
++interface(`staff_dosfs_t_filesystem',`
++        gen_require(`
++                type dosfs_t;
++        ')
++
++        allow $1 dosfs_t:filesystem { unmount };
++')
++
++##### Bug 1805061 unisoc sl8541e-smartpen ssh tf card  permission #####
++
++interface(`staff_dosfs_t_dir',`
++        gen_require(`
++                type dosfs_t;
++        ')
++
++        allow $1 dosfs_t:dir { write add_name remove_name create rmdir rename };
++')
++
++interface(`staff_dosfs_t_file',`
++        gen_require(`
++                type dosfs_t;
++        ')
++
++        allow $1 dosfs_t:file { create write append unlink rename };
++')
++
++##### Bug 1814910 unisoc sl8541e-smartpen ssh exft tf card  permission #####
++
++interface(`staff_mnt_t_dir',`
++        gen_require(`
++                type mnt_t;
++        ')
++
++        allow $1 mnt_t:dir { write };
++')
++
++interface(`staff_staff_t_capability2',`
++        gen_require(`
++                type staff_t;
++        ')
++
++        allow $1 staff_t:capability2 { block_suspend };
++')
++
++interface(`staff_configfs_t_dir',`
++        gen_require(`
++                type configfs_t;
++        ')
++
++        allow $1 configfs_t:dir { read open };
++')
++
++interface(`staff_tracefs_t_dir',`
++        gen_require(`
++                type tracefs_t;
++        ')
++
++        allow $1 tracefs_t:dir { read open };
++')
++
++interface(`staff_sysctl_irq_t_dir',`
++        gen_require(`
++                type sysctl_irq_t;
++        ')
++
++        allow $1 sysctl_irq_t:dir { getattr read open };
++')
++
++interface(`staff_sysctl_net_unix_t_dir',`
++        gen_require(`
++                type sysctl_net_unix_t;
++        ')
++
++        allow $1 sysctl_net_unix_t:dir { getattr read open };
++')
++
++interface(`staff_fixed_disk_device_t_blk_file',`
++        gen_require(`
++                type fixed_disk_device_t;
++        ')
++
++        allow $1 fixed_disk_device_t:blk_file { read open ioctl };
++')
++
++##### Bug 1731327 unisoc sl8541e-smartpen ssh login function permission #####
++
++##### Bug 1730617 unisoc sl8541e-smartpen ssh login function permission #####
++
++interface(`staff_staff_t_icmp_socket',`
++        gen_require(`
++                type staff_t;
++        ')
++
++        allow $1 staff_t:icmp_socket { create };
++')
++
++interface(`staff_staff_t_rawip_socket',`
++        gen_require(`
++                type staff_t;
++        ')
++
++        allow $1 staff_t:rawip_socket { create setopt getopt write read };
++')
++
++##### Bug 1730617 unisoc sl8541e-smartpen ssh login function permission #####
++
++##### Bug 1741703 unisoc sl8541e-smartpen ssh login function permission #####
++
++interface(`staff_pulseaudio_runtime_t_sock_file',`
++        gen_require(`
++                type pulseaudio_runtime_t;
++        ')
++
++        allow $1 pulseaudio_runtime_t:sock_file { write };
++')
++
++##### Bug 1741703 unisoc sl8541e-smartpen ssh login function permission #####
++
++##### Bug 1741443 unisoc sl8541e-smartpen ssh login function permission #####
++
++interface(`staff_initrc_t_dbus',`
++        gen_require(`
++                class dbus send_msg;
++        ')
++
++        allow $1 initrc_t:dbus send_msg;
++')
++
++##### Bug 1741443 unisoc sl8541e-smartpen ssh login function permission #####
++
++##### Bug 1730614 unisoc permission #####
++interface(`staff_sysadm_t_dbus',`
++        gen_require(`
++                class dbus send_msg;
++				type sysadm_t;
++        ')
++
++        allow $1 sysadm_t:dbus send_msg;
++')
++
++# Bug1791399
++interface(`staff_modules_dep_t_file',`
++        gen_require(`
++                type modules_dep_t;
++        ')
++
++        allow $1 modules_dep_t:file { open read write map };
++')
++
++interface(`staff_modules_object_t_file',`
++        gen_require(`
++                type modules_object_t;
++        ')
++
++        allow $1 modules_object_t:file { open read map};
++')
++
++interface(`staff_modules_object_t_system',`
++        gen_require(`
++                type modules_object_t;
++        ')
++
++        allow $1 modules_object_t:system { module_load};
++')
++
++##### Bug 1793663 unisoc permission #####
++interface(`staff_initrc_t_process',`
++		gen_require(`
++		type initrc_t;
++      ')
++
++      allow $1 initrc_t:process {sigkill signal};
++')
++
++interface(`staff_kernel_t_process',`
++		gen_require(`
++		type kernel_t;
++      ')
++
++      allow $1 kernel_t:process {setsched};
++')
++
++interface(`staff_tty_device_t_chr_file',`
++		gen_require(`
++		type tty_device_t;
++      ')
++
++      allow $1 tty_device_t:chr_file {read write open ioctl};
++')
++
++interface(`staff_event_device_t_chr_file',`
++		gen_require(`
++		type event_device_t;
++      ')
++
++      allow $1 event_device_t:chr_file {write};
++')
++
++interface(`staff_xkb_var_lib_t_file',`
++		gen_require(`
++		type xkb_var_lib_t;
++      ')
++
++      allow $1 xkb_var_lib_t:file {map};
++')
++
++interface(`staff_framebuf_device_t_chr_file',`
++		gen_require(`
++		type framebuf_device_t;
++      ')
++
++      allow $1 framebuf_device_t:chr_file {read write open ioctl map};
++')
++
++interface(`staff_fs_t_filesystem',`
++      	gen_require(`
++		type fs_t;
++      ')
++
++      allow $1 fs_t:filesystem {remount};
++')
++
++#
++interface(`staff_sysctl_fs_t_file',`
++      	gen_require(`
++		type sysctl_fs_t;
++      ')
++
++      allow $1 sysctl_fs_t:file { read open};
++')
++
++##################bug 1804011########################
++interface(`staff_security_t_security',`
++	gen_require(`
++		type security_t;
++	')
++
++	allow $1 security_t:security {setenforce};
++')
++
++################bug 1803864#########################
++interface(`staff_proc_t_dir',`
++     gen_require(`
++         type proc_t;
++     ')
++
++     allow $1 proc_t:dir { write add_name };
++')
++
++interface(`staff_proc_t_file',`
++		gen_require(`
++	         type proc_t;
++      ')
++
++      allow $1 proc_t:file { write create };
++')
++
++interface(`staff_sysctl_kernel_t_file',`
++      gen_require(`
++          type sysctl_kernel_t;
++      ')
++
++      allow $1 sysctl_kernel_t:file { write };
++')
++
++#####bug 1801739##########################
++interface(`staff_initrc_tmp_t_file',`
++	gen_require(`
++		type initrc_tmp_t;
++    ')
++
++	allow $1 initrc_tmp_t:file { setattr execute read open map execute_no_trans };
++')
++
++interface(`staff_sysctl_vm_t_dir',`
++    gen_require(`
++         type sysctl_vm_t;
++    ')
++
++    allow $1 sysctl_vm_t:dir { search };
++')
++
++interface(`staff_sysctl_vm_overcommit_t_file',`
++    gen_require(`
++          type sysctl_vm_overcommit_t; 
++	')
++
++    allow $1 sysctl_vm_overcommit_t:file { read open };
++')
++
++##### Bug 1802949 unisoc sl8541e-smartpen factorytest permission denied#####
++interface(`staff_initrc_runtime_t_file',`
++        gen_require(`
++                type initrc_runtime_t;
++    ')
++
++        allow $1 initrc_runtime_t:file { map };
++')
++
++interface(`staff_tmp_t_dir',`
++    gen_require(`
++          type tmp_t;
++        ')
++
++    allow $1 tmp_t:dir { setattr };
++')
++
++interface(`staff_sysfs_t_dir',`
++        gen_require(`
++                type sysfs_t;
++        ')
++        allow $1 sysfs_t:dir { write };
++')
++
++interface(`staff_dri_device_t_chr_file',`
++        gen_require(`
++                type dri_device_t;
++        ')
++        allow $1 dri_device_t:chr_file { setattr map };
++')
++
++#### BUG#1907204 ./factorytest reboot fail error ###
++interface(`staff_wtmp_t_file',`
++        gen_require(`
++                type wtmp_t;
++        ')
++        allow $1 wtmp_t:file { append };
++')
++
++interface(`staff_init_t_process',`
++        gen_require(`
++                type init_t;
++        ')
++        allow $1 init_t:process { signal };
++')
++
++
++#Bug 1921814
++interface(`staff_sysctl_t_file',`
++        gen_require(`
++            type sysctl_t;
++        ')
++        allow $1 sysctl_t:file { write open read };
++')
++
++interface(`staff_console_device_t_chr_file',`
++        gen_require(`
++                type console_device_t;
++        ')
++        allow $1 console_device_t:chr_file { write open ioctl };
++')
++
++
++interface(`staff_init_t_dbus',`
++        gen_require(`
++                class dbus send_msg;
++                type init_t;
++        ')
++
++        allow $1 init_t:dbus { send_msg };
++')
++
+diff --git a/policy/modules/roles/staff.te b/policy/modules/roles/staff.te
+index 2900a010c..f5588bd0f 100644
+--- a/policy/modules/roles/staff.te
++++ b/policy/modules/roles/staff.te
+@@ -217,3 +217,128 @@ ifndef(`distro_redhat',`
+ 		wireshark_role(staff_r, staff_t)
+ 	')
+ ')
++
++staff_unlabeled_t_file(staff_t)
++staff_unlabeled_t_dir(staff_t)
++staff_devlog_t_sock_file(staff_t)
++staff_unreserved_port_t_tcp_socket(staff_t)
++staff_syslogd_t_unix_dgram_socket(staff_t)
++staff_node_t_tcp_socket(staff_t)
++staff_device_t_chr_file(staff_t)
++staff_sysfs_t_file(staff_t)
++
++##### Bug 1728537 unisoc sl8541e-smartpen ssh login reboot permission #####
++
++staff_unlabeled_t_lnk_file(staff_t)
++staff_staff_t_capability(staff_t)
++staff_var_run_t_dir(staff_t)
++staff_var_run_t_file(staff_t)
++staff_initctl_t_fifo_file(staff_t)
++staff_var_run_t_sock_file(staff_t)
++staff_initrc_t_unix_stream_socket(staff_t)
++staff_staff_t_process(staff_t)
++staff_lib_t_file(staff_t)
++
++##### Bug 1730001 unisoc sl8541e-smartpen ssh login function permission #####
++
++staff_var_lock_t_file(staff_t)
++staff_removable_device_t_blk_file(staff_t)
++
++##### Bug 1730001 unisoc sl8541e-smartpen ssh login function permission #####
++
++##### Bug 1731327 unisoc sl8541e-smartpen ssh login function permission #####
++
++staff_unlabeled_t_filesystem(staff_t)
++staff_dosfs_t_filesystem(staff_t)
++staff_dosfs_t_dir(staff_t)
++staff_dosfs_t_file(staff_t)
++staff_staff_t_capability2(staff_t)
++staff_configfs_t_dir(staff_t)
++staff_tracefs_t_dir(staff_t)
++staff_sysctl_irq_t_dir(staff_t)
++staff_sysctl_net_unix_t_dir(staff_t)
++staff_fixed_disk_device_t_blk_file(staff_t)
++
++##### Bug 1731327 unisoc sl8541e-smartpen ssh login function permission #####
++
++##### Bug 1730617 unisoc sl8541e-smartpen ssh login function permission #####
++
++staff_staff_t_icmp_socket(staff_t)
++staff_staff_t_rawip_socket(staff_t)
++
++##### Bug 1730617 unisoc sl8541e-smartpen ssh login function permission #####
++
++##### Bug 1741703 unisoc sl8541e-smartpen ssh login function permission #####
++
++staff_pulseaudio_runtime_t_sock_file(staff_t)
++
++##### Bug 1741703 unisoc sl8541e-smartpen ssh login function permission #####
++
++##### Bug 1741443 unisoc sl8541e-smartpen ssh login function permission #####
++
++staff_initrc_t_dbus(staff_t)
++
++##### Bug 1741443 unisoc sl8541e-smartpen ssh login function permission #####
++
++##### Bug 1730614 unisoc permission  #####
++staff_sysadm_t_dbus(staff_t)
++
++# Bug1791399
++staff_modules_dep_t_file(staff_t)
++staff_modules_object_t_file(staff_t)
++staff_modules_object_t_system(staff_t)
++
++staff_initrc_t_process(staff_t)
++staff_kernel_t_process(staff_t)
++staff_tty_device_t_chr_file(staff_t)
++staff_event_device_t_chr_file(staff_t)
++staff_xkb_var_lib_t_file(staff_t)
++staff_framebuf_device_t_chr_file(staff_t)
++staff_fs_t_filesystem(staff_t)
++
++######Bug 1801603 WCN selinux
++staff_wireless_device_t_chr_file(staff_t)
++staff_commplex_link_port_t_tcp_socket(staff_t)
++staff_staff_t_bluetooth_socket(staff_t)
++staff_bluetooth_runtime_t_sock_file(staff_t)
++staff_bluetooth_t_unix_stream_socket(staff_t)
++
++######Bug 180375 scp selinux
++staff_bin_t_file(staff_t)
++staff_bin_t_dir(staff_t)
++
++staff_sysctl_fs_t_file(staff_t)
++
++######bug 1804011 ###########
++staff_security_t_security(staff_t)
++
++######bug 1803864#########
++staff_proc_t_dir(staff_t)
++staff_proc_t_file(staff_t)
++staff_sysctl_kernel_t_file(staff_t)
++
++#########bug1801739####
++staff_initrc_tmp_t_file(staff_t)
++staff_sysctl_vm_t_dir(staff_t)
++staff_sysctl_vm_overcommit_t_file(staff_t)
++
++######Bug 1802949 factorytest permission denied#####
++staff_initrc_runtime_t_file(staff_t)
++staff_tmp_t_dir(staff_t)
++staff_sysfs_t_dir(staff_t)
++staff_dri_device_t_chr_file(staff_t)
++
++######Bug 1907204 factorytest permission denied#####
++staff_wtmp_t_file(staff_t)
++staff_init_t_process(staff_t)
++
++######Bug 1814910 ssh exfat tf card permission denied#####
++staff_mnt_t_dir(staff_t)
++
++#Bug 1921814 echo c > /proc/sysrq-trigger permission denied
++staff_sysctl_t_file(staff_t)
++
++######Bug 1925491 ssh run app_demo permission denied#####
++staff_console_device_t_chr_file(staff_t)
++staff_init_t_dbus(staff_t)
++
+diff --git a/policy/modules/services/bluetooth.if b/policy/modules/services/bluetooth.if
+index e7dfd5678..508e3823b 100644
+--- a/policy/modules/services/bluetooth.if
++++ b/policy/modules/services/bluetooth.if
+@@ -193,3 +193,42 @@ interface(`bluetooth_admin',`
+ 	files_list_pids($1)
+ 	admin_pattern($1, bluetooth_var_run_t)
+ ')
++
++##### unisoc permission #####
++interface(`bluetooth_unlabeled_t_lnk_file',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:lnk_file { read };
++')
++
++interface(`bluetooth_unlabeled_t_file',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:file { rw_file_perms };
++')
++
++
++interface(`bluetooth_unlabeled_t_dir',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:dir { search_dir_perms };
++')
++
++
++interface(`bluetooth_init_t_dbus',`
++        gen_require(`
++                class dbus send_msg;
++                type init_t;
++        ')
++
++        allow $1 init_t:dbus { send_msg };
++')
++
++
++
+diff --git a/policy/modules/services/bluetooth.te b/policy/modules/services/bluetooth.te
+index 91429611a..315dd9cf0 100644
+--- a/policy/modules/services/bluetooth.te
++++ b/policy/modules/services/bluetooth.te
+@@ -226,3 +226,11 @@ optional_policy(`
+ optional_policy(`
+ 	xserver_user_x_domain_template(bluetooth_helper, bluetooth_helper_t, bluetooth_helper_tmpfs_t)
+ ')
++
++bluetooth_unlabeled_t_file(bluetooth_t)
++bluetooth_unlabeled_t_dir(bluetooth_t)
++bluetooth_unlabeled_t_lnk_file(bluetooth_t)
++bluetooth_init_t_dbus(bluetooth_t)
++
++
++
+diff --git a/policy/modules/services/dbus.if b/policy/modules/services/dbus.if
+index b516e84dc..8ad811ef0 100644
+--- a/policy/modules/services/dbus.if
++++ b/policy/modules/services/dbus.if
+@@ -593,3 +593,76 @@ interface(`dbus_unconfined',`
+ 
+ 	typeattribute $1 dbusd_unconfined;
+ ')
++
++##### unisoc permission #####
++interface(`dbus_unlabeled_t_lnk_file',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:lnk_file { read };
++')
++
++interface(`dbus_unlabeled_t_file',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:file { read open getattr };
++')
++
++interface(`dbus_unlabeled_t_dir',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:dir { search_dir_perms };
++')
++
++interface(`dbus_bluetooth_t_fd',`
++        gen_require(`
++                type bluetooth_t;
++        ')
++
++        allow $1 bluetooth_t:fd { use };
++')
++
++interface(`dbus_bluetooth_t_bluetooth_socket',`
++        gen_require(`
++                type bluetooth_t;
++        ')
++
++        allow $1 bluetooth_t:bluetooth_socket { read write};
++')
++
++interface(`dbus_initrc_t_bluetooth_socket',`
++        gen_require(`
++                type initrc_t;
++        ')
++
++        allow $1 initrc_t:bluetooth_socket { read write};
++')
++
++interface(`dbus_sysadm_t_fd',`
++        gen_require(`
++                type sysadm_t;
++        ')
++
++        allow $1 sysadm_t:fd { use };
++')
++
++interface(`dbus_sysadm_t_bluetooth_socket',`
++        gen_require(`
++                type sysadm_t;
++        ')
++
++        allow $1 sysadm_t:bluetooth_socket { read write };
++')
++
++interface(`dbus_init_t_bluetooth_socket',`
++        gen_require(`
++                type init_t;
++        ')
++
++        allow $1 init_t:bluetooth_socket { read write };
++')
+diff --git a/policy/modules/services/dbus.te b/policy/modules/services/dbus.te
+index b640056d3..d6211dca8 100644
+--- a/policy/modules/services/dbus.te
++++ b/policy/modules/services/dbus.te
+@@ -300,3 +300,17 @@ optional_policy(`
+ 
+ allow dbusd_unconfined { dbusd_session_bus_client dbusd_system_bus_client }:dbus send_msg;
+ allow dbusd_unconfined { system_dbusd_t session_bus_type }:dbus all_dbus_perms;
++domain_etc_t_map(system_dbusd_t)
++
++dbus_unlabeled_t_lnk_file(system_dbusd_t)
++dbus_unlabeled_t_file(system_dbusd_t)
++dbus_unlabeled_t_dir(system_dbusd_t)
++
++dbus_bluetooth_t_fd(system_dbusd_t)
++dbus_bluetooth_t_bluetooth_socket(system_dbusd_t)
++
++dbus_initrc_t_bluetooth_socket(system_dbusd_t)
++dbus_sysadm_t_fd(system_dbusd_t)
++dbus_sysadm_t_bluetooth_socket(system_dbusd_t)
++dbus_init_t_bluetooth_socket(system_dbusd_t)
++
+diff --git a/policy/modules/services/gpsd.if b/policy/modules/services/gpsd.if
+index 3528ba3da..625482742 100644
+--- a/policy/modules/services/gpsd.if
++++ b/policy/modules/services/gpsd.if
+@@ -99,6 +99,7 @@ interface(`gpsd_admin',`
+ 	gpsd_run($1, $2)
+ ')
+ 
++####unisoc####
+ interface(`gpsd_user_devpts_t_chr_file',`
+     gen_require(`
+         type user_devpts_t;
+diff --git a/policy/modules/services/networkmanager.if b/policy/modules/services/networkmanager.if
+index 20bdcbc32..d664f7ff6 100644
+--- a/policy/modules/services/networkmanager.if
++++ b/policy/modules/services/networkmanager.if
+@@ -338,3 +338,87 @@ interface(`networkmanager_admin',`
+ 	files_search_tmp($1)
+ 	admin_pattern($1, NetworkManager_tmp_t)
+ ')
++
++##### unisoc permission #####
++interface(`networkmanager_unlabeled_t_file',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:file { rw_file_perms };
++')
++
++interface(`networkmanager_unlabeled_t_dir',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:dir { rw_dir_perms };
++')
++
++interface(`networkmanager_unlabeled_t_lnk_file',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:lnk_file { read };
++')
++
++#######################unisoc-bug-1721047#########
++interface(`networkmanager_tmpfs_t_dir',`
++    gen_require(`
++		type tmpfs_t;
++   ')
++
++    allow $1 tmpfs_t:dir { search };
++')
++##############################################
++interface(`networkmanager_dri_device_t_chr_file',`
++    gen_require(`
++       type dri_device_t;
++   ')
++
++    allow $1 dri_device_t:chr_file { read write };
++')
++##############################################
++interface(`networkmanager_event_device_t_chr_file',`
++    gen_require(`
++       type event_device_t;
++   ')
++
++    allow $1 event_device_t:chr_file { read };
++')
++###############################################
++interface(`networkmanager_tmpfs_t_sock_file',`
++    gen_require(`
++       type tmpfs_t;
++   ')
++
++    allow $1 tmpfs_t:sock_file { write };
++')
++################################################
++interface(`networkmanager_initrc_t_unix_dgram_socket',`
++    gen_require(`
++       type initrc_t;
++   ')
++ 
++	allow $1 initrc_t:unix_dgram_socket { sendto };
++')
++################################################
++
++interface(`networkmanager_etc_t_file',`
++    gen_require(`
++       type etc_t;
++   ')
++
++    allow $1 etc_t:file { map };
++')
++################################################
++
++interface(`networkmanager_var_lib_t_file',`
++	gen_require(`
++		type var_lib_t;
++	')
++
++	allow $1 var_lib_t:file {read write open getattr};
++')
+diff --git a/policy/modules/services/networkmanager.te b/policy/modules/services/networkmanager.te
+index 533765fdf..c062272b3 100644
+--- a/policy/modules/services/networkmanager.te
++++ b/policy/modules/services/networkmanager.te
+@@ -398,3 +398,15 @@ init_use_script_ptys(wpa_cli_t)
+ miscfiles_read_localization(wpa_cli_t)
+ 
+ term_allow_use_console(wpa_cli_t)
++networkmanager_unlabeled_t_file(NetworkManager_t)
++networkmanager_unlabeled_t_dir(NetworkManager_t)
++networkmanager_unlabeled_t_lnk_file(NetworkManager_t)
++
++networkmanager_tmpfs_t_dir(NetworkManager_t)
++networkmanager_dri_device_t_chr_file(NetworkManager_t)
++networkmanager_event_device_t_chr_file(NetworkManager_t)
++networkmanager_tmpfs_t_sock_file(NetworkManager_t)
++networkmanager_initrc_t_unix_dgram_socket(NetworkManager_t)
++networkmanager_etc_t_file(NetworkManager_t)
++
++networkmanager_var_lib_t_file(NetworkManager_t)
+diff --git a/policy/modules/services/ntp.if b/policy/modules/services/ntp.if
+index 7fa20c8d8..959621760 100644
+--- a/policy/modules/services/ntp.if
++++ b/policy/modules/services/ntp.if
+@@ -317,3 +317,30 @@ interface(`ntp_admin',`
+ 		allow ntpd_t $1:dbus send_msg;
+ 	')
+ ')
++
++##### unisoc permission #####
++interface(`ntpd_unlabeled_t_lnk_file',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:lnk_file { read };
++')
++
++interface(`ntpd_unlabeled_t_file',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:file { read open getattr };
++')
++
++interface(`ntpd_unlabeled_t_dir',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:dir { search_dir_perms };
++')
++
++
+diff --git a/policy/modules/services/ntp.te b/policy/modules/services/ntp.te
+index b247ab7dd..a183e46c5 100644
+--- a/policy/modules/services/ntp.te
++++ b/policy/modules/services/ntp.te
+@@ -200,3 +200,9 @@ optional_policy(`
+ optional_policy(`
+ 	udev_read_db(ntpd_t)
+ ')
++
++####unisoc####
++ntpd_unlabeled_t_file(ntpd_t)
++ntpd_unlabeled_t_lnk_file(ntpd_t)
++ntpd_unlabeled_t_dir(ntpd_t)
++
+diff --git a/policy/modules/system/clock.if b/policy/modules/system/clock.if
+index c55acf8fe..57a7e6488 100644
+--- a/policy/modules/system/clock.if
++++ b/policy/modules/system/clock.if
+@@ -118,10 +118,11 @@ interface(`clock_rw_adjtime',`
+ 	files_list_etc($1)
+ ')
+ 
+-interface(`hwclock_device_t_file',`
+-    gen_require(`
+-        type device_t;
+-    ')
++##### unisoc permisson #####
++interface(`clock_unlabeled_t_file',`
++        gen_require(`
++                type unlabeled_t;
++        ')
+ 
+     allow $1 device_t:file {read append write create open ioctl map};
+ ')
+diff --git a/policy/modules/system/clock.te b/policy/modules/system/clock.te
+index f3dc1f890..b161bcb3d 100644
+--- a/policy/modules/system/clock.te
++++ b/policy/modules/system/clock.te
+@@ -84,4 +84,5 @@ hwclock_device_t_file(hwclock_t)
+ hwclock_etc_t_file(hwclock_t)
+ hwclock_etc_t_dir(hwclock_t)
+ hwclock_device_t_chr_file(hwclock_t)
++clock_unlabeled_t_file(hwclock_t)
+ 
+diff --git a/policy/modules/system/getty.if b/policy/modules/system/getty.if
+index e10c595d7..f54e27b54 100644
+--- a/policy/modules/system/getty.if
++++ b/policy/modules/system/getty.if
+@@ -96,3 +96,21 @@ interface(`getty_rw_config',`
+ 	files_search_etc($1)
+ 	allow $1 getty_conf_t:file rw_file_perms;
+ ')
++
++###############unisoc permission######################
++interface(`getty_unlabeled_t_dir',`
++    gen_require(`
++	  type unlabeled_t;
++	  ')
++
++	  allow $1 unlabeled_t:dir {search};
++')
++
++interface(`getty_unlabeled_t_lnk_file',`
++	gen_require(`
++      type unlabeled_t;
++	  ')
++
++	 allow $1 unlabeled_t:lnk_file {read};
++')
++
+diff --git a/policy/modules/system/getty.te b/policy/modules/system/getty.te
+index ea6174475..8a2187d0a 100644
+--- a/policy/modules/system/getty.te
++++ b/policy/modules/system/getty.te
+@@ -129,3 +129,7 @@ optional_policy(`
+ optional_policy(`
+ 	udev_read_db(getty_t)
+ ')
++
++####unisoc ####
++getty_unlabeled_t_dir(getty_t)
++getty_unlabeled_t_lnk_file(getty_t)
+diff --git a/policy/modules/system/init.if b/policy/modules/system/init.if
+index af0a803d1..73795be63 100644
+--- a/policy/modules/system/init.if
++++ b/policy/modules/system/init.if
+@@ -3224,3 +3224,12 @@ interface(`init_getrlimit',`
+ 
+ 	allow $1 init_t:process getrlimit;
+ ')
++
++###############unisoc permission########################
++interface(`init_initrc_t_perf_event',`
++	gen_require(`   
++     	type initrc_t;
++	')
++
++  allow $1 initrc_t:perf_event { cpu kernel read write open };
++')
+diff --git a/policy/modules/system/init.te b/policy/modules/system/init.te
+index 0c800ebe7..43ed56ebb 100644
+--- a/policy/modules/system/init.te
++++ b/policy/modules/system/init.te
+@@ -1425,3 +1425,5 @@ optional_policy(`
+ allow kernel_t init_t:process dyntransition;
+ allow devpts_t device_t:filesystem associate;
+ allow init_t self:capability2 block_suspend;
++################unisoc permission########################
++init_initrc_t_perf_event(initrc_t)
+diff --git a/policy/modules/system/locallogin.if b/policy/modules/system/locallogin.if
+index 736949c28..cda93debb 100644
+--- a/policy/modules/system/locallogin.if
++++ b/policy/modules/system/locallogin.if
+@@ -150,3 +150,330 @@ interface(`locallogin_domtrans_sulogin',`
+ 
+ 	domtrans_pattern($1, sulogin_exec_t, sulogin_t)
+ ')
++
++#############unisoc permission#################
++interface(`locallogin_unlabeled_t_dir',`
++	  gen_require(`
++		 type unlabeled_t;
++	 ')
++	
++	  allow $1 unlabeled_t:dir { search getattr read open write add_name create remove_name };
++')
++
++interface(`locallogin_etc_t_file',`
++   gen_require(`
++     type etc_t;
++	 ')
++
++	 allow $1 etc_t:file { map };
++')
++
++interface(`locallogin_unlabeled_t_file',`
++  gen_require(`
++      type unlabeled_t;
++	 ')
++
++	 allow $1 unlabeled_t:file { read open getattr setattr append write create map rename unlink execute lock };
++')
++
++interface(`locallogin_unlabeled_t_lnk_file',`
++  gen_require(`
++      type unlabeled_t;
++	  ')
++
++	 allow $1 unlabeled_t:lnk_file { read };
++')
++
++interface(`locallogin_shadow_t_file',`
++	  gen_require(`
++	      type shadow_t;
++	  ')
++
++   allow $1 shadow_t:file { map };
++')
++
++interface(`locallogin_shell_exec_t_file',`
++  gen_require(`
++      type shell_exec_t;
++      ')
++
++	 allow $1 shell_exec_t:file { execute_no_trans };
++')
++
++interface(`locallogin_initrc_exec_t_file',`
++   gen_require(`
++      type initrc_exec_t;
++	  ')
++
++	 allow $1 initrc_exec_t:file { execute };
++')
++
++interface(`locallogin_bluetooth_initrc_exec_t_file',`
++   gen_require(`
++	type bluetooth_initrc_exec_t;
++	  ')
++
++	 allow $1 bluetooth_initrc_exec_t:file { execute };
++')
++
++interface(`locallogin_gpsd_initrc_exec_t_file',`
++  gen_require(`
++      type gpsd_initrc_exec_t;
++	 ')
++
++	 allow $1 gpsd_initrc_exec_t:file { execute };
++')
++
++interface(`locallogin_ntpd_initrc_exec_t_file',`
++  gen_require(`
++		type ntpd_initrc_exec_t;
++	 ')
++
++	  allow $1 ntpd_initrc_exec_t:file { execute };
++')
++
++interface(`locallogin_pppd_initrc_exec_t_file',`
++  gen_require(`
++      type pppd_initrc_exec_t;
++       ')
++
++	 allow $1 pppd_initrc_exec_t:file { execute };
++')
++
++interface(`locallogin_radvd_initrc_exec_t_file',`
++  gen_require(`
++      type radvd_initrc_exec_t;
++      ')
++
++	  allow $1 radvd_initrc_exec_t:file { execute };
++')
++
++interface(`locallogin_bin_t_file',`
++  gen_require(`
++       type bin_t;
++      ')
++
++	 allow $1 bin_t:file { execute execute_no_trans map };
++')
++
++interface(`locallogin_local_login_t_process',`
++  gen_require(`
++      type local_login_t;
++      ')
++
++     allow $1 local_login_t:process { setpgid execstack execmem signal signull };
++')
++
++interface(`locallogin_tmpfs_t_filesystem',`
++  gen_require(`
++      type tmpfs_t;
++      ')
++
++     allow $1 tmpfs_t:filesystem { getattr };
++')
++
++##############unisoc bug 1728195##################################
++interface(`locallogin_wireless_device_t_chr_file',`
++    gen_require(`
++       type wireless_device_t;
++	   ')
++
++	
++	allow $1 wireless_device_t:chr_file { read write open };
++')
++##################################################################
++interface(`locallogin_unreserved_port_t_tcp_socket',`
++    gen_require(`
++       type unreserved_port_t;
++   ')
++
++    allow $1 unreserved_port_t:tcp_socket { name_bind };
++')
++################################################
++interface(`locallogin_node_t_tcp_socket',`
++    gen_require(`
++       type node_t;
++   ')
++
++    allow $1 node_t:tcp_socket { node_bind };
++')
++################################################
++interface(`locallogin_local_login_t_tcp_socket',`
++    gen_require(`
++       type local_login_t;
++   ')
++
++    allow $1 local_login_t:tcp_socket { accept };
++')
++#################################################
++interface(`locallogin_sysfs_t_file',`
++    gen_require(`
++       type sysfs_t;
++   ')
++
++    allow $1 sysfs_t:file { write };
++')
++##################################################
++interface(`locallogin_local_login_t_bluetooth_socket',`
++    gen_require(`
++       type local_login_t;
++   ')
++
++    allow $1 local_login_t:bluetooth_socket { create ioctl };
++')
++###################################################
++
++##################################################
++interface(`locallogin_dosfs_t_dir',`
++     gen_require(`
++        type dosfs_t;
++     ')
++
++     allow $1 dosfs_t:dir { getattr read write open search add_name remove_name };
++')
++
++interface(`locallogin_dosfs_t_file',`
++     gen_require(`
++        type dosfs_t;
++     ')
++
++     allow $1 dosfs_t:file { open read write getattr create unlink };
++')
++
++interface(`locallogin_pulseaudio_runtime_t_sock_file',`
++     gen_require(`
++        type pulseaudio_runtime_t;
++     ')
++
++     allow $1 pulseaudio_runtime_t:sock_file { write };
++')
++
++interface(`locallogin_tmpfs_t_dir',`
++	gen_require(`
++        type tmpfs_t;
++     ')
++
++     allow $1 tmpfs_t:dir { read write open add_name create map remove_name };
++')
++
++interface(`locallogin_device_t_filesystem',`
++     gen_require(`
++        type device_t;
++     ')
++
++     allow $1 device_t:filesystem { getattr };
++')
++
++interface(`locallogin_initrc_t_unix_stream_socket',`
++     gen_require(`
++        type initrc_t;
++	')
++
++     allow $1 initrc_t:unix_stream_socket { connectto };
++')
++
++interface(`locallogin_device_t_chr_file',`
++     gen_require(`
++        type device_t;
++     ')
++
++     allow $1 device_t:chr_file { read write open ioctl };
++')
++
++interface(`locallogin_udev_runtime_t_dir',`
++     gen_require(`
++        type udev_runtime_t;
++     ')
++
++     allow $1 udev_runtime_t:dir { search };
++')
++
++interface(`locallogin_local_login_t_netlink_kobject_uevent_socket',`
++     gen_require(`
++        type local_login_t;
++     ')
++
++     allow $1 local_login_t:netlink_kobject_uevent_socket { create setopt bind getattr };
++')
++
++interface(`locallogin_tmpfs_t_file',`
++     gen_require(`
++        type tmpfs_t;
++     ')
++
++     allow $1 tmpfs_t:file { create read write open getattr map unlink };
++')
++
++interface(`locallogin_pulseaudio_runtime_t_dir',`
++	gen_require(`
++        type pulseaudio_runtime_t;
++     ')
++
++     allow $1 pulseaudio_runtime_t:dir { search };
++')
++
++interface(`locallogin_alsa_etc_t_dir',`
++     gen_require(`
++        type alsa_etc_t;
++     ')
++
++     allow $1 alsa_etc_t:dir { search read getattr open };
++')
++
++interface(`locallogin_alsa_etc_t_file',`
++     gen_require(`
++        type alsa_etc_t;
++     ')
++
++     allow $1 alsa_etc_t:file { getattr read open };
++')
++
++interface(`locallogin_var_run_t_dir',`
++     gen_require(`
++        type var_run_t;
++     ')
++
++     allow $1 var_run_t:dir { write add_name remove_name };
++')
++
++interface(`locallogin_var_run_t_file',`
++     gen_require(`
++		type var_run_t;
++     ')
++
++     allow $1 var_run_t:file { create read write open getattr map unlink execute };
++')
++
++interface(`locallogin_local_login_tmp_t_file',`
++     gen_require(`
++        type local_login_tmp_t;
++     ')
++
++     allow $1 local_login_tmp_t:file { map };
++')
++
++interface(`locallogin_lib_t_file',`
++     gen_require(`
++        type lib_t;
++     ')
++
++     allow $1 lib_t:file { execmod };
++')
++
++#########bug 1801739#########
++interface(`locallogin_dmesg_exec_t_file',`
++     gen_require(`
++        type dmesg_exec_t;
++     ')
++
++     allow $1 dmesg_exec_t:file { execute_no_trans execute };
++')
++
++interface(`locallogin_kernel_t_system',`
++	gen_require(`
++        type kernel_t;
++     ')
++
++     allow $1 kernel_t:system { syslog_read };
++')
++
+diff --git a/policy/modules/system/locallogin.te b/policy/modules/system/locallogin.te
+index c955fe11f..6083d56c2 100644
+--- a/policy/modules/system/locallogin.te
++++ b/policy/modules/system/locallogin.te
+@@ -288,3 +288,45 @@ optional_policy(`
+ optional_policy(`
+ 	nscd_use(sulogin_t)
+ ')
++
++locallogin_unlabeled_t_dir(local_login_t)
++locallogin_etc_t_file(local_login_t)
++locallogin_unlabeled_t_file(local_login_t)
++locallogin_unlabeled_t_lnk_file(local_login_t)
++locallogin_shadow_t_file(local_login_t)
++locallogin_shell_exec_t_file(local_login_t)
++locallogin_initrc_exec_t_file(local_login_t)
++locallogin_bluetooth_initrc_exec_t_file(local_login_t)
++locallogin_gpsd_initrc_exec_t_file(local_login_t)
++locallogin_ntpd_initrc_exec_t_file(local_login_t)
++locallogin_pppd_initrc_exec_t_file(local_login_t)
++locallogin_radvd_initrc_exec_t_file(local_login_t)
++locallogin_bin_t_file(local_login_t)
++locallogin_local_login_t_process(local_login_t)
++locallogin_tmpfs_t_filesystem(local_login_t)
++locallogin_wireless_device_t_chr_file(local_login_t)
++locallogin_unreserved_port_t_tcp_socket(local_login_t)
++locallogin_node_t_tcp_socket(local_login_t)
++locallogin_local_login_t_tcp_socket(local_login_t)
++locallogin_sysfs_t_file(local_login_t)
++locallogin_local_login_t_bluetooth_socket(local_login_t)
++locallogin_dosfs_t_dir(local_login_t)
++locallogin_dosfs_t_file(local_login_t)
++locallogin_pulseaudio_runtime_t_sock_file(local_login_t)
++locallogin_tmpfs_t_dir(local_login_t)
++locallogin_device_t_filesystem(local_login_t)
++locallogin_initrc_t_unix_stream_socket(local_login_t)
++locallogin_device_t_chr_file(local_login_t)
++locallogin_udev_runtime_t_dir(local_login_t)
++locallogin_local_login_t_netlink_kobject_uevent_socket(local_login_t)
++locallogin_tmpfs_t_file(local_login_t)
++locallogin_pulseaudio_runtime_t_dir(local_login_t)
++locallogin_alsa_etc_t_dir(local_login_t)
++locallogin_alsa_etc_t_file(local_login_t)
++locallogin_var_run_t_dir(local_login_t)
++locallogin_var_run_t_file(local_login_t)
++locallogin_local_login_tmp_t_file(local_login_t)
++locallogin_lib_t_file(local_login_t)
++#######bug1801739######
++locallogin_dmesg_exec_t_file(local_login_t)
++locallogin_kernel_t_system(local_login_t)
+diff --git a/policy/modules/system/logging.if b/policy/modules/system/logging.if
+index 097820814..bf2f2fd40 100644
+--- a/policy/modules/system/logging.if
++++ b/policy/modules/system/logging.if
+@@ -1347,3 +1347,62 @@ interface(`logging_mmap_journal',`
+ 
+ 	allow $1 syslogd_var_run_t:file map;
+ ')
++##### unisoc permission #####
++interface(`logging_mnt_t_dir',`
++        gen_require(`
++                type mnt_t;
++        ')
++
++        allow $1 mnt_t:dir { rw_dir_perms };
++')
++
++
++interface(`logging_unlabeled_t_dir',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:dir { rw_dir_perms };
++')
++
++interface(`logging_unlabeled_t_lnk_file',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:lnk_file { read };
++')
++
++
++interface(`logging_home_root_t_dir',`
++        gen_require(`
++                type home_root_t;
++        ')
++
++        allow $1 home_root_t:dir { rw_dir_perms };
++')
++
++interface(`logging_dosfs_t_dir',`
++        gen_require(`
++                type dosfs_t;
++        ')
++
++        allow $1 dosfs_t:dir { rw_dir_perms };
++')
++
++interface(`logging_dosfs_t_file',`
++        gen_require(`
++                type dosfs_t;
++        ')
++
++        allow $1 dosfs_t:file { manage_file_perms };
++')
++
++
++interface(`logging_device_t_chr_file',`
++        gen_require(`
++                type device_t;
++        ')
++
++        allow $1 device_t:chr_file { rw_chr_file_perms };
++')
+diff --git a/policy/modules/system/logging.te b/policy/modules/system/logging.te
+index 578042995..4ab048c81 100644
+--- a/policy/modules/system/logging.te
++++ b/policy/modules/system/logging.te
+@@ -620,3 +620,21 @@ optional_policy(`
+ 	# log to the xconsole
+ 	xserver_rw_console(syslogd_t)
+ ')
++logging_bin_t(syslogd_t)
++logging_bin_t(klogd_t)
++logging_tmpfs_t_dir(syslogd_t)
++logging_tmpfs_t_dir(klogd_t)
++logging_tmpfs_t_file(syslogd_t)
++logging_tmpfs_t_file(klogd_t)
++logging_mnt_t_dir(syslogd_t)
++logging_unlabeled_t_dir(syslogd_t)
++logging_unlabeled_t_dir(klogd_t)
++logging_unlabeled_t_lnk_file(syslogd_t)
++logging_unlabeled_t_lnk_file(klogd_t)
++logging_unlabeled_t_file(syslogd_t)
++logging_unlabeled_t_file(klogd_t)
++logging_home_root_t_dir(klogd_t)
++logging_dosfs_t_dir(syslogd_t)
++logging_dosfs_t_file(syslogd_t)
++logging_device_t_chr_file(klogd_t)
++logging_device_t_chr_file(syslogd_t)
+\ No newline at end of file
+diff --git a/policy/modules/system/modutils.if b/policy/modules/system/modutils.if
+index 30b9fa6d4..48ea7088a 100644
+--- a/policy/modules/system/modutils.if
++++ b/policy/modules/system/modutils.if
+@@ -398,6 +398,9 @@ interface(`modutils_read_var_run_files',`
+ 	refpolicywarn(`$0($*) has been deprecated.')
+ ')
+ 
++
++#######unisoc#######
++
+ interface(`kmod_var_log_t_file',`
+     gen_require(`
+         type var_log_t;
+@@ -454,3 +457,55 @@ interface(`kmod_devpts_t_chr_file',`
+     allow $1 devpts_t:chr_file { write append read open};
+ ')
+ 
++
++interface(`modutils_initrc_t_unix_stream_socket',`
++        gen_require(`
++                type initrc_t;
++        ')
++
++        allow $1 initrc_t:unix_stream_socket { read write };
++')
++
++interface(`modutils_initrc_t_netlink_generic_socket',`
++        gen_require(`
++                type initrc_t;
++        ')
++
++        allow $1 initrc_t:netlink_generic_socket { read write };
++')
++
++interface(`modutils_initrc_t_udp_socket',`
++        gen_require(`
++                type initrc_t;
++        ')
++
++        allow $1 initrc_t:udp_socket { read write };
++')
++
++####Bug 1771233 wifi reconnect faile###############################
++interface(`modutils_unlabeled_t_file',`
++        gen_require(`
++                type unlabeled_t;
++        ')
++
++        allow $1 unlabeled_t:file { read write open };
++')
++
++# Bug1791399
++interface(`modutils_tty_device_t_chr_file',`
++        gen_require(`
++                type tty_device_t;
++        ')
++
++        allow $1 tty_device_t:chr_file { read write };
++')
++
++interface(`modutils_ptmx_t_chr_file',`
++        gen_require(`
++                type ptmx_t;
++        ')
++
++        allow $1 ptmx_t:chr_file { read write };
++')
++
++
+diff --git a/policy/modules/system/modutils.te b/policy/modules/system/modutils.te
+index 5247b8f7e..ec16ad08e 100644
+--- a/policy/modules/system/modutils.te
++++ b/policy/modules/system/modutils.te
+@@ -191,6 +191,7 @@ optional_policy(`
+ 	xserver_getattr_log(kmod_t)
+ ')
+ 
++#####unisoc####
+ kmod_var_log_t_file(kmod_t)
+ kmod_httpd_var_run_t_file(kmod_t)
+ kmod_tty_device_t_chr_file(kmod_t)
+@@ -199,3 +200,15 @@ kmod_var_run_t_file(kmod_t)
+ kmod_iptables_t_rawip_socket(kmod_t)
+ kmod_devpts_t_chr_file(kmod_t)
+ 
++modutils_iptables_t_rawip_socket(kmod_t)
++
++modutils_initrc_t_unix_stream_socket(kmod_t)
++modutils_initrc_t_netlink_generic_socket(kmod_t)
++modutils_initrc_t_udp_socket(kmod_t)
++modutils_unlabeled_t_file(kmod_t)
++
++# Bug1791399
++modutils_tty_device_t_chr_file(kmod_t)
++modutils_ptmx_t_chr_file(kmod_t)
++
++
+diff --git a/policy/modules/system/mount.if b/policy/modules/system/mount.if
+index 2d0b6069e..60132ce58 100644
+--- a/policy/modules/system/mount.if
++++ b/policy/modules/system/mount.if
+@@ -219,6 +219,7 @@ interface(`mount_rw_runtime_files',`
+ 
+ 	rw_files_pattern($1, mount_runtime_t, mount_runtime_t)
+ ')
++######unisoc#####
+ 
+ interface(`mount_httpd_var_run_t_file',`
+     gen_require(`
+@@ -289,6 +290,26 @@ interface(`mount_unlabeled_t_filesystem',`
+         type unlabeled_t;
+     ')
+ 
+-    allow $1 unlabeled_t:filesystem {remount};
++    allow $1 unlabeled_t:filesystem { unmount remount};
+ ')
+ 
++##### unisoc permission #####
++interface(`mount_initrc_t_netlink_kobject_uevent_socket',`
++        gen_require(`
++                type initrc_t;
++        ')
++
++        allow $1 initrc_t:netlink_kobject_uevent_socket { create_socket_perms };
++')
++
++
++
++
++##### Bug 1804011###################3
++interface(`mount_initrc_t_unix_stream_socket',`
++	gen_require(`
++		type initrc_t;
++	')
++		 
++	allow $1 initrc_t:unix_stream_socket { read write };
++')
+\ No newline at end of file
+diff --git a/policy/modules/system/mount.te b/policy/modules/system/mount.te
+index ebf869dea..0f32298d7 100644
+--- a/policy/modules/system/mount.te
++++ b/policy/modules/system/mount.te
+@@ -242,3 +242,5 @@ mount_configfs_t_dir(mount_t)
+ mount_tmpfs_t_dir(mount_t)
+ mount_unlabeled_t_filesystem(mount_t)
+ 
++mount_initrc_t_netlink_kobject_uevent_socket(mount_t)
++mount_initrc_t_unix_stream_socket(mount_t)
+diff --git a/policy/modules/system/selinuxutil.if b/policy/modules/system/selinuxutil.if
+index bc33a8be0..1f05c5397 100644
+--- a/policy/modules/system/selinuxutil.if
++++ b/policy/modules/system/selinuxutil.if
+@@ -1165,6 +1165,7 @@ interface(`seutil_allow_libselinux_linked',`
+ 	seutil_allow_read_config($1)
+ ')
+ 
++##### unisoc permission #####
+ interface(`setfiles_device_t_file',`
+     gen_require(`
+         type device_t;
+@@ -1181,3 +1182,11 @@ interface(`setfiles_kmsg_device_t_chr_file',`
+       allow $1 kmsg_device_t:chr_file {read write append open map create};
+ ')
+ 
++
++interface(`selinuxutil_unlabeled_t_lnk_file',`
++	gen_require(`
++                type unlabeled_t;
++        ')
++
++	allow $1 unlabeled_t:lnk_file { read };
++')
+\ No newline at end of file
+diff --git a/policy/modules/system/selinuxutil.te b/policy/modules/system/selinuxutil.te
+index 79cfaf5ca..14f644abe 100644
+--- a/policy/modules/system/selinuxutil.te
++++ b/policy/modules/system/selinuxutil.te
+@@ -691,6 +691,7 @@ optional_policy(`
+ 	hotplug_use_fds(setfiles_t)
+ ')
+ 
++#####unisoc#####
+ setfiles_kmsg_device_t_chr_file(setfiles_t)
+ setfiles_device_t_file(setfiles_t)
+-
++selinuxutil_unlabeled_t_lnk_file(setfiles_t)
+diff --git a/policy/modules/system/sysnetwork.if b/policy/modules/system/sysnetwork.if
+index 3bec29102..b71a28a37 100644
+--- a/policy/modules/system/sysnetwork.if
++++ b/policy/modules/system/sysnetwork.if
+@@ -836,6 +836,39 @@ interface(`sysnet_use_portmap',`
+ 	sysnet_read_config($1)
+ ')
+ 
++##### unisoc permission #####
++interface(`sysnetwork_initrc_t_unix_stream_socket',`
++        gen_require(`
++                type initrc_t;
++        ')
++
++        allow $1 initrc_t:unix_stream_socket { rw_socket_perms };
++')
++
++interface(`sysnetwork_initrc_t_udp_socket',`
++        gen_require(`
++                type initrc_t;
++        ')
++
++        allow $1 initrc_t:udp_socket { rw_socket_perms };
++')
++
++
++interface(`sysnetwork_initrc_t_netlink_generic_socket',`
++        gen_require(`
++                type initrc_t;
++        ')
++
++        allow $1 initrc_t:netlink_generic_socket { rw_socket_perms };
++')
++
++interface(`sysnetwork_bin_t_file',`
++        gen_require(`
++                type bin_t;
++        ')
++
++        allow $1 bin_t:file { read open write map getattr execute };
++')
+ interface(`ifconfig_sysadm_t_netlink_generic_socket',`
+     gen_require(`
+         type sysadm_t;
+diff --git a/policy/modules/system/sysnetwork.te b/policy/modules/system/sysnetwork.te
+index cfbba65d1..a6976593c 100644
+--- a/policy/modules/system/sysnetwork.te
++++ b/policy/modules/system/sysnetwork.te
+@@ -413,5 +413,10 @@ optional_policy(`
+ 	xen_allow_rw_unix_stream_sockets(ifconfig_t)
+ ')
+ 
++######unisoc####
+ ifconfig_sysadm_t_netlink_generic_socket(ifconfig_t)
++sysnetwork_initrc_t_unix_stream_socket(ifconfig_t)
++sysnetwork_initrc_t_netlink_generic_socket(ifconfig_t)
++sysnetwork_bin_t_file(ifconfig_t)
++sysnetwork_initrc_t_udp_socket(ifconfig_t)
+ 
+diff --git a/policy/modules/system/userdomain.if b/policy/modules/system/userdomain.if
+index f30f2ad06..01b2201d5 100644
+--- a/policy/modules/system/userdomain.if
++++ b/policy/modules/system/userdomain.if
+@@ -4508,3 +4508,12 @@ interface(`userdom_allow_rw_all_users_stream_sockets',`
+ 
+ 	allow $1 userdomain:unix_stream_socket rw_socket_perms;
+ ')
++##### unisoc permission #####
++
++interface(`userdomain_device_t_filesystem',`
++    gen_require(`
++        type device_t;
++    ')
++
++    allow $1 device_t:filesystem { associate };
++')
+\ No newline at end of file
+diff --git a/policy/modules/system/userdomain.te b/policy/modules/system/userdomain.te
+index d57aaa0ec..06305f207 100644
+--- a/policy/modules/system/userdomain.te
++++ b/policy/modules/system/userdomain.te
+@@ -132,3 +132,5 @@ files_poly_member(user_runtime_t)
+ files_poly_parent(user_runtime_t)
+ ubac_constrained(user_runtime_t)
+ userdom_user_runtime_content(user_runtime_t)
++
++userdomain_device_t_filesystem(user_tmpfs_t)
+-- 
+2.17.1
+

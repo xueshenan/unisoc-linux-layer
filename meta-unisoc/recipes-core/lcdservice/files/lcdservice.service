@@ -1,0 +1,12 @@
+[Unit]
+Description=lcdservice
+
+[Service]
+ExecStart=/usr/bin/lcdservice
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+Alias=lcdservice.service
+

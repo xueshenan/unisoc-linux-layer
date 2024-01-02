@@ -1,0 +1,16 @@
+diff --git a/drivers/trusty/trusty-pm.c b/drivers/trusty/trusty-pm.c
+index 7dfd02ae9994..48831ce3c2d0 100644
+--- a/drivers/trusty/trusty-pm.c
++++ b/drivers/trusty/trusty-pm.c
+@@ -82,11 +82,9 @@ static int __init trusty_pm_init(void)
+ 
+ 	register_syscore_ops(&trusty_pm_ops);
+ 
+-#if defined(TRACE_HEADER_MULTI_READ)
+ 	/* vendor hooks cannot be unregistered */
+ 	register_trace_android_vh_psci_tos_resident_on(trusty_resident_on_cpu, NULL);
+ 	register_trace_android_vh_psci_cpu_suspend(trusty_check_cpu_suspend, NULL);
+-#endif
+ 	return 0;
+ }
+ 

@@ -1,0 +1,38 @@
+#!/bin/sh
+
+DESC="iperf"
+
+do_start() {
+  echo "iperf-init"
+}
+
+do_stop() {
+  PID=`ps |grep -E 'iperf\ -' |grep -v grep |awk '{print $1}'`
+  echo $PID
+  for id in $PID
+  do
+  kill -9 $id
+  echo "killed $id"
+  done
+}
+
+case "$1" in
+  start)
+	do_start
+	;;
+  stop)
+	do_stop
+	;;
+  restart|force-reload)
+	echo "Restarting $DESC"
+	do_stop
+	sleep 1
+	do_start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

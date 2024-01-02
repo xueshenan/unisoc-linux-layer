@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<audio_config>
+    <log level="3" />
+    <audiomode num="8">
+        <item name="Headset" index="0" />
+        <item name="Headfree" index="1" />
+        <item name="Handset" index="2" />
+        <item name="Handsfree" index="3" />
+        <item name="ISCHandsfree" index="4" />
+        <item name="ISCHeadfree" index="5" />
+        <item name="Unprocess" index="6" />
+        <item name="Recognition" index="7"/>
+    </audiomode>
+    <primary_card name="sprdphone">
+        <audio_hw>
+            <MAINMIC>
+                <on>
+                    <ctl name="ADC LRCLK Select" val="invert" />
+                    <ctl name="ADC1 LRCLK Select" val="invert" />
+                    <ctl name="ADCL Mixer MainMICADCL Switch" val="1" />
+                    <ctl name="Mic Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="Mic Function" val="0" />
+                    <ctl name="ADCL Mixer MainMICADCL Switch" val="0" />
+                    <ctl name="ADC1 LRCLK Select" val="normal" />
+                    <ctl name="ADC LRCLK Select" val="normal" />
+                </off>
+            </MAINMIC>
+            <AUXMIC>
+                <on>
+                    <ctl name="ADC LRCLK Select" val="normal" />
+                    <ctl name="ADC1 LRCLK Select" val="normal" />
+                    <ctl name="ADCR Mixer AuxMICADCR Switch" val="1" />
+                    <ctl name="Aux Mic Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="Aux Mic Function" val="0" />
+                    <ctl name="ADCR Mixer AuxMICADCR Switch" val="0" />
+                </off>
+            </AUXMIC>
+            <DULMIC>
+                <on>
+                    <ctl name="ADC LRCLK Select" val="invert" />
+                    <ctl name="ADC1 LRCLK Select" val="invert" />
+                    <ctl name="ADCL Mixer MainMICADCL Switch" val="1" />
+                    <ctl name="ADCR Mixer AuxMICADCR Switch" val="1" />
+                    <ctl name="Mic Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="Mic Function" val="0" />
+                    <ctl name="ADCL Mixer MainMICADCL Switch" val="0" />
+                    <ctl name="ADCR Mixer AuxMICADCR Switch" val="0" />
+                    <ctl name="ADC1 LRCLK Select" val="normal" />
+                    <ctl name="ADC LRCLK Select" val="normal" />
+                </off>
+            </DULMIC>
+            <HEADMIC>
+                <on>
+                    <ctl name="ADC LRCLK Select" val="normal" />
+                    <ctl name="ADC1 LRCLK Select" val="normal" />
+                    <ctl name="ADCL Mixer HPMICADCL Switch" val="1" />
+                    <ctl name="ADCR Mixer HPMICADCR Switch" val="1" />
+                    <ctl name="HP Mic Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="HP Mic Function" val="0" />
+                    <ctl name="ADCL Mixer HPMICADCL Switch" val="0" />
+                    <ctl name="ADCR Mixer HPMICADCR Switch" val="0" />
+                </off>
+            </HEADMIC>
+            <SPK>
+                <on>
+                    <ctl name="SPKL Mixer DACLSPKL Switch" val="1" />
+                    <ctl name="Speaker Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="Speaker Function" val="0" />
+                    <ctl name="SPKL Mixer DACLSPKL Switch" val="0" />
+                </off>
+            </SPK>
+            <HPLR>
+                <on>
+                    <ctl name="HPL EAR Sel" val="HPL" />
+                    <ctl name="HPL Mixer DACLHPL Switch" val="1" />
+                    <ctl name="HPR Mixer DACRHPR Switch" val="1" />
+                    <ctl name="HeadPhone Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="HeadPhone Function" val="0" />
+                    <ctl name="HPL Mixer DACLHPL Switch" val="0" />
+                    <ctl name="HPR Mixer DACRHPR Switch" val="0" />
+                    <ctl name="HPL EAR Sel" val="EAR" />
+                </off>
+            </HPLR>
+            <HPL>
+                <on>
+                    <ctl name="HPL EAR Sel" val="HPL" />
+                    <ctl name="HPL Mixer DACLHPL Switch" val="1" />
+                    <ctl name="HPR Mixer DACRHPR Switch" val="1" />
+                    <ctl name="HeadPhone Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="HeadPhone Function" val="0" />
+                    <ctl name="HPL Mixer DACLHPL Switch" val="0" />
+                    <ctl name="HPR Mixer DACRHPR Switch" val="0" />
+                    <ctl name="HPL EAR Sel" val="EAR" />
+                </off>
+            </HPL>
+            <HPR>
+                <on>
+                    <ctl name="HPL EAR Sel" val="HPL" />
+                    <ctl name="HPL Mixer DACLHPL Switch" val="1" />
+                    <ctl name="HPR Mixer DACRHPR Switch" val="1" />
+                    <ctl name="HeadPhone Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="HeadPhone Function" val="0" />
+                    <ctl name="HPL Mixer DACLHPL Switch" val="0" />
+                    <ctl name="HPR Mixer DACRHPR Switch" val="0" />
+                    <ctl name="HPL EAR Sel" val="EAR" />
+                </off>
+            </HPR>
+            <RCV>
+                <on>
+                    <ctl name="EAR Mixer DACLEAR Switch" val="1" />
+                    <ctl name="Earpiece Function" val="1" />
+                </on>
+                <off>
+                    <ctl name="Earpiece Function" val="0" />
+                    <ctl name="EAR Mixer DACLEAR Switch" val="0" />
+                </off>
+            </RCV>
+            <SCOOUT>
+                <on />
+                <off />
+            </SCOOUT>
+            <SCOIN>
+                <on />
+                <off />
+            </SCOIN>
+            <USBIN>
+                <on />
+                <off />
+            </USBIN>
+            <USBOUT>
+                <on />
+                <off />
+            </USBOUT>
+        </audio_hw>
+        <kcontrol>
+            <adcl_capture_volume ctl="ADCL Capture Volume" audiohw="MAINMIC|AUXMIC|DULMIC|HEADMIC" />
+            <adcr_capture_volume ctl="ADCR Capture Volume" audiohw="MAINMIC|AUXMIC|DULMIC|HEADMIC" />
+            <spkl_playback_volume ctl="SPKL Playback Volume" audiohw="SPK" />
+            <hpl_playback_volume ctl="HPL Playback Volume" audiohw="HPLR|HPL" />
+            <hpr_playback_volume ctl="HPR Playback Volume" audiohw="HPLR|HPR" />
+            <ear_playback_volume ctl="EAR Playback Volume" audiohw="RCV" />
+            <dacl_playback_volume ctl="DAC Playback Volume" audiohw="HPLR|HPL|HPR|RCV|SPK" />
+            <iner_pa_config ctl="Inter PA Config" audiohw="SPK" />
+            <spk_mute ctl="Speaker Mute" />
+            <spk2_mute ctl="Speaker2 Mute" val="0" />
+            <earpiece_mute ctl="Earpiece Mute" val="0" />
+            <hp_mute ctl="HeadPhone Mute" val="0" />
+            <AudCodecInfo ctl="Aud Codec Info" />
+            <ad_iismux ctl="AD IISMUX" />
+            <vb_control ctl="VBC Switch" />
+            <eq_update ctl="VBC EQ Update" />
+            <ad01_eq_switch ctl="VBC AD01 EQ Switch" />
+            <da_eq_profile ctl="VBC DA EQ Profile Select" />
+            <ad01_eq_profile ctl="VBC AD01 EQ Profile Select" />
+            <vbc_adcl_dg_switch ctl="VBC ADCL DG Switch" audiohw="MAINMIC|AUXMIC|DULMIC|HEADMIC" />
+            <vbc_adcl_dg_volume ctl="VBC ADCL DG Set" audiohw="MAINMIC|AUXMIC|DULMIC|HEADMIC" />
+            <vbc_adcr_dg_switch ctl="VBC ADCR DG Switch" audiohw="MAINMIC|AUXMIC|DULMIC|HEADMIC" />
+            <vbc_adcr_dg_volume ctl="VBC ADCR DG Set" audiohw="MAINMIC|AUXMIC|DULMIC|HEADMIC" />
+            <adcr_capture_volume ctl="ADCR Capture Volume" audiohw="AUXMIC|HPLR|HPR" />
+            <vbc_dacl_dg_switch ctl="VBC DACL DG Switch" audiohw="HPLR|HPL|HPR|RCV|SPK" />
+            <vbc_dacl_dg_volume ctl="VBC DACL DG Set" audiohw="HPLR|HPL|HPR|RCV|SPK" />
+            <vbc_dacr_dg_switch ctl="VBC DACR DG Switch" audiohw="HPLR|HPL|HPR|RCV|SPK" />
+            <vbc_dacr_dg_volume ctl="VBC DACR DG Set" audiohw="HPLR|HPL|HPR|RCV|SPK" />
+            <vbc_stl_dg_volume ctl="VBC STL DG Set" />
+            <vbc_str_dg_volume ctl="VBC STR DG Set" />
+            <vbc_adc23l_dg_volume ctl="VBC ADC23L DG Set" audiohw="MAINMIC|HPLR|HPL" />
+        </kcontrol>
+        <private_kcontrol>
+            <vbc_access_en ctl="vbc_access_en" />
+            <virt_output_switch ctl="Virt Output Switch" />
+            <fm_unmute_smooth ctl="VBC_FM_UNMUTE_SMOOTH" />
+            <da_eq_switch ctl="VBC DA EQ Switch" />
+	    <offload_dg ctl="VBC DAC23 MIXERDG" />
+	    <vbc_switch ctl="VBC Switch" />
+            <spk_mute ctl="Speaker Mute" />
+            <spk2_mute ctl="Speaker2 Mute"/>
+            <earpiece_mute ctl="Earpiece Mute"/>
+            <hp_mute ctl="HeadPhone Mute" />
+            <eq_upload ctl="VBC EQ Update" />
+            <eq_select ctl="VBC DA EQ Profile Select" />
+        </private_kcontrol>
+    </primary_card>
+    <ext_card >
+        <card>
+            <card name="sprdphone" cptype="" />
+            <card name="saudiovoip" cptype="" />
+            <card name="all-i2s" cptype="" />
+            <card name="saudiolte" cptype="CP_CSFB" />
+            <card name="VIRTUAL AUDIO" cptype="CP_TG" />
+            <card name="VIRTUAL AUDIO W" cptype="CP_W" />
+        </card>
+        <private_kcontrol>
+            <saudio_playback_route ctl="PCM PLAYBACK Route" card="saudiovoip" />
+            <saudio_capture_route ctl="PCM CAPTURE Route" card="saudiovoip" />
+            <saudio_loop_enable ctl="PCM LOOP Enable" card="saudiovoip" />
+            <saudio_loop_type ctl="PCM LOOP Type" card="saudiovoip" />
+            <saudio_loop_mixer_route ctl="PCM MIXER Route" card="saudiovoip" />
+            <saudio_pcm_apptype ctl="PCM APPTYPE" card="saudiovoip" />
+            <saudio_ul_mixergain ctl="UL MIXERGAIN" card="saudiovoip" />
+            <saudio_dl_mixergain ctl="DL MIXERGAIN" card="saudiovoip" />
+        </private_kcontrol>
+    </ext_card>
+    <modem num="1">
+	<!-- <cp name="w" pipe="/dev/spipe_w6" vbchannel="1" /> -->
+	<cp name="CP_CSFB" pipe="/dev/spipe_lte6" vbchannel="0" cpu_index="0"/>
+    </modem>
+    <voip modem="CP_CSFB" pipe="/dev/spipe_lte4" vbchannel="0" enable="1" />
+    <audioparam>
+        <sprd path="/etc/audio/audio_param" />
+        <vendor01 path="/etc/audio/audio_param01" />
+    </audioparam>
+    <microphone_characteristics>
+        <microphone device_id="MainMic" type="0x80000004" address="" location="1" group="0" index_in_the_group="0" directionality="1" num_frequency_responses="18" frequencies="200,400,600,800,1000,1200,1500,1800,2000,3000,4000,8000,10000,120000,140000,160000,180000,200000" responses="0.1,0.3,0.5,0.8,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.8,0.6,0.6,0.4,0.4" sensitivity="0.0" max_spl="1.0" min_spl="0.0" orientation="0.0,0.0,0.0" geometric_location="0.0,0.0,0.0" />
+        <microphone device_id="AuxMic" type="0x80000080" address="" location="1" group="0" index_in_the_group="0" directionality="1" num_frequency_responses="18" frequencies="200,400,600,800,1000,1200,1500,1800,2000,3000,4000,8000,10000,120000,140000,160000,180000,200000" responses="0.1,0.3,0.5,0.8,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.8,0.6,0.6,0.4,0.4" sensitivity="0.0" max_spl="1.0" min_spl="0.0" orientation="0.0,0.0,0.0" geometric_location="0.0,0.0,0.0" />
+        <microphone device_id="wiredheadset" type="0x80000010" address="" location="1" group="0" index_in_the_group="0" directionality="1" num_frequency_responses="18" frequencies="200,400,600,800,1000,1200,1500,1800,2000,3000,4000,8000,10000,120000,140000,160000,180000,200000" responses="0.1,0.3,0.5,0.8,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.8,0.6,0.6,0.4,0.4" sensitivity="0.0" max_spl="1.0" min_spl="0.0" orientation="0.0,0.0,0.0" geometric_location="0.0,0.0,0.0" />
+        <microphone device_id="btscoheadset" type="0x80000008" address="btscoheadset" location="1" group="0" index_in_the_group="0" directionality="1" num_frequency_responses="12" frequencies="200,400,600,800,1000,1200,1500,1800,2000,3000,4000,8000" responses="0.1,0.3,0.5,0.8,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0" sensitivity="0.0" max_spl="1.0" min_spl="0.0" orientation="0.0,0.0,0.0" geometric_location="0.0,0.0,0.0" />
+        <microphone device_id="btscoheadset" type="0x80000040" address="btscoheadset" location="1" group="0" index_in_the_group="0" directionality="1" num_frequency_responses="12" frequencies="200,400,600,800,1000,1200,1500,1800,2000,3000,4000,8000" responses="0.1,0.3,0.5,0.8,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0" sensitivity="0.0" max_spl="1.0" min_spl="0.0" orientation="0.0,0.0,0.0" geometric_location="0.0,0.0,0.0" />
+    </microphone_characteristics>
+</audio_config>

@@ -1,0 +1,13 @@
+diff --git a/egl/meson.build b/egl/meson.build
+index dee9b1d..faaf29f 100644
+--- a/egl/meson.build
++++ b/egl/meson.build
+@@ -6,7 +6,7 @@ wayland_egl = library(
+ 	],
+ 	include_directories: src_inc,
+ 	version: '1.0.0',
+-	install: true
++	install: false
+ )
+ 
+ executable('wayland-egl-abi-check', 'wayland-egl-abi-check.c')

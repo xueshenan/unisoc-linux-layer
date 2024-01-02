@@ -1,0 +1,6 @@
+# cat /etc/initscript 
+ulimit -c unlimited
+mkdir -p /mnt/data/coredump
+echo "/mnt/data/coredump/core-%e-%p@%t" > /proc/sys/kernel/core_pattern
+
+eval exec "$4"

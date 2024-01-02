@@ -1,0 +1,64 @@
+From a9e41edd43e75aa0ae65af780db6e313bde1c1d9 Mon Sep 17 00:00:00 2001
+From: "zhenghai.yang" <zhenghai.yang@unisoc.com>
+Date: Tue, 27 Dec 2022 15:45:56 +0800
+Subject: [PATCH] Bug #2112887 add logrotate to dosfs premission
+
+[root cause  ]:  add logrotate to dosfs premission
+[changes     ]:  add logrotate to dosfs premission
+[side effects]: yes
+[self test   ]: yes
+[download normally]:yes
+[power on/off normally]:yes
+[do common repository/branch inspection]:no
+[is there dependence]:no
+[confirm dependent commit]:no
+[board]:9863
+[test case]:logrotate
+[reviewers]:hainan.wang
+
+commit_template_version:v1
+---
+ admin/logrotate.if | 18 ++++++++++++++++++
+ admin/logrotate.te |  2 ++
+ 2 files changed, 20 insertions(+)
+
+diff --git a/policy/modules/admin/logrotate.if b/policy/modules/admin/logrotate.if
+index ec88cdd..925f9bb 100644
+--- a/policy/modules/admin/logrotate.if
++++ b/policy/modules/admin/logrotate.if
+@@ -193,3 +193,21 @@ interface(`logrotate_kmsg_device_t_chr_file',`
+     allow $1 kmsg_device_t:chr_file {read write map open append ioctl};
+ ')
+ 
++
++interface(`logrotate_dosfs_t_file',`
++    gen_require(`
++        type dosfs_t;
++    ')
++
++    allow $1 dosfs_t:file {getattr read open rename create write setattr ioctl unlink};
++')
++
++
++interface(`logrotate_dosfs_t_dir',`
++    gen_require(`
++        type dosfs_t;
++    ')
++
++    allow $1 dosfs_t:dir {write remove_name add_name};
++')
++
+diff --git a/policy/modules/admin/logrotate.te b/policy/modules/admin/logrotate.te
+index c9527fe..a0fc74e 100644
+--- a/policy/modules/admin/logrotate.te
++++ b/policy/modules/admin/logrotate.te
+@@ -296,4 +296,6 @@ logrotate_device_t_sock_file(logrotate_t)
+ logrotate_sysadm_t_unix_dgram_socket(logrotate_t)
+ logrotate_default_t_file(logrotate_t)
+ logrotate_kmsg_device_t_chr_file(logrotate_t)
++logrotate_dosfs_t_file(logrotate_t)
++logrotate_dosfs_t_dir(logrotate_t)
+ 
+-- 
+2.7.4
+

@@ -1,0 +1,98 @@
+From 0f8a0a123f94d464b3ffc2dbef6ccb46bb8e422e Mon Sep 17 00:00:00 2001
+From: Baocong Liu <baocong.liu@unisoc.com>
+Date: Fri, 18 Nov 2022 14:18:13 +0800
+Subject: [PATCH] Bug #2079833 BBAT mode mount dev/pts
+
+[root cause  ]: BBAT mode mount dev/pts
+[changes     ]:locallogin
+[side effects]:no
+[self test   ]:pass
+[download normally]:yes
+[power on/off normally]:yes
+[do common repository/branch inspection]:yes
+[is there dependence]:no
+[confirm dependent commit]:yes
+[board]:all
+[test case]:pass
+[reviewers]:lvqiang.huang
+
+commit_template_version:v1
+---
+ policy/modules/system/locallogin.if | 36 +++++++++++++++++++++++++++--
+ policy/modules/system/locallogin.te |  4 ++++
+ 2 files changed, 38 insertions(+), 2 deletions(-)
+
+diff --git a/policy/modules/system/locallogin.if b/policy/modules/system/locallogin.if
+index 78d3fd9f8..ab8f6516c 100644
+--- a/policy/modules/system/locallogin.if
++++ b/policy/modules/system/locallogin.if
+@@ -439,7 +439,7 @@ interface(`locallogin_var_run_t_dir',`
+         type var_run_t;
+      ')
+ 
+-     allow $1 var_run_t:dir { write add_name remove_name create search open getattr read };
++     allow $1 var_run_t:dir { write add_name remove_name create search open getattr read setattr };
+ ')
+ 
+ interface(`locallogin_var_run_t_file',`
+@@ -535,7 +535,7 @@ interface(`locallogin_devpts_t_dir',`
+         type devpts_t;
+     ')
+ 
+-    allow $1 devpts_t:dir { search };
++    allow $1 devpts_t:dir { search getattr mounton };
+ ')
+ 
+ interface(`locallogin_devpts_t_chr_file',`
+@@ -666,3 +666,35 @@ interface(`locallogin_initctl_t_fifo_file',`
+     allow $1 initctl_t:fifo_file { rw_fifo_file_perms };
+ ')
+ 
++interface(`locallogin_kernel_t_process',`
++    gen_require(`
++        type kernel_t;
++    ')
++
++    allow $1 kernel_t:process { setsched };
++')
++
++interface(`locallogin_devpts_t_filesystem',`
++    gen_require(`
++        type devpts_t;
++    ')
++
++    allow $1 devpts_t:filesystem { mount };
++')
++
++interface(`locallogin_init_exec_t_file',`
++    gen_require(`
++        type init_exec_t;
++    ')
++
++    allow $1 init_exec_t:file { execute execute_no_trans rw_file_perms map };
++')
++
++interface(`locallogin_local_login_t_capability',`
++    gen_require(`
++        type local_login_t;
++    ')
++
++    allow $1 local_login_t:capability { sys_admin };
++')
++
+diff --git a/policy/modules/system/locallogin.te b/policy/modules/system/locallogin.te
+index caf44bce1..2accbde6e 100644
+--- a/policy/modules/system/locallogin.te
++++ b/policy/modules/system/locallogin.te
+@@ -355,4 +355,8 @@ locallogin_mount_runtime_t_dir(local_login_t)
+ locallogin_removable_device_t_blk_file(local_login_t)
+ locallogin_var_lock_t_file(local_login_t)
+ locallogin_initctl_t_fifo_file(local_login_t)
++locallogin_kernel_t_process(local_login_t)
++locallogin_devpts_t_filesystem(local_login_t)
++locallogin_init_exec_t_file(local_login_t)
++locallogin_local_login_t_capability(local_login_t)
+ 
+-- 
+2.17.1
+

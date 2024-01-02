@@ -1,0 +1,35 @@
+From 7e4d4686585761cb8881adf4de81fb380c45c3ad Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Tue, 11 Oct 2022 00:35:34 +0800
+Subject: [PATCH] Bug #2011601-transpolant-1.0-refpolicy-7
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/system/locallogin.te | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/policy/modules/system/locallogin.te b/policy/modules/system/locallogin.te
+index 6083d56c2..3d5d03809 100644
+--- a/policy/modules/system/locallogin.te
++++ b/policy/modules/system/locallogin.te
+@@ -330,3 +330,4 @@ locallogin_lib_t_file(local_login_t)
+ #######bug1801739######
+ locallogin_dmesg_exec_t_file(local_login_t)
+ locallogin_kernel_t_system(local_login_t)
++
+-- 
+2.17.1
+

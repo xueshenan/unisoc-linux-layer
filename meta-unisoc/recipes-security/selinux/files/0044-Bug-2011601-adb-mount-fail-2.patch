@@ -1,0 +1,228 @@
+From 0abf0b68323db724b243b390c5cc7a1820d40bdb Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Fri, 30 Sep 2022 10:14:37 +0800
+Subject: [PATCH] Bug #2011601 adb&mount-fail-2
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:xx
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/admin/logrotate.if   |  8 +++++
+ policy/modules/admin/logrotate.te   |  1 +
+ policy/modules/roles/sysadm.if      | 50 ++++++++++++++++++++++++++++-
+ policy/modules/roles/sysadm.te      |  7 ++++
+ policy/modules/system/clock.if      | 25 +++++++++++++++
+ policy/modules/system/clock.te      |  5 +++
+ policy/modules/system/mount.if      |  2 +-
+ policy/modules/system/sysnetwork.if |  9 ++++++
+ policy/modules/system/sysnetwork.te |  3 ++
+ 9 files changed, 108 insertions(+), 2 deletions(-)
+
+diff --git a/policy/modules/admin/logrotate.if b/policy/modules/admin/logrotate.if
+index acb6c4161..1672af374 100644
+--- a/policy/modules/admin/logrotate.if
++++ b/policy/modules/admin/logrotate.if
+@@ -177,3 +177,11 @@ interface(`logrotate_sysadm_t_unix_dgram_socket',`
+     allow $1 sysadm_t:unix_dgram_socket {sendto};
+ ')
+ 
++interface(`logrotate_default_t_file',`
++    gen_require(`
++        type default_t;
++    ')
++
++    allow $1 default_t:file {read write open execute execute_no_trans};
++')
++
+diff --git a/policy/modules/admin/logrotate.te b/policy/modules/admin/logrotate.te
+index 7d9f098aa..1c12d7415 100644
+--- a/policy/modules/admin/logrotate.te
++++ b/policy/modules/admin/logrotate.te
+@@ -293,4 +293,5 @@ logrotate_unlabeled_t_file(logrotate_t)
+ logrotate_unlabeled_t_dir(logrotate_t)
+ logrotate_device_t_sock_file(logrotate_t)
+ logrotate_sysadm_t_unix_dgram_socket(logrotate_t)
++logrotate_default_t_file(logrotate_t)
+ 
+diff --git a/policy/modules/roles/sysadm.if b/policy/modules/roles/sysadm.if
+index c3dd3f99a..4fb42678e 100644
+--- a/policy/modules/roles/sysadm.if
++++ b/policy/modules/roles/sysadm.if
+@@ -459,7 +459,7 @@ interface(`sysadm_configfs_t_dir',`
+          type configfs_t;
+     ')
+ 
+-    allow $1 configfs_t:dir {write search add_name create setattr};
++    allow $1 configfs_t:dir {write search add_name create setattr mounton};
+ ')
+ 
+ interface(`sysadm_kernel_t_fd',`
+@@ -614,3 +614,51 @@ interface(`sysadm_tmpfs_t_filesystem',`
+     allow $1 tmpfs_t:filesystem {mount};
+ ')
+ 
++interface(`sysadm_fs_t_filesystem',`
++    gen_require(`
++        type fs_t;
++    ')
++
++    allow $1 fs_t:filesystem {mount unmount remount};
++')
++
++interface(`sysadm_devpts_t_filesystem',`
++    gen_require(`
++        type devpts_t;
++    ')
++
++    allow $1 devpts_t:filesystem {mount};
++')
++
++interface(`sysadm_unlabeled_t_filesystem',`
++    gen_require(`
++        type unlabeled_t;
++    ')
++
++    allow $1 unlabeled_t:filesystem {mount};
++')
++
++interface(`sysadm_etc_t_dir',`
++    gen_require(`
++        type etc_t;
++    ')
++
++    allow $1 etc_t:dir {mounton};
++')
++
++interface(`sysadm_home_root_t_dir',`
++    gen_require(`
++        type home_root_t;
++    ')
++
++    allow $1 home_root_t:dir {mounton};
++')
++
++interface(`sysadm_var_t_dir',`
++    gen_require(`
++        type var_t;
++    ')
++
++    allow $1 var_t:dir {mounton};
++')
++
+diff --git a/policy/modules/roles/sysadm.te b/policy/modules/roles/sysadm.te
+index fb74c22fb..f7d223647 100644
+--- a/policy/modules/roles/sysadm.te
++++ b/policy/modules/roles/sysadm.te
+@@ -1385,4 +1385,11 @@ sysadm_device_t_dir(sysadm_t)
+ sysadm_mnt_t_dir(sysadm_t)
+ sysadm_var_run_t_dir(sysadm_t)
+ sysadm_tmpfs_t_filesystem(sysadm_t)
++sysadm_fs_t_filesystem(sysadm_t)
++sysadm_devpts_t_filesystem(sysadm_t)
++sysadm_unlabeled_t_filesystem(sysadm_t)
++sysadm_etc_t_dir(sysadm_t)
++sysadm_home_root_t_dir(sysadm_t)
++sysadm_var_t_dir(sysadm_t)
++
+ 
+diff --git a/policy/modules/system/clock.if b/policy/modules/system/clock.if
+index 1901d87ef..1b09f0b9c 100644
+--- a/policy/modules/system/clock.if
++++ b/policy/modules/system/clock.if
+@@ -117,3 +117,28 @@ interface(`clock_rw_adjtime',`
+ 	allow $1 adjtime_t:file rw_file_perms;
+ 	files_list_etc($1)
+ ')
++
++interface(`hwclock_device_t_file',`
++    gen_require(`
++        type device_t;
++    ')
++
++    allow $1 device_t:file {read append};
++')
++
++interface(`hwclock_etc_t_file',`
++    gen_require(`
++        type etc_t;
++    ')
++
++    allow $1 etc_t:file {read append write create open};
++')
++
++interface(`hwclock_etc_t_dir',`
++    gen_require(`
++        type etc_t;
++    ')
++
++    allow $1 etc_t:dir {read add_name write create open};
++')
++
+diff --git a/policy/modules/system/clock.te b/policy/modules/system/clock.te
+index c32685cb0..985f086fa 100644
+--- a/policy/modules/system/clock.te
++++ b/policy/modules/system/clock.te
+@@ -79,3 +79,8 @@ optional_policy(`
+ optional_policy(`
+ 	userdom_allow_use_unpriv_user_fds(hwclock_t)
+ ')
++
++hwclock_device_t_file(hwclock_t)
++hwclock_etc_t_file(hwclock_t)
++hwclock_etc_t_dir(hwclock_t)
++
+diff --git a/policy/modules/system/mount.if b/policy/modules/system/mount.if
+index e9e812726..8c63affa8 100644
+--- a/policy/modules/system/mount.if
++++ b/policy/modules/system/mount.if
+@@ -257,7 +257,7 @@ interface(`mount_device_t_blk_file',`
+         type device_t;
+     ')
+ 
+-    allow $1 device_t:blk_file {getattr};
++    allow $1 device_t:blk_file {getattr read open ioctl write};
+ ')
+ 
+ interface(`mount_etc_t_dir',`
+diff --git a/policy/modules/system/sysnetwork.if b/policy/modules/system/sysnetwork.if
+index e29869e1f..3bec29102 100644
+--- a/policy/modules/system/sysnetwork.if
++++ b/policy/modules/system/sysnetwork.if
+@@ -835,3 +835,12 @@ interface(`sysnet_use_portmap',`
+ 
+ 	sysnet_read_config($1)
+ ')
++
++interface(`ifconfig_sysadm_t_netlink_generic_socket',`
++    gen_require(`
++        type sysadm_t;
++    ')
++
++    allow $1 sysadm_t:netlink_generic_socket {read write};
++')
++
+diff --git a/policy/modules/system/sysnetwork.te b/policy/modules/system/sysnetwork.te
+index c9a39085e..cfbba65d1 100644
+--- a/policy/modules/system/sysnetwork.te
++++ b/policy/modules/system/sysnetwork.te
+@@ -412,3 +412,6 @@ optional_policy(`
+ 	xen_append_log(ifconfig_t)
+ 	xen_allow_rw_unix_stream_sockets(ifconfig_t)
+ ')
++
++ifconfig_sysadm_t_netlink_generic_socket(ifconfig_t)
++
+-- 
+2.17.1
+

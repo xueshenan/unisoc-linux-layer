@@ -1,0 +1,71 @@
+Unisoc General Software License
+version 1.0, June 2022
+https://www.unisoc.com/en_us/license/UNISOC_GENERAL_LICENSE_V1.0-EN_US
+
+The Unisoc General Software License v1 (hereinafter referred to as this License) is formulated by Unisoc (Shanghai) Technologies Co., Ltd. (hereinafter referred to as UNISOC), and UNISOC reserves the intellectual property rights of this License and the right of final interpretation of all its terms.
+You may apply this License to your Works without any modification, provided that you must obtain the prior written consent of UNISOC.
+Any Use or Distribution of the Works to which this License has been applied to shall mean that you have expressly assented to this License, that assent indicates your clear and irrevocable acceptance of this License and all of its terms and conditions.
+Works, Use, Distribution and other related terms are defined below.
+
+0. Definitions
+Licensor shall mean any individual or Legal Entity who license the Works to you under this License. 
+You (or Your), whether in upper or lower case, shall mean any individual or Legal Entity exercising permissions granted by this License.
+Legal Entity shall mean economic entity with legal person status and its Affiliates.
+Affiliate shall mean any other individual or Legal Entity that directly or indirectly controls, is controlled by, or is under common control with a Legal Entity.
+Works shall mean the works of authorship and its copies, whatever the form, made available under this License.
+Derivative Works shall mean any new works and its copies derived from the whole or part of the Works, whatever the form, including but not limited to editorial revisions, annotations, elaborations, or other modifications of the whole or part of the Works. For the purposes of this License, Derivative Works shall not include works remaining separable from, or merely link to the interfaces of, the Works and Derivative Works thereof.
+Source Form shall mean the preferred form for making modifications, including but not limited to software source code, documentation source, and configuration files.
+Object Form shall mean any form resulting from mechanical transformation or translation of a Source Form, including but not limited to compiled object code, generated documentation, and conversions to other media types.
+Compile shall mean the process of translating programs in Source Form into programs in Object Form.
+Use shall only mean Duplicating, Modifying, or Compiling the Source Form of the Works, and Running the Object Form of the Works.
+Distribute/Distribution shall only mean the act of making the Works and its Derivative Works available to others in the following manners: (1) Distribute the Work in a way that is embedded in your product which uses Unisoc Chip. (2) Distribute the Work in a way that is installable for the end users of your product which uses Unisoc Chip. (3) Distribute the Work by SaaS.
+SaaS shall mean Software as a Service which allows users to connect to and use cloud-based apps of the Works over the Internet.
+Sublicense shall mean the act that any individual or Legal Entity authorized by this License will license the rights permitted by this License to any other individual or Legal Entity.
+
+1. Conditional Copyright License
+The Licensor grants you a license to Use the Works without the right to Sublicense such right, provided that the following conditions are met: 
+(1) You should Use the Works without any breach of the written consent (such as a commercial contract) that you must obtain from the Licensor first.
+(2) For Legal Entity, you should ensure those who access to the Works because of their relationship with you will Use the Works exclusively on your behalf, as well as under your direction and control, and on terms that prohibit any unauthorized conduct by them.
+The Licensor grants you a license to Distribute the Works and its Derivative Works with the right to Sublicense such right, provided that the following conditions are met:
+(1) You should Distribute the Works and its Derivative Works without any breach of the written consent (such as a commercial contract) that you must obtain from the Licensor first.
+(2) You should Distribute the Works and its Derivative Works only in Object Form.
+(3) You should ensure that this License applies to the Works and that any act by you relating to the Works will not affect the effectiveness of this License.
+(4) You should ensure that this License applies to the Derivative Works you create, recipients are conspicuously notified that such Derivative Works are derived from the Works, and retain, in the Derivative Works that you create, all copyright, patent, or trademark notices from the Works, as well as any other descriptive text regarding attribution of rights.
+You may have additional license terms from the Licensor other than this License.
+
+2. No Patent License
+For the purposes of this License alone, the Licensor does not grant any patent license relates to the Works.
+
+3. No Trademark License
+For the purposes of this License alone, the Licensor does not grant any trademark license for its trade names, trademarks, service identifier or product names, except as necessary to satisfy your declarative obligations under this License.
+
+4. Breach and Termination
+Any breach of any term of this License will immediately terminate your rights under this License.
+
+5. Disclaimer
+The Licensor has not made any express or implied covenants or warranties for the Works or Derivative Works, including, but not limited to, warranties for merchantability or fit for a particular purpose. In no event shall the Licensor have any liability for any direct or indirect losses caused to anyone using the Works or Derivative Works, regardless of the reason for the loss or be it based on any legal theory, even if it has been informed of the possibility of such losses.
+
+6. Rights Reserved
+The Licensor reserves any right not expressly granted in this License text.
+
+END OF TERMS
+
+
+APPENDIX: How to apply Unisoc General Software License v1 to your software
+If you desire to apply Unisoc General Software License v1 to your software, in order to facilitate the recipient’s reading, it is recommended that you should complete the following three steps:
+1. Please attach the following boilerplate declaration, replacing the fields enclosed by brackets "[]" & "<>" with your own identifying information, where "[]" means optional content, and "<>"means mandatory content.
+2. Please create a folder named LICENSE in the primary directory of the software package, and put the entire license text into the folder.
+3. Please put the following statement text in the header comment of each source file.
+
+Copyright <First_Publication_In_Year>[-<Last_Update_In_Year>] <Name of Copyright Owner> 
+Licensed under the Unisoc General Software License,
+version 1.0 (the License); 
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+https://www.unisoc.com/en_us/license/UNISOC_GENERAL_LICENSE_V1.0-EN_US
+Software distributed under the License is distributed on an "AS IS" BASIS, 
+WITHOUT WARRANTIES OF ANY KIND, either express or implied.
+See the Unisoc General Software License, version 1.0 for more details.
+
+
+

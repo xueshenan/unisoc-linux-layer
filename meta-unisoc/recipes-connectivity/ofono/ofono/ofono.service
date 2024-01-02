@@ -1,0 +1,23 @@
+[Unit]
+Description=Telephony service
+After=dbus.service
+
+[Service]
+Type=dbus
+BusName=org.ofono
+Environment="OFONO_RIL_DEVICE=ril"
+Environment="OFONO_RIL_NUM_SIM_SLOTS=1"
+Environment="OFONO_RIL_TRACE=1"
+ExecStart=/usr/sbin/ofonod -nd -p uncdev,unisoc,unisocmodem,bluez5,hfp_ag_bluez5,hfp_bluez5,hfpmodem
+StandardError=journal
+StandardOutput=journal
+Restart=always
+RestartSec=5
+#User=radio
+#Group=radio
+SecureBits=keep-caps
+Capabilities=cap_dac_override=ep
+CapabilityBoundingSet=CAP_DAC_OVERRIDE
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,48 @@
+diff --git a/drivers/net/sprd/sipa_v3/sipa_debugfs.c b/drivers/net/sprd/sipa_v3/sipa_debugfs.c
+index 51a90818ad85..0ad65890084e 100644
+--- a/drivers/net/sprd/sipa_v3/sipa_debugfs.c
++++ b/drivers/net/sprd/sipa_v3/sipa_debugfs.c
+@@ -268,6 +268,8 @@ static const struct file_operations dynamic_alloc_skb_show_fops = {
+ 	.release = single_release,
+ };
+ 
++
++#ifdef CONFIG_DEBUG_FS
+ int sipa_init_debugfs(struct sipa_plat_drv_cfg *ipa)
+ {
+ 	struct dentry *root;
+@@ -344,3 +346,5 @@ void sipa_exit_debugfs(struct sipa_plat_drv_cfg *sipa)
+ {
+ 	debugfs_remove_recursive(sipa->debugfs_root);
+ }
++#endif
++
+diff --git a/drivers/base/regmap/regmap-hook.c b/drivers/base/regmap/regmap-hook.c
+index fc70763f382b..16340288b07c 100644
+--- a/drivers/base/regmap/regmap-hook.c
++++ b/drivers/base/regmap/regmap-hook.c
+@@ -65,7 +65,7 @@ static int sprd_regmap_mmio_update_bits(void *context, unsigned int reg,
+ 	return 0;
+ }
+ 
+-static void sprd_regmap_update(void *data, const struct regmap_config *config,
++/*static*/ void sprd_regmap_update(void *data, const struct regmap_config *config,
+ 				struct regmap *map)
+ {
+ 	if (!config->use_hwlock)
+@@ -74,12 +74,13 @@ static void sprd_regmap_update(void *data, const struct regmap_config *config,
+ 
+ static int regmap_hook_init(void)
+ {
+-	int ret;
++	int ret = 0;
+ 
++#ifdef TRACE_HEADER_MULTI_READ
+ 	ret = register_trace_android_vh_regmap_update(sprd_regmap_update, NULL);
+ 	if (ret)
+ 		pr_err("register_trace_android_vh_regmap_update fail, ret[%d]\n", ret);
+-
++#endif
+ 	return ret;
+ }
+ 

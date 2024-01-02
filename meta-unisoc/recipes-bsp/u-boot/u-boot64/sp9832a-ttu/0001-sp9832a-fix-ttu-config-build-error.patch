@@ -1,0 +1,289 @@
+ include/configs/sp9832a_2h11_ttu.h | 89 ++++++++++++++------------------------
+ 1 file changed, 33 insertions(+), 56 deletions(-)
+
+diff --git a/include/configs/sp9832a_2h11_ttu.h b/include/configs/sp9832a_2h11_ttu.h
+index 2ab5da6..fc71623 100644
+--- a/include/configs/sp9832a_2h11_ttu.h
++++ b/include/configs/sp9832a_2h11_ttu.h
+@@ -24,8 +24,8 @@
+
+ #include "sprd_sharkl_modem_volte.h"
+
+-// #define CONFIG_SECURE_BOOT
+-// #define CONFIG_ROM_VERIFY_SPL
++/* #define CONFIG_SECURE_BOOT */
++/* #define CONFIG_ROM_VERIFY_SPL */
+
+ #define PRIMPUKPATH "/dev/block/mmcblk0boot0"
+ #define PRIMPUKSTART 512
+@@ -33,12 +33,11 @@
+ /* Flat Device Tree Definitions */
+ #define CONFIG_OF_LIBFDT
+
+-
+ #define DT_PLATFROM_ID 8830
+ #define DT_HARDWARE_ID 1
+ #define DT_SOC_VER     0x20000
+
+-//only used in fdl2 .in uart download, the debug infors  from  serial will break the download process.
++/* only used in fdl2 .in uart download, the debug infors  from  serial will break the download process. */
+
+ #define BOOT_NATIVE_LINUX_MODEM  1
+ #define CONFIG_SILENT_CONSOLE
+@@ -66,10 +65,9 @@
+ #define CONFIG_SP9832A_2H11_VOLTE
+ #define CONFIG_SC9630
+ #define CONFIG_ADIE_SC2723
+-//#define CONFIG_ARCH_SCX35L
++/* #define CONFIG_ARCH_SCX35L */
+ #define CONFIG_SPL_32K
+
+-
+ #define CONFIG_PMIC_ARM7_BOOT
+ #define CONFIG_CP1_BOOT
+ #define CHIP_ENDIAN_LITTLE
+@@ -92,7 +90,7 @@
+
+ #define CONFIG_FS_FAT
+ #define CONFIG_UEFI_PARTITION
+-#define CONFIG_EFI_PARTITION
++/* #define CONFIG_EFI_PARTITION */
+ #define CONFIG_EXT4_SPARSE_DOWNLOAD
+ #endif
+
+@@ -115,8 +113,6 @@
+ #define CONFIG_SYS_MMC_NUM		1
+ #endif
+
+-
+-
+ #define CONFIG_SYS_HZ			1000
+ #define CONFIG_SPRD_TIMER_CLK		1000 /*32768*/
+
+@@ -126,7 +122,6 @@
+ #define CP1_ZERO_MAP_ADR    0x50001000
+ #define CP1_EXEC_ADR        LTE_MODEM_ADDR
+
+-
+ #define MODEM_SIZE		(0x800000)
+ #define DSP_SIZE		(0x2E0000)
+ #define RUNTIMENV_SIZE		(3*128 * 1024)
+@@ -142,14 +137,12 @@
+ #define CONFIG_SPL_LOAD_LEN	(0x6000)
+ #endif
+
+-
+-//The macro deffined in config.mk of uboot 
++/* The macro deffined in config.mk of uboot */
+ #ifdef SP9832A_2H11_32V4_VOLTE_LCD
+ #define  CONFIG_FB_LOW_RES_SIMU
+ #endif
+
+-/*#define CMDLINE_NEED_CONV */
+-
++/* #define CMDLINE_NEED_CONV */
+
+ #define CONFIG_SYS_SDRAM_BASE 0x80000000
+ #define CONFIG_SYS_SDRAM_END (CONFIG_SYS_SDRAM_BASE + PHYS_SDRAM_1_SIZE)
+@@ -159,10 +152,6 @@
+
+ #define CONFIG_SKIP_LOWLEVEL_INIT
+
+-
+-
+-
+-
+ #define CONFIG_CMDLINE_TAG		1	/* enable passing of ATAGs */
+ #define CONFIG_SETUP_MEMORY_TAGS	1
+ #define CONFIG_INITRD_TAG		1
+@@ -203,15 +192,19 @@
+ */
+
+ /* DDR */
++
++/*
+ //#define DDR_CLK 464
+ //---these three macro below,only one can be open
+ //#define DDR_LPDDR1
+ //#define DDR_LPDDR2
+ //#define DDR_DDR3
++*/
+
+ #define CONFIG_DDR_AUTO_DETECT
+ #define CONFIG_NR_DRAM_BANKS_ADDR_IN_IRAM    0x1C00   /* IRAM store ddr info */
+
++/*
+ //#define DDR_TYPE DRAM_LPDDR2_2CS_8G_X32
+ //#define DDR_TYPE DRAM_LPDDR2_1CS_4G_X32
+ //#define DDR_TYPE DRAM_LPDDR2_1CS_8G_X32
+@@ -231,14 +224,14 @@
+ //#define PUBL_LPDDR1_DS PUBL_LPDDR1_DS_48OHM
+ //#define PUBL_LPDDR2_DS PUBL_LPDDR2_DS_40OHM
+ //#define PUBL_DDR3_DS   PUBL_DDR3_DS_34OHM
++*/
+
+ /* NAND */
+ #define CONFIG_NAND_SC9630
+-//#define CONFIG_SPRD_NAND_REGS_BASE	(0x21100000)
++/* #define CONFIG_SPRD_NAND_REGS_BASE	(0x21100000) */
+ #define CONFIG_SYS_MAX_NAND_DEVICE	1
+ #define CONFIG_SYS_NAND_BASE		(0x21100000)
+
+-
+ #define CONFIG_CMD_MTDPARTS
+ #define CONFIG_MTD_PARTITIONS
+ #define CONFIG_MTD_DEVICE
+@@ -256,16 +249,11 @@
+ #define CONFIG_SYS_BARGSIZE	CONFIG_SYS_CBSIZE
+ #define CONFIG_SYS_LONGHELP
+
+-
+-
+-
+ #define CONFIG_BOOTDELAY	0
+
+-
+ #define CONFIG_LOADADDR		(CONFIG_SYS_TEXT_BASE - CONFIG_SYS_MALLOC_LEN - 4*1024*1024)	/* loadaddr env var */
+ #define CONFIG_SYS_LOAD_ADDR	CONFIG_LOADADDR
+
+-
+ #define MTDIDS_DEFAULT "nand0=sprd-nand"
+ #define MTDPARTS_DEFAULT "mtdparts=sprd-nand:256k(spl),512k(2ndbl),256k(params),512k(vmjaluna),10m(modem),3840k(fixnv),3840k(backupfixnv),5120k(dsp),3840k(runtimenv),10m(boot),10m(recovery),250m(system),180m(userdata),20m(cache),256k(misc),1m(boot_logo),1m(fastboot_logo),3840k(productinfo),512k(kpanic)"
+ #define CONFIG_BOOTARGS "mem=512M loglevel=1 console=ttyS1,115200n8 init=/init " MTDPARTS_DEFAULT
+@@ -275,8 +263,6 @@
+ #define CONFIG_BOOTCOMMAND "cboot normal"
+ #define	CONFIG_EXTRA_ENV_SETTINGS				""
+
+-
+-
+ #define CONFIG_USB_GADGET_SC8800G
+ #define CONFIG_USB_DWC
+ #define CONFIG_USB_GADGET_DUALSPEED
+@@ -288,11 +274,11 @@
+ #define CONFIG_DSIH_VERSION_1P21A
+ #define CONFIG_SPLASH_SCREEN
+ #define LCD_BPP LCD_COLOR16
+-//#define CONFIG_LCD_FWVGA
++/* #define CONFIG_LCD_FWVGA */
+ #define CONFIG_LCD_720P
+ #define CONFIG_CMD_BMP
+
+-//#define CONFIG_FB_LCD_OTM8019A_MIPI
++/* #define CONFIG_FB_LCD_OTM8019A_MIPI */
+ #define CONFIG_FB_LCD_HX8394A_MIPI
+ #define CONFIG_FB_LCD_ILI9881C_MIPI
+ #ifdef  CONFIG_FB_LOW_RES_SIMU
+@@ -308,7 +294,7 @@
+ #define CONSOLE_COLOR_MAGENTA 0x001f
+ #define CONSOLE_COLOR_CYAN 0x001f
+ #endif
+-#endif // CONFIG_LCD
++#endif /* CONFIG_LCD */
+
+ /*for sysdump*/
+ #define CONFIG_FS_FAT
+@@ -316,24 +302,22 @@
+ #define CONFIG_RAMDUMP_NO_SPLIT 1	/* Don't split sysdump file */
+ #define REAL_SDRAM_SIZE 0x40000000	/*dump 1G */
+
+-
+ #define CALIBRATE_ENUM_MS 3000
+ #define CALIBRATE_IO_MS 2000
+
+-//#define LOW_BAT_ADC_LEVEL 782 /*phone battery adc value low than this value will not boot up*/
++/* #define LOW_BAT_ADC_LEVEL 782 */ /*phone battery adc value low than this value will not boot up*/
+ #define LOW_BAT_VOL            3400 /*phone battery voltage low than this value will not boot up*/
+-#define LOW_BAT_VOL_CHG        3300    //3.3V charger connect
++#define LOW_BAT_VOL_CHG        3300    /* 3.3V charger connect */
+
+ #define PWR_KEY_DETECT_CNT 2 /*this should match the count of boot_pwr_check() function */
+ #define ALARM_LEAD_SET_MS 0 /* time set for alarm boot in advancd */
+
+-
+ /*rf board id */
+ #define RF_BAND_INFO
+ #ifdef RF_BAND_INFO
+ #define LB_GPIO_NUM   134
+ #define MB_GPIO_NUM   135
+-//#define HB_GPIO_NUM  0
++/* #define HB_GPIO_NUM  0 */
+ #define ADC_CHANNEL_FOR_NV  1
+ #endif
+
+@@ -343,18 +327,15 @@
+ #define CONFIG_32K
+ #endif
+
+-
+ /* #define CONFIG_SPRD_AUDIO_DEBUG */
+-
+-
+ #define CONFIG_PBINT_7S_RESET_V1
+ /*7S reset config*/
+-#define CONFIG_7S_RST_MODULE_EN		1	//0:disable module; 1:enable module
++#define CONFIG_7S_RST_MODULE_EN		1	/* 0:disable module; 1:enable module */
+
+-#define CONFIG_7S_RST_SW_MODE		1	//0:hw reset,1:arm reset,power keep on
+-#define CONFIG_7S_RST_SHORT_MODE	1	//0:long press then release key to trigger;1:press key some time to trigger
+-#define CONFIG_7S_RST_2KEY_MODE		0	//0:1Key--Normal mode; 1:2KEY
+-#define CONFIG_7S_RST_THRESHOLD		7	//7S, hold key down for this time to trigger
++#define CONFIG_7S_RST_SW_MODE		1	/* 0:hw reset,1:arm reset,power keep on */
++#define CONFIG_7S_RST_SHORT_MODE	1	/* 0:long press then release key to trigger;1:press key some time to trigger */
++#define CONFIG_7S_RST_2KEY_MODE		0	/* 0:1Key--Normal mode; 1:2KEY */
++#define CONFIG_7S_RST_THRESHOLD		7	/* 7S, hold key down for this time to trigger */
+
+ #define DT_ADR          0x85400000
+ #define KERNEL_ADR      0x80008000
+@@ -368,38 +349,35 @@
+ #define CONFIG_PREBOOT "role"
+ #define CONFIG_BOARD_LATE_INIT
+
+-
+-
+-/*rf board id */
++/* rf board id */
+
+ #define RF_BAND_INFO
+
+ #ifdef RF_BAND_INFO
+ #define LB_GPIO_NUM 			134
+ #define MB_GPIO_NUM 			135
+-//#define HB_GPIO_NUM 			0
+-//#define ADC_CHANNEL_FOR_NV		0
++/* #define HB_GPIO_NUM 			0 */
++/* #define ADC_CHANNEL_FOR_NV		0 */
+ #endif
+
+-
+ /* Chip Driver Macro Definitions Start*/
+-/*sprd adc*/
++/* sprd adc */
+ #define CONFIG_SPRD_ADC
+
+-/*sprd adi*/
++/* sprd adi */
+ #define CONFIG_SPRD_ADI
+
+-/*sprd gpio*/
++/* sprd gpio */
+ #define CONFIG_SPRD_GPIO
+
+-/*sprd rtc*/
++/* sprd rtc */
+ #define CONFIG_RTC_SPRD
+
+-/*sprd watchdog*/
++/* sprd watchdog */
+ #define CONFIG_HW_WATCHDOG
+ #define CONFIG_SPRD_WATCHDOG
+
+- /*Serial Info*/
++/* Serial Info */
+ #define CONFIG_SPRD_UART		1
+ #define CONFIG_SYS_SC8800X_UART1	1
+ #define CONFIG_CONS_INDEX	1	/* use UART0 for console */
+@@ -418,4 +396,3 @@
+ #define CONFIG_SPRD_I2C
+
+ #endif /* __CONFIG_H */
+-

@@ -1,0 +1,59 @@
+#!/bin/sh
+
+DAEMON=/usr/sbin/ofonod
+PIDFILE=/var/run/ofonod.pid
+DESC="Telephony daemon"
+export OFONO_RIL_DEVICE=ril
+export OFONO_RIL_NUM_SIM_SLOTS=1
+export OFONO_RIL_TRACE=1
+
+if [ -f /etc/default/ofono ] ; then
+	. /etc/default/ofono
+fi
+
+do_start() {
+str1=$(cat /proc/cmdline)
+str2="calibration="
+result1=$(echo $str1 | grep "${str2}")
+
+if [ "$result1" != "" ];then
+  echo "enter the calibration"
+  exit 0
+else
+  cat /etc/inittab | grep "$DAEMON"
+
+  if [ $? -eq 0 ]
+  then
+      echo "Starting $DESC from inittab"
+  else
+      echo "Starting $DESC"
+      $DAEMON -nd -p uncdev,unisoc,unisocmodem,bluez5,hfp_ag_bluez5,hfp_bluez5,hfpmodem &
+  fi
+fi
+}
+
+do_stop() {
+	start-stop-daemon --stop --name ofonod --quiet
+}
+
+case "$1" in
+  start)
+	do_start
+	;;
+  stop)
+	echo "Stopping $DESC"
+	do_stop
+	;;
+  restart|force-reload)
+	echo "Restarting $DESC"
+	do_stop
+	sleep 1
+	do_start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

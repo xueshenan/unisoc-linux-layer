@@ -1,0 +1,31 @@
+{
+  "input": {
+    "bits":8,
+    "interleaving":1
+  },
+  "output":{
+    "bits":8
+  },
+  "fast_optim":100,
+  "mapping_features":["force_dsc","disable_use_sw_ewo"],
+  "layer_types": [
+    {
+      "weights": {
+        "bits": 8
+      },
+      "bias": {
+        "bits": 8
+      },
+      "type": "CONV"
+    },
+    {
+      "weights": {
+        "bits": 8
+      },
+      "bias": {
+        "bits": 8
+      },
+      "type": "INNERPRODUCT"
+    }
+  ]
+}

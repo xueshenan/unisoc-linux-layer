@@ -1,0 +1,57 @@
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<ThermalConfig>
+	<sensor>
+		<sensor_type>pa-thmzone</sensor_type>
+		<polling_delay>2000</polling_delay>
+		<DroPeriod>30000</DroPeriod>
+		<AvgPeriod>30000</AvgPeriod>
+		<zone_level id="1" type="active">
+			<temp>105000</temp>
+			<trip id="0" >
+				<action name="powerback" arg="AT+SPTPPB=0" file="" />
+			</trip>
+			<trip id="1" >
+				<action name="powerback" arg="AT+SPTPPB=2" file="" />
+			</trip>
+			<trip id="2" >
+				<action name="powerback" arg="AT+SPTPPB=4" file="" />
+			</trip>
+			<trip id="3" >
+				<action name="powerback" arg="AT+SPTPPB=6" file="" />
+			</trip>
+			<trip id="4" >
+				<action name="powerback" arg="AT+SPTPPB=8" file="" />
+			</trip>
+			<trip id="5" >
+				<action name="powerback" arg="AT+SPTPPB=10" file="" />
+			</trip>
+		</zone_level>
+	</sensor>
+	<sensor>
+		<sensor_type>pa5g-thmzone</sensor_type>
+		<polling_delay>2000</polling_delay>
+		<DroPeriod>30000</DroPeriod>
+		<AvgPeriod>30000</AvgPeriod>
+		<zone_level id="1" type="active">
+			<temp>105000</temp>
+			<trip id="0" >
+				<action name="powerback" arg='AT+SP5GCMDS="set nr power_control",0,0' file="" />
+			</trip>
+			<trip id="1" >
+				<action name="powerback" arg='AT+SP5GCMDS="set nr power_control",0,2' file="" />
+			</trip>
+			<trip id="2" >
+				<action name="powerback" arg='AT+SP5GCMDS="set nr power_control",0,4' file="" />
+			</trip>
+			<trip id="3" >
+				<action name="powerback" arg='AT+SP5GCMDS="set nr power_control",0,6' file="" />
+			</trip>
+			<trip id="4" >
+				<action name="powerback" arg='AT+SP5GCMDS="set nr power_control",0,8' file="" />
+			</trip>
+			<trip id="5" >
+				<action name="powerback" arg='AT+SP5GCMDS="set nr power_control",0,10' file="" />
+			</trip>
+		</zone_level>
+	</sensor>
+</ThermalConfig>

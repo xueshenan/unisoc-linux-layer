@@ -1,0 +1,13 @@
+diff --git a/src/lv_font/lv_font.mk b/src/lv_font/lv_font.mk
+index 5b2f8bc..bd5b786 100644
+--- a/src/lv_font/lv_font.mk
++++ b/src/lv_font/lv_font.mk
+@@ -25,6 +25,8 @@ CSRCS += lv_font_montserrat_28_compressed.c
+ CSRCS += lv_font_unscii_8.c
+ CSRCS += lv_font_dejavu_16_persian_hebrew.c
+
++CSRCS += lv_font_chinese_19.c
++
+ DEPPATH += --dep-path $(LVGL_DIR)/$(LVGL_DIR_NAME)/src/lv_font
+ VPATH += :$(LVGL_DIR)/$(LVGL_DIR_NAME)/src/lv_font
+

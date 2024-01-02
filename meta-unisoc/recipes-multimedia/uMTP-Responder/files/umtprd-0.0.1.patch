@@ -1,0 +1,35 @@
+diff --git a/Makefile b/Makefile
+index d92a87b..a83107b 100644
+--- a/Makefile
++++ b/Makefile
+@@ -2,24 +2,21 @@
+ override CFLAGS += -I./inc -lpthread -Wall -O3
+ 
+ sources := $(wildcard src/*.c)
+-objects := $(sources:src/%.c=obj/%.o)
++objects := $(sources:src/%.c=src/%.o)
+ 
+ ops_sources := $(wildcard src/mtp_operations/*.c)
+-ops_objects := $(ops_sources:src/mtp_operations/%.c=obj/%.o)
++ops_objects := $(ops_sources:src/mtp_operations/%.c=src/%.o)
+ 
+-all: output_dir umtprd
++all: umtprd
+ 
+ umtprd: $(objects) $(ops_objects)
+ 	${CC} -o $@    $^ $(LDFLAGS) -lpthread
+ 
+-$(objects): obj/%.o: src/%.c
++$(objects): src/%.o: src/%.c
+ 	${CC} -o $@ $^ -c $(CFLAGS)
+ 
+-$(ops_objects): obj/%.o: src/mtp_operations/%.c
++$(ops_objects): src/%.o: src/mtp_operations/%.c
+ 	${CC} -o $@ $^ -c $(CFLAGS)
+ 
+-output_dir:
+-	@mkdir -p obj
+-
+ clean:
+-	rm -Rf  *.o  .*.o  .*.o.* *.ko  .*.ko  *.mod.* .*.mod.* .*.cmd umtprd obj
++	rm -RF  *.o  .*.o  .*.o.* *.ko  .*.ko  *.mod.* .*.mod.* .*.cmd umtprd

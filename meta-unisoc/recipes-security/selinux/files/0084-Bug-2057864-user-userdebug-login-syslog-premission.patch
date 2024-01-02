@@ -1,0 +1,182 @@
+From 6e70960988952db62fd41d71379e8cd2c94c1775 Mon Sep 17 00:00:00 2001
+From: "hainan.wang" <hainan.wang@unisoc.com>
+Date: Tue, 25 Oct 2022 19:23:55 +0800
+Subject: [PATCH] Bug #2057864-user-userdebug-login&syslog-premission
+
+[root cause  ]: x
+[changes     ]:x
+[side effects]:x
+[self test   ]:x
+[download normally]:x
+[power on/off normally]:x
+[do common repository/branch inspection]:x
+[is there dependence]:x
+[confirm dependent commit]:x
+[board]:x
+[test case]:x
+[reviewers]:x
+
+commit_template_version:v1
+---
+ policy/modules/services/cron.if     |  8 +++++++
+ policy/modules/services/cron.te     |  1 +
+ policy/modules/system/locallogin.if | 16 ++++++++++++++
+ policy/modules/system/locallogin.te |  2 ++
+ policy/modules/system/logging.if    | 34 ++++++++++++++++++++++++++++-
+ policy/modules/system/logging.te    |  4 ++++
+ policy/modules/system/mount.if      |  8 +++++++
+ policy/modules/system/mount.te      |  1 +
+ 8 files changed, 73 insertions(+), 1 deletion(-)
+
+diff --git a/policy/modules/services/cron.if b/policy/modules/services/cron.if
+index 087c4b0f6..5442ef543 100644
+--- a/policy/modules/services/cron.if
++++ b/policy/modules/services/cron.if
+@@ -1020,3 +1020,11 @@ interface(`crond_etc_t_file',`
+     allow $1 etc_t:file {rw_file_perms map};
+ ')
+ 
++interface(`system_cronjob_bin_t_file',`
++    gen_require(`
++        type bin_t;
++    ')
++
++    allow $1 bin_t:file {rw_file_perms map entrypoint execute execute_no_trans};
++')
++
+diff --git a/policy/modules/services/cron.te b/policy/modules/services/cron.te
+index d5511b278..05ec3a96e 100644
+--- a/policy/modules/services/cron.te
++++ b/policy/modules/services/cron.te
+@@ -794,4 +794,5 @@ crond_kmsg_device_t_chr_file(crond_t)
+ crond_unlabeled_t_dir(crond_t)
+ crond_unlabeled_t_lnk_file(crond_t)
+ crond_etc_t_file(crond_t)
++system_cronjob_bin_t_file(crond_t)
+ 
+diff --git a/policy/modules/system/locallogin.if b/policy/modules/system/locallogin.if
+index e8bd624a9..9a8a86172 100644
+--- a/policy/modules/system/locallogin.if
++++ b/policy/modules/system/locallogin.if
+@@ -466,3 +466,19 @@ interface(`locallogin_lib_t_file',`
+      allow $1 lib_t:file { execmod };
+ ')
+ 
++interface(`locallogin_kmsg_device_t_chr_file',`
++     gen_require(`
++        type kmsg_device_t;
++     ')
++
++     allow $1 kmsg_device_t:chr_file { rw_chr_file_perms map };
++')
++
++interface(`locallogin_iptables_initrc_exec_t_file',`
++    gen_require(`
++        type iptables_initrc_exec_t;
++    ')
++
++    allow $1 iptables_initrc_exec_t:file { execute_no_trans execute map};
++')
++
+diff --git a/policy/modules/system/locallogin.te b/policy/modules/system/locallogin.te
+index 933322d41..9734bb868 100644
+--- a/policy/modules/system/locallogin.te
++++ b/policy/modules/system/locallogin.te
+@@ -330,4 +330,6 @@ locallogin_alsa_etc_t_file(local_login_t)
+ locallogin_var_run_t_dir(local_login_t)
+ locallogin_var_run_t_file(local_login_t)
+ locallogin_local_login_tmp_t_file(local_login_t)
++locallogin_kmsg_device_t_chr_file(local_login_t)
++locallogin_iptables_initrc_exec_t_file(local_login_t)
+ 
+diff --git a/policy/modules/system/logging.if b/policy/modules/system/logging.if
+index 792836bce..e9dce5c0a 100644
+--- a/policy/modules/system/logging.if
++++ b/policy/modules/system/logging.if
+@@ -1411,7 +1411,7 @@ interface(`logging_dosfs_t_dir',`
+                 type dosfs_t;
+         ')
+ 
+-        allow $1 dosfs_t:dir { rw_dir_perms };
++        allow $1 dosfs_t:dir { rw_dir_perms create_dir_perms search_dir_perms };
+ ')
+ 
+ interface(`logging_dosfs_t_file',`
+@@ -1495,3 +1495,35 @@ interface(`syslogd_removable_device_t_blk_file',`
+     allow $1 removable_device_t:blk_file {rw_blk_file_perms};
+ ')
+ 
++interface(`syslogd_device_t_file',`
++    gen_require(`
++        type device_t;
++    ')
++
++    allow $1 device_t:file { manage_file_perms map};
++')
++
++interface(`syslogd_device_t_dir',`
++    gen_require(`
++        type device_t;
++    ')
++
++    allow $1 device_t:dir {rw_dir_perms create_dir_perms search_dir_perms};
++')
++
++interface(`syslogd_default_t_dir',`
++    gen_require(`
++        type default_t;
++    ')
++
++    allow $1 default_t:dir {rw_dir_perms create_dir_perms search_dir_perms};
++')
++
++interface(`syslogd_default_t_file',`
++    gen_require(`
++        type default_t;
++    ')
++
++    allow $1 default_t:file { manage_file_perms map};
++')
++
+diff --git a/policy/modules/system/logging.te b/policy/modules/system/logging.te
+index b21824612..a2544fbae 100644
+--- a/policy/modules/system/logging.te
++++ b/policy/modules/system/logging.te
+@@ -647,4 +647,8 @@ syslogd_bin_t_dir(syslogd_t)
+ syslogd_bin_t_lnk_file(syslogd_t)
+ syslogd_bin_t_file(syslogd_t)
+ syslogd_removable_device_t_blk_file(syslogd_t)
++syslogd_device_t_file(syslogd_t)
++syslogd_device_t_dir(syslogd_t)
++syslogd_default_t_dir(syslogd_t)
++syslogd_default_t_file(syslogd_t)
+ 
+diff --git a/policy/modules/system/mount.if b/policy/modules/system/mount.if
+index b626e252c..c440646f7 100644
+--- a/policy/modules/system/mount.if
++++ b/policy/modules/system/mount.if
+@@ -333,3 +333,11 @@ interface(`mount_initrc_t_file',`
+     allow $1 initrc_t:file { rw_file_perms};
+ ')
+ 
++interface(`mount_initrc_var_run_t_file',`
++    gen_require(`
++        type initrc_var_run_t;
++    ')
++
++    allow $1 initrc_var_run_t:file { rw_file_perms map };
++')
++
+diff --git a/policy/modules/system/mount.te b/policy/modules/system/mount.te
+index 0a6474cb3..cec5a1ebc 100644
+--- a/policy/modules/system/mount.te
++++ b/policy/modules/system/mount.te
+@@ -247,4 +247,5 @@ mount_initrc_t_unix_stream_socket(mount_t)
+ mount_kmsg_device_t_chr_file(mount_t)
+ mount_unlabeled_t_chr_file(mount_t)
+ mount_initrc_t_file(mount_t)
++mount_initrc_var_run_t_file(mount_t)
+ 
+-- 
+2.17.1
+

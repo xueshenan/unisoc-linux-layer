@@ -1,0 +1,62 @@
+diff --git a/drivers/soc/sprd/modem/iq/sprd_iq.c b/drivers/soc/sprd/modem/iq/sprd_iq.c
+index ea534afae796..21b22207e5ef 100644
+--- a/drivers/soc/sprd/modem/iq/sprd_iq.c
++++ b/drivers/soc/sprd/modem/iq/sprd_iq.c
+@@ -377,7 +377,7 @@ static int sprd_iq_parse_dt(struct platform_device *pdev,
+ 	return 0;
+ }
+ 
+-int in_iqmode(void)
++static int in_iqmode(void)
+ {
+ 	struct device_node *cmdline_node;
+ 	const char *cmdline, *mode;
+diff --git a/drivers/trusty/trusty-pm.c b/drivers/trusty/trusty-pm.c
+index 7ddd66d42381..7dfd02ae9994 100644
+--- a/drivers/trusty/trusty-pm.c
++++ b/drivers/trusty/trusty-pm.c
+@@ -70,7 +70,7 @@ static void trusty_resident_on_cpu(void *data, int cpu, bool *resident)
+ 	*resident = !trusty_fast_call32(NULL, SMC_FC_CPU_CAN_DOWN, cpu, 0, 0);
+ }
+ 
+-static void trusty_check_cpu_suspend(void *data, u32 state, bool *deny)
++/*static*/ void trusty_check_cpu_suspend(void *data, u32 state, bool *deny)
+ {
+ 	trusty_resident_on_cpu(NULL, smp_processor_id(), deny);
+ }
+@@ -82,10 +82,11 @@ static int __init trusty_pm_init(void)
+ 
+ 	register_syscore_ops(&trusty_pm_ops);
+ 
++#if defined(TRACE_HEADER_MULTI_READ)
+ 	/* vendor hooks cannot be unregistered */
+ 	register_trace_android_vh_psci_tos_resident_on(trusty_resident_on_cpu, NULL);
+ 	register_trace_android_vh_psci_cpu_suspend(trusty_check_cpu_suspend, NULL);
+-
++#endif
+ 	return 0;
+ }
+ 
+diff --git a/drivers/unisoc_platform/iommu/sprd_iommu.c b/drivers/unisoc_platform/iommu/sprd_iommu.c
+index 600bdfbb7c45..313d29129624 100644
+--- a/drivers/unisoc_platform/iommu/sprd_iommu.c
++++ b/drivers/unisoc_platform/iommu/sprd_iommu.c
+@@ -1281,7 +1281,7 @@ int sprd_iommu_unmap_orphaned(struct sprd_iommu_unmap_data *data)
+ 	return ret;
+ }
+ 
+-static void sprd_iommu_buffer_release(void *data, struct ion_buffer *buffer)
++/*static*/ void sprd_iommu_buffer_release(void *data, struct ion_buffer *buffer)
+ {
+ 	struct sprd_iommu_unmap_data unmap_data = {0};
+ 
+@@ -1878,7 +1878,9 @@ static int sprd_iommu_probe(struct platform_device *pdev)
+ 	np->data  = iommu_dev;
+ 	sprd_iommu_set_list(iommu_dev);
+ 	if (probe_first_time) {
++#if defined(TRACE_HEADER_MULTI_READ)
+ 		register_trace_android_vh_ion_buffer_release(sprd_iommu_buffer_release, NULL);
++#endif
+ 		probe_first_time = false;
+ 	}
+ 	pm_runtime_enable(&pdev->dev);

@@ -1,0 +1,90 @@
+From 7dd48fa68e76b034cd34cfecf4de24b9375cb710 Mon Sep 17 00:00:00 2001
+From: "dianyuan.li" <dianyuan.li@unisoc.com>
+Date: Thu, 3 Sep 2020 06:16:10 +0000
+Subject: [PATCH] new gobex for g_convert
+
+---
+ gobex/gobex-header.c | 60 +++++++++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 57 insertions(+), 3 deletions(-)
+
+diff --git a/gobex/gobex-header.c b/gobex/gobex-header.c
+index c594999..142b7ff 100644
+--- a/gobex/gobex-header.c
++++ b/gobex/gobex-header.c
+@@ -37,6 +37,61 @@
+ 
+ #define G_OBEX_HDR_ENC(id)	((id) & 0xc0)
+ 
++#if __BYTE_ORDER == __LITTLE_ENDIAN
++#define BETOH16(sh) ((sh>>8)|(sh<<8))
++#elif __BYTE_ORDER == __BIG_ENDIAN
++#define BETOH16(sh) (sh)
++#else
++#error "Unknown byte order"
++#endif
++
++char *utf16be_to_utf8(const char *instr_ch, size_t inlen_ch)
++{
++guint16 *instr = (guint16*)instr_ch;
++size_t inlen = inlen_ch / 2; 
++guint16 val,ext;
++size_t in_i = 0, out_i = 0;
++char *outstr = NULL;
++
++  if (inlen_ch % 2 != 0) {
++       error("%s(): odd number!",__func__);
++    return NULL;
++    }
++
++  outstr = g_malloc(inlen + 1);
++     if (outstr == NULL) {
++         error("%s(): g_malloc failed",__func__);
++        return NULL;
++       }
++
++     while (in_i < inlen) {
++          val = BETOH16(instr[in_i]); 
++          in_i++;
++          if ((val & 0xf800) == 0xd800) {
++               if (in_i < inlen) {
++                     error("%s(): cut short",__func__);
++                              g_free(outstr);
++                             return NULL;
++                         }
++                   ext = BETOH16(instr[in_i]);
++                       in_i++;
++                      if ( ((val & 0xfc00) != 0xd800) || 
++                     ((ext & 0xfc00) != 0xdc00) ) {
++                         error("%s(): illegal sequence",
++                                __func__);
++                              g_free(outstr);
++                               return NULL;
++                            }
++                     val = ((val & 0x3ff) << 10) + 
++                      (ext & 0x3ff) + 0x10000;
++              }
++               outstr[out_i] = val;
++               out_i++;
++            }
++          outstr[out_i++] = '\x00';
++          return outstr;
++}
++
+ struct _GObexHeader {
+ 	guint8 id;
+ 	gboolean extdata;
+@@ -189,9 +244,8 @@ GObexHeader *g_obex_header_decode(const void *data, gsize len,
+ 			goto failed;
+ 		}
+ 
+-		header->v.string = g_convert((const char *) ptr, hdr_len - 5,
+-						"UTF-8", "UTF-16BE",
+-						NULL, &str_len, &conv_err);
++		header->v.string=utf16be_to_utf8((const char *)ptr, hdr_len - 5);
++
+ 		if (header->v.string == NULL) {
+ 			g_set_error(err, G_OBEX_ERROR,
+ 					G_OBEX_ERROR_PARSE_ERROR,
+-- 
+2.7.4
+

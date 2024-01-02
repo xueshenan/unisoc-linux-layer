@@ -1,0 +1,482 @@
+diff --git a/src/modules/module-device-manager.c b/src/modules/module-device-manager.c
+index d48ae10..0b24796 100755
+--- a/src/modules/module-device-manager.c
++++ b/src/modules/module-device-manager.c
+@@ -81,6 +81,22 @@ static const char* const valid_modargs[] = {
+     NULL
+ };
+ 
++#define AUDIO_POLICY_FILE "/usr/share/pulseaudio/audio_policy.conf"
++#define NUM_SINK_DEVICES 3
++#define NUM_SOURCE_DEVICES 2
++enum {
++    DEVICE_SINK_NORMAL,
++    DEVICE_SINK_USB,
++    DEVICE_SINK_BLUETOOTH,
++    DEVICE_SINK_MAX
++};
++
++enum {
++    DEVICE_SOURCE_NORMAL,
++    DEVICE_SOURCE_USB,
++    DEVICE_SOURCE_MAX
++};
++
+ #define NUM_ROLES 9
+ enum {
+     ROLE_NONE,
+@@ -136,10 +152,17 @@ struct userdata {
+     role_indexes_t preferred_sinks;
+     role_indexes_t preferred_sources;
+ 
++    int wakeup_pipe[2]; //to communicate with the main thread
++    pa_io_event *io;
++    pa_mutex *mutex;
++    int io_cb_event;
++
+     pa_thread *thread;
+     int devm_wake_pipe;
+     bool thread_exit;
+     int key[3];
++    int *priority_sink[NUM_ROLES];
++    int *priority_source[NUM_ROLES];
+ };
+ 
+ #define ENTRY_VERSION 1
+@@ -168,6 +191,14 @@ enum {
+     SUBCOMMAND_EVENT
+ };
+ 
++enum {
++    SET_NONE = 0,
++    SET_SPEAKER_SINK = 1,
++    SET_HEADPHONE_SINK = 2,
++    SET_MAINMIC_SOURCE = 4,
++    SET_MICROPHONE_SOURCE = 8
++};
++
+ /* Forward declarations */
+ #ifdef DUMP_DATABASE
+ static void dump_database(struct userdata *);
+@@ -870,6 +901,24 @@ static char *mystrstr(char *s1 , char *s2)
+     return (char*)NULL;
+ }
+ 
++static void sprd_wakeup_mainloop(struct userdata *u) {
++    char c = 'W';
++    int wakeup_pipe_type;
++
++    pa_assert(u);
++    if (pa_write(u->wakeup_pipe[1], &c, sizeof(c), &wakeup_pipe_type) < 0)
++        pa_log("pa_write() failed while trying to wake up the mainloop: %s", pa_cstrerror(errno));
++}
++
++static void sprd_clear_wakeup(struct userdata *u) {
++    char c[10];
++    int wakeup_pipe_type;
++
++    pa_assert(u);
++
++    while (pa_read(u->wakeup_pipe[0], &c, sizeof(c), &wakeup_pipe_type) == sizeof(c));
++}
++
+ static pa_hook_result_t route_sink_headphone_port(struct userdata *u,bool is_headphone) {
+     pa_sink *s;
+     uint32_t idx;
+@@ -890,8 +939,10 @@ static pa_hook_result_t route_sink_headphone_port(struct userdata *u,bool is_hea
+             s->save_volume = false;
+ 
+             if (is_headphone) {
++                pa_subscription_post(s->core, PA_SUBSCRIPTION_EVENT_SINK|PA_SUBSCRIPTION_EVENT_NEW, s->index);
+                 pa_sink_set_port(s, "headphone_output", true);
+             } else {
++                pa_subscription_post(s->core, PA_SUBSCRIPTION_EVENT_SINK|PA_SUBSCRIPTION_EVENT_REMOVE, s->index);
+                 pa_sink_set_port(s, "speaker_output", true);
+             }
+         }else if(s && s->name && mystrstr(s->name, "HiFi") &&
+@@ -925,8 +976,10 @@ static pa_hook_result_t route_source_headphone_port(struct userdata *u,bool is_h
+             s->save_volume = false;
+ 
+             if (is_headphone) {
++                //pa_subscription_post(s->core, PA_SUBSCRIPTION_EVENT_SOURCE | PA_SUBSCRIPTION_EVENT_NEW, s->index);
+                 pa_source_set_port(s, "sprd-input-headphone-mic", true);
+             } else {
++                //pa_subscription_post(s->core, PA_SUBSCRIPTION_EVENT_SOURCE | PA_SUBSCRIPTION_EVENT_REMOVE, s->index);
+                 pa_source_set_port(s, "sprd-input-internal-mic", true);
+             }
+         }else if(s && s->name && mystrstr(s->name, "HiFi") &&
+@@ -1013,15 +1066,21 @@ static void subscribe_callback(pa_core *c, pa_subscription_event_type_t t, uint3
+         pa_xfree(entry->icon);
+         entry->icon = pa_xstrdup(pa_proplist_gets(sink->proplist, PA_PROP_DEVICE_ICON_NAME));
+ 
+-         for (uint32_t i = 0; i < NUM_ROLES; ++i) {
+-            if (mystrstr(sink->name,"a2dp_sink")) {
+-                entry->priority[i]= 1;
+-            } else if (mystrstr(sink->name,"usb") || mystrstr(sink->name,"USB")) {
+-                entry->priority[i]= 2;
+-            } else {
+-                entry->priority[i]= 3;
++        pa_assert(u->priority_sink);
++        for (uint32_t i = 0; i < NUM_ROLES; ++i) {
++            if (u->priority_sink[i] != NULL) {
++                if (mystrstr(sink->name, "a2dp_sink")) {
++                    entry->priority[i]= u->priority_sink[i][DEVICE_SINK_BLUETOOTH];
++                } else if (mystrstr(sink->name, "usb") || mystrstr(sink->name, "USB")) {
++                    entry->priority[i]= u->priority_sink[i][DEVICE_SINK_USB];
++                } else if (mystrstr(sink->name, "music-playback-output")){
++                    entry->priority[i]= u->priority_sink[i][DEVICE_SINK_NORMAL];
++                } else {
++                    pa_log("unknown sink %s", sink->name);
++                }
+             }
+-         }
++        }
++
+     } else if ((t & PA_SUBSCRIPTION_EVENT_FACILITY_MASK) == PA_SUBSCRIPTION_EVENT_SOURCE) {
+         pa_source *source;
+ 
+@@ -1049,6 +1108,19 @@ static void subscribe_callback(pa_core *c, pa_subscription_event_type_t t, uint3
+             pa_source_set_description(source, entry->description);
+         }
+ 
++        pa_assert(u->priority_source);
++        for (uint32_t i = 0; i < NUM_ROLES; ++i) {
++            if (u->priority_source[i]) {
++                if (mystrstr(source->name, "usb") || mystrstr(source->name, "USB")) {
++                    entry->priority[i]= u->priority_source[i][DEVICE_SOURCE_USB];
++                } else if (mystrstr(source->name, "record-stereo-input")){
++                    entry->priority[i]= u->priority_source[i][DEVICE_SOURCE_NORMAL];
++                } else {
++                    pa_log("unknown source %s", source->name);
++                }
++            }
++        }
++
+         pa_xfree(entry->icon);
+         entry->icon = pa_xstrdup(pa_proplist_gets(source->proplist, PA_PROP_DEVICE_ICON_NAME));
+     } else {
+@@ -1213,7 +1285,9 @@ static pa_hook_result_t sink_put_hook_callback(pa_core *c, PA_GCC_UNUSED pa_sink
+     pa_assert(u->on_hotplug);
+ 
+     notify_subscribers(u);
+-    sink_prioity_recheck(u);
++    //sink_prioity_recheck(u);
++
++    subscribe_callback(u->core, PA_SUBSCRIPTION_EVENT_SINK|PA_SUBSCRIPTION_EVENT_NEW, sink->index, u);
+     return route_sink_inputs(u, NULL);
+ }
+ 
+@@ -1225,6 +1299,7 @@ static pa_hook_result_t source_put_hook_callback(pa_core *c, PA_GCC_UNUSED pa_so
+ 
+     notify_subscribers(u);
+ 
++    //subscribe_callback(u->core, PA_SUBSCRIPTION_EVENT_SOURCE|PA_SUBSCRIPTION_EVENT_NEW, source->index, u);
+     return route_source_outputs(u, NULL);
+ }
+ 
+@@ -1770,16 +1845,32 @@ static int sprd_headset_jk_process(struct userdata *u, struct file_info_item *it
+ 
+         if (event.code == SW_HEADPHONE_INSERT) {
+             if (event.value == 1) {
+-                route_sink_headphone_port(u, true);
++                pa_mutex_lock(u->mutex);
++                u->io_cb_event |= SET_HEADPHONE_SINK;
++                sprd_wakeup_mainloop(u);
++                pa_mutex_unlock(u->mutex);
++                //route_sink_headphone_port(u, true);
+             } else if (event.value == 0) {
+-                route_sink_headphone_port(u, false);
++                pa_mutex_lock(u->mutex);
++                u->io_cb_event |= SET_SPEAKER_SINK;
++                sprd_wakeup_mainloop(u);
++                pa_mutex_unlock(u->mutex);
++                //route_sink_headphone_port(u, false);
+             }
+         }
+         if (event.code == SW_MICROPHONE_INSERT) {
+             if (event.value == 1) {
+-                route_source_headphone_port(u, true);
+-            } else if ( event.value == 0) {
+-                route_source_headphone_port(u, false);
++                pa_mutex_lock(u->mutex);
++                u->io_cb_event |= SET_MICROPHONE_SOURCE;
++                sprd_wakeup_mainloop(u);
++                pa_mutex_unlock(u->mutex);
++                //route_source_headphone_port(u, true);
++            } else if (event.value == 0) {
++                pa_mutex_lock(u->mutex);
++                u->io_cb_event |= SET_MAINMIC_SOURCE;
++                sprd_wakeup_mainloop(u);
++                pa_mutex_unlock(u->mutex);
++                //route_source_headphone_port(u, false);
+             }
+         }
+     }
+@@ -2155,29 +2246,45 @@ static int  input_initial_state_check(struct userdata *u, struct listnode *head)
+     struct file_info_item * info_item = NULL;
+ 
+     if (!list_empty(head)) {
+-            list_for_each_safe(item, item2, head) {
+-                info_item = node_to_item(item, struct file_info_item, item);
+-                if(info_item->file_info->fd >=0 ) {
+-                    if (mystrstr(info_item->file_info->dev_name, "sprdphone Headset Jack")) {
+-                         uint16_t switch_state;
+-                        ret = ioctl(info_item->file_info->fd, EVIOCGSW(1), &switch_state);
+-                        if (ret < 0) {
+-                            pa_log_error("could not get switch state, %s, dev name:%s", strerror(errno), info_item->file_info->dev_name);
+-                            return -1;
+-                        }
+-                        pa_log_debug("input_initial_state_check,switch state is %x", switch_state);
+-                        if (switch_state &0x4 ) {
+-                            route_sink_headphone_port(u, true);
+-                        } else {
+-                            route_sink_headphone_port(u, false);
+-                        }
++        list_for_each_safe(item, item2, head) {
++            info_item = node_to_item(item, struct file_info_item, item);
++            if(info_item->file_info->fd >=0 ) {
++                if (mystrstr(info_item->file_info->dev_name, "sprdphone Headset Jack")) {
++                    uint16_t switch_state;
++                    ret = ioctl(info_item->file_info->fd, EVIOCGSW(1), &switch_state);
++                    if (ret < 0) {
++                        pa_log_error("could not get switch state, %s, dev name:%s", strerror(errno), info_item->file_info->dev_name);
++                        return -1;
++                    }
++                    pa_log_debug("input_initial_state_check,switch state is %x", switch_state);
++                    if (switch_state & 0x4) {
++                        pa_mutex_lock(u->mutex);
++                        u->io_cb_event |= SET_HEADPHONE_SINK;
++                        sprd_wakeup_mainloop(u);
++                        pa_mutex_unlock(u->mutex);
++                        //route_sink_headphone_port(u, true);
++                    } else {
++                        pa_mutex_lock(u->mutex);
++                        u->io_cb_event |= SET_SPEAKER_SINK;
++                        sprd_wakeup_mainloop(u);
++                        pa_mutex_unlock(u->mutex);
++                        //route_sink_headphone_port(u, false);
++                    }
+ 
+-                        if (switch_state &0x10 ) {
+-                            route_source_headphone_port(u, true);
+-                        } else {
+-                            route_source_headphone_port(u, false);
+-                        }
+-                        return 0;
++                    if (switch_state & 0x10) {
++                        pa_mutex_lock(u->mutex);
++                        u->io_cb_event |= SET_MICROPHONE_SOURCE;
++                        sprd_wakeup_mainloop(u);
++                        pa_mutex_unlock(u->mutex);
++                        //route_source_headphone_port(u, true);
++                    } else {
++                        pa_mutex_lock(u->mutex);
++                        u->io_cb_event |= SET_MAINMIC_SOURCE;
++                        sprd_wakeup_mainloop(u);
++                        pa_mutex_unlock(u->mutex);
++                        //route_source_headphone_port(u, false);
++                    }
++                    return 0;
+                 }
+             }
+         }
+@@ -2255,13 +2362,142 @@ static void pipe_wake(int fd) {
+      return w_size >0 ? 0:-1;
+ }
+ 
++static void clean_priority_config(int **priority) {
++    int i;
++
++    assert(priority);
++
++    for (i = 0; i < NUM_ROLES; i++) {
++        if (priority[i] != NULL) {
++            free(priority[i]);
++            priority[i] = NULL;
++        }
++    }
++}
++
++static int get_priority_config(const char *file, int **priority, bool is_sink) {
++    FILE *fptr;
++    int ret, i, j, num, device_num;
++    char buf[100];
++    char *left, *right;
++    char *direct;
++    char *device_name[NUM_SINK_DEVICES] = {"normal", "usb", "bluetooth"};
++
++    assert(priority);
++
++    direct = is_sink ? "sink" : "source";
++    device_num = is_sink ? NUM_SINK_DEVICES : NUM_SOURCE_DEVICES;
++
++    for (i = 0; i < NUM_ROLES; i++) {
++        if (!(priority[i] = malloc(sizeof(int) * device_num))) {
++            pa_log("can't malloc %s priority[%d]", direct, i);
++            goto quit;
++        }
++    }
++
++    if (!(fptr = fopen(file, "r"))) {
++        pa_log("Can't open file %s", file);
++        goto quit;
++    }
++
++    for (;;) {
++        memset(buf, 0, sizeof(buf));
++        if ((ret = fscanf(fptr, "%[^\n]", buf)) < 0) {
++            pa_log("Can't read %s from %s, ret is %d", direct, file, ret);
++            goto quit;
++        }
++        fseek(fptr, ret, SEEK_CUR);
++        if (strstr(buf, direct))
++            break;
++    }
++
++    memset(buf, 0, sizeof(buf));
++
++    for (i = 0; i < NUM_ROLES; i++) {
++        if ((ret = fscanf(fptr, "%[^\n]", buf)) < 0) {
++            pa_log("Can't read line from %s, ret is %d", file, ret);
++            goto quit;
++        }
++
++        for (j = 0; j < device_num; j++) {
++            char s[20] = {0};
++            int val = 0;
++            switch (j) {
++                case 0: left = strstr(buf, "normal=");    break;
++                case 1: left = strstr(buf, "usb=");       break;
++                case 2: left = strstr(buf, "bluetooth="); break;
++                default:
++                    break;
++            }
++
++            if (!left) {
++                pa_log("Can't find device %s from file %s", device_name[j], file);
++                goto quit;
++            }
++
++            left = strstr(left, "=");
++            right = ++left;
++            while ((*right >= '0') && (*right <= '9')) {
++                right++;
++            }
++            strncpy(s, left, right - left);
++
++            val = atoi(s);
++            if (val < 0) {
++                pa_log("Priority %d is error, role: %d, device: %s", val, i, device_name[j]);
++                goto quit;
++            }
++            pa_log_debug("%s role: %d, device: %s, priority: %d", direct, i, device_name[j], val);
++
++            priority[i][j] = val;
++        }
++
++        memset(buf, 0, sizeof(buf));
++        fseek(fptr, ret, SEEK_CUR);
++    }
++
++    fclose(fptr);
++    return 0;
++
++quit:
++    if (fptr)
++        fclose(fptr);
++
++    clean_priority_config(priority);
++    return -1;
++}
++
++static void io_cb(pa_mainloop_api *a, pa_io_event *e, int fd, pa_io_event_flags_t f, void *userdata){
++    struct userdata *u = userdata;
++
++    pa_log_info("io_cb_event = %d", u->io_cb_event);
++    pa_mutex_lock(u->mutex);
++
++    if (u->io_cb_event & SET_SPEAKER_SINK)
++        route_sink_headphone_port(u, false);
++
++    if (u->io_cb_event & SET_HEADPHONE_SINK)
++        route_sink_headphone_port(u, true);
++
++    if (u->io_cb_event & SET_MAINMIC_SOURCE)
++        route_source_headphone_port(u, false);
++
++    if (u->io_cb_event & SET_MICROPHONE_SOURCE)
++        route_source_headphone_port(u, true);
++
++    u->io_cb_event = SET_NONE;
++
++    sprd_clear_wakeup(u);
++    pa_mutex_unlock(u->mutex);
++}
++
+ static void thread_func(void *userdata) {
+     struct userdata *u = userdata;
+     int ret;
+ 
+     struct listnode *item;
+     struct listnode *item2;
+-    struct file_info_item * info_item = NULL;
++    struct file_info_item *info_item = NULL;
+ 
+     int fd;
+     int maxfd = 0;
+@@ -2335,7 +2571,7 @@ static void thread_func(void *userdata) {
+                 info_item = node_to_item(item, struct file_info_item, item);
+                 if(FD_ISSET(info_item->file_info->fd, &fds_monitor) ) {
+                     pa_log_debug("select out and input event proc: file name:%s,dev-name:%s", info_item->file_info->file_path, info_item->file_info->dev_name);
+-                    info_item->event_process(u, info_item);               
++                    info_item->event_process(u, info_item);
+                 }
+             }
+         }
+@@ -2380,6 +2616,9 @@ int pa__init(pa_module*m) {
+     u->on_rescue = on_rescue;
+     u->subscribed = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
+ 
++    get_priority_config(AUDIO_POLICY_FILE, u->priority_sink, true);
++    get_priority_config(AUDIO_POLICY_FILE, u->priority_source, false);
++
+     u->protocol = pa_native_protocol_get(m->core);
+     pa_native_protocol_install_ext(u->protocol, m, extension_cb);
+ 
+@@ -2496,6 +2735,18 @@ int pa__init(pa_module*m) {
+     pa_xfree(thread_name);
+     thread_name = NULL;
+ 
++    u->io_cb_event = SET_NONE;
++
++    if(pa_pipe_cloexec(u->wakeup_pipe) < 0){
++        pa_log_error("ERROR: cannot create wakeup pipe");
++        goto fail;
++    }
++
++    pa_make_fd_nonblock(u->wakeup_pipe[0]);
++    pa_make_fd_nonblock(u->wakeup_pipe[1]);
++    u->io = u->core->mainloop->io_new(u->core->mainloop, u->wakeup_pipe[0], PA_IO_EVENT_INPUT, io_cb, u);
++    u->mutex = pa_mutex_new(false, false);
++
+ #ifdef DUMP_DATABASE
+     dump_database(u);
+ #endif
+@@ -2528,6 +2779,17 @@ void pa__done(pa_module*m) {
+         pa_thread_free(u->thread);
+     }
+ 
++    if(u->io)
++        u->core->mainloop->io_free(u->io);
++
++    if(u->wakeup_pipe)
++        pa_close_pipe(u->wakeup_pipe);
++
++    pa_mutex_free(u->mutex);
++
++    clean_priority_config(u->priority_sink);
++    clean_priority_config(u->priority_source);
++
+     if (u->subscription)
+         pa_subscription_free(u->subscription);
+ 

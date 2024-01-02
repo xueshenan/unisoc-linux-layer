@@ -1,0 +1,16 @@
+diff --git a/src/mtp.c b/src/mtp.c
+index fc9a3c9..b2bef24 100644
+--- a/src/mtp.c
++++ b/src/mtp.c
+@@ -226,6 +226,11 @@ int parse_incomming_dataset(mtp_ctx * ctx,void * datain,int size,uint32_t * newh
+ 					unicode_str[i] = peek(dataset_ptr,0x35 + (i*2), 2);
+ 				}
+ 				unicode2charstring(tmp_str, unicode_str, sizeof(tmp_str));
++				for(i=strlen(tmp_str)-1;i>0;i--)
++				{
++					if(tmp_str[i] == ' ')tmp_str[i] = '\0';
++					else break;
++				}
+ 
+ 				PRINT_DEBUG("MTP_OPERATION_SEND_OBJECT_INFO : 0x%x objectformat Size %d, Parent 0x%.8x, type: %x, strlen %d str:%s",objectformat,objectsize,parent_handle,type,string_len,tmp_str);
+ 

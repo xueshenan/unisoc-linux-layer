@@ -1,0 +1,12 @@
+[Unit]
+Description=powerd Service
+
+[Service]
+ExecStart=/usr/bin/powerd
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+Alias=powerd.service
+

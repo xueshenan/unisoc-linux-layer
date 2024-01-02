@@ -1,0 +1,45 @@
+diff --git a/libweston/backend-drm/drm.c b/libweston/backend-drm/drm.c
+index e0b1cbd..73cedbe 100644
+--- a/libweston/backend-drm/drm.c
++++ b/libweston/backend-drm/drm.c
+@@ -949,7 +949,8 @@ create_sprites(struct drm_backend *b)
+ 		return;
+ 	}
+ 
+-	for (i = 0; i < kplane_res->count_planes; i++) {
++//	for (i = 0; i < kplane_res->count_planes; i++) {
++	for (i = 0; i < 1; i++) {
+ 		kplane = drmModeGetPlane(b->drm.fd, kplane_res->planes[i]);
+ 		if (!kplane)
+ 			continue;
+@@ -2426,11 +2427,12 @@ session_notify(struct wl_listener *listener, void *data)
+ 		b->state_invalid = true;
+ 		udev_input_enable(&b->input);
+ 	} else {
++/*
+ 		weston_log("deactivating session\n");
+ 		udev_input_disable(&b->input);
+ 
+ 		weston_compositor_offscreen(compositor);
+-
++*/
+ 		/* If we have a repaint scheduled (either from a
+ 		 * pending pageflip or the idle handler), make sure we
+ 		 * cancel that so we don't try to pageflip when we're
+@@ -2438,7 +2440,7 @@ session_notify(struct wl_listener *listener, void *data)
+ 		 * further attempts at repainting.  When we switch
+ 		 * back, we schedule a repaint, which will process
+ 		 * pending frame callbacks. */
+-
++/*
+ 		wl_list_for_each(output, &compositor->output_list, base.link) {
+ 			output->base.repaint_needed = false;
+ 			if (output->cursor_plane)
+@@ -2458,6 +2460,7 @@ session_notify(struct wl_listener *listener, void *data)
+ 					output->crtc_id, 0, 0,
+ 					0, 0, 0, 0, 0, 0, 0, 0);
+ 		}
++*/
+ 	}
+ }
+ 

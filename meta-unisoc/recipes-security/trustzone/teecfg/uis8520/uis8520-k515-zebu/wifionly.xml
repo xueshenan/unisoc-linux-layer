@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wifionly_config>
+	<property ID="teecfg_wifionly">
+		<enable type="ATTR_TYPE_BOOL">false</enable>
+	</property>
+</wifionly_config>
