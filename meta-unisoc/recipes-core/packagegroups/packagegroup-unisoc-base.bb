@@ -130,7 +130,6 @@ PACKAGES = ' \
     ${@bb.utils.contains('MACHINE_FEATURES', 'vdsp', 'packagegroup-unisoc-base-vdsp', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'tracetool', 'packagegroup-unisoc-base-tracetool', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'st-module', 'packagegroup-unisoc-base-st-module', '',d)} \
-    ${@bb.utils.contains('MACHINE_FEATURES', 'qlauncher', 'packagegroup-unisoc-base-qlauncher', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'gt1x', 'packagegroup-unisoc-base-gt1x', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'middlewaresvc', 'packagegroup-unisoc-base-middlewaresvc', '',d)} \
 '
@@ -223,7 +222,6 @@ RDEPENDS_packagegroup-unisoc-base = "\
     ${@bb.utils.contains('MACHINE_FEATURES', 'engmodeapp', 'packagegroup-unisoc-base-engmodeapp', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'tracetool', 'packagegroup-unisoc-base-tracetool', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'st-module', 'packagegroup-unisoc-base-st-module', '',d)} \
-    ${@bb.utils.contains('MACHINE_FEATURES', 'qlauncher', 'packagegroup-unisoc-base-qlauncher', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'gt1x', 'packagegroup-unisoc-base-gt1x', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'middlewaresvc', 'packagegroup-unisoc-base-middlewaresvc', '',d)} \
 "
@@ -253,11 +251,6 @@ RDEPENDS_packagegroup-unisoc-base-connman= "\
     connmantest \
     smartlink-client \
     smartlink-client-test \
-"
-
-SUMMARY_packagegroup-unisoc-base-qlauncher = "qlauncher"
-RDEPENDS_packagegroup-unisoc-base-qlauncher= "\
-    qlauncher \
 "
 
 SUMMARY_packagegroup-unisoc-base-middlewaresvc = "middlewaresvc"

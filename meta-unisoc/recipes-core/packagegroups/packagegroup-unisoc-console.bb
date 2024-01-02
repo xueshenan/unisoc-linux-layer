@@ -132,6 +132,5 @@ RDEPENDS_packagegroup-unisoc-console ??= "\
     ${@bb.utils.contains('MACHINE_FEATURES', 'ota', 'packagegroup-unisoc-base-ota', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'tracetool', 'packagegroup-unisoc-base-tracetool', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'st-module', 'packagegroup-unisoc-base-st-module', '',d)} \
-    ${@bb.utils.contains('MACHINE_FEATURES', 'qlauncher', 'packagegroup-unisoc-base-qlauncher', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'middlewaresvc', 'packagegroup-unisoc-base-middlewaresvc', '',d)} \
 "
