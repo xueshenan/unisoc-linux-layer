@@ -7,7 +7,6 @@ PROVIDES = "${PACKAGES}"
 
 PACKAGES = ' \
            packagegroup-unisoc-wayland \
-           packagegroup-unisoc-base-qtconfig \
            packagegroup-unisoc-base-graphic \
            '
 
@@ -20,10 +19,7 @@ RDEPENDS_packagegroup-unisoc-wayland = " \
     ${@bb.utils.contains('MACHINE_FEATURES', 'mali-midgard', 'packagegroup-unisoc-base-midgard', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'mali-natt', 'packagegroup-unisoc-base-natt', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'pvr-rogue', 'packagegroup-unisoc-base-pvr-rogue', '',d)} \
-    ${@bb.utils.contains('MACHINE_FEATURES', 'qtconfig', 'packagegroup-unisoc-base-qtconfig', '',d)} \
-    ${@bb.utils.contains('MACHINE_FEATURES', 'qt3ds', 'ogl-runtime', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'graphic', 'packagegroup-unisoc-base-graphic', '',d)} \
-    ${@bb.utils.contains('MACHINE_FEATURES', 'qt5fontdir', 'qt5fontdir', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'glmark2', 'glmark2', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'lvgldemo', 'lvgldemo', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'lvgl', 'lvgl', '',d)} \
@@ -53,34 +49,6 @@ RDEPENDS_packagegroup-unisoc-wayland = " \
     ${@bb.utils.contains('MACHINE_FEATURES', 'aiactiver', 'packagegroup-unisoc-base-aiactiver-testbench', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'vdsp', 'packagegroup-unisoc-base-vdsp', '',d)} \
     "
-
-# because yocto 3.1 meta-qt not have qtenginio recipes,remove qtenginio
-SUMMARY_packagegroup-unisoc-base-qtconfig = "qt packages for gui"
-RDEPENDS_packagegroup-unisoc-base-qtconfig = " \
-    qtwayland \
-    qtbase \
-    qtmultimedia \
-    qtmultimedia-plugins \
-    qt3d \
-    qt5-plugin-generic-vboxtouch \
-    qtcharts \
-    qtconnectivity \
-    qtdatavis3d \
-    qtdeclarative \
-    qtgraphicaleffects \
-    qtimageformats \
-    qtquickcontrols \
-    qtquickcontrols2 \
-    qtsensors \
-    qtserialport \
-    qtsvg \
-    qtsystems \
-    qttools \
-    qttranslations \
-    qtvirtualkeyboard \
-    qtdeclarative-qmlplugins \
-    qtquickcontrols-qmlplugins \
-"
 
 SUMMARY_packagegroup-unisoc-base-graphic = "graphic packages for weston desktop"
 RDEPENDS_packagegroup-unisoc-base-graphic = " \
