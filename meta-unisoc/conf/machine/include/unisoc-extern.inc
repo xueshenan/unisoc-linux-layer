@@ -312,9 +312,6 @@ EXTERNALSRC_BUILD_pn-focaltech-ats = "${OEROOT}/source/unisoc/modules/touchscree
 EXTERNALSRC_pn-focaltech-ft8756-spi = "${OEROOT}/source/unisoc/modules/touchscreen/focaltech-ft8756-spi"
 EXTERNALSRC_BUILD_pn-focaltech-ft8756-spi = "${OEROOT}/source/unisoc/modules/touchscreen/focaltech-ft8756-spi"
 
-#QTDemo
-EXTERNALSRC_pn-qtdialor = "${OEROOT}/source/unisoc/graphic/qtdialor"
-
 # For st-module
 EXTERNALSRC_pn-libsttest = "${OEROOT}/source/unisoc/modules/npi_lib/libsttest"
 EXTERNALSRC_pn-libstcommon = "${OEROOT}/source/unisoc/modules/npi_lib/libsttest/lib/libstcommon"
